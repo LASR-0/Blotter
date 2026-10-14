@@ -11,6 +11,7 @@ import { MonthView } from '@/views/MonthView';
 import { WeekView } from '@/views/WeekView';
 import { YearView } from '@/views/YearView';
 import { CommandPalette } from './CommandPalette';
+import { ItemDialog } from './ItemDialog';
 import { SIDEBAR_AUTO_COLLAPSE_PX, useNav } from './nav';
 import { useOverlay } from './overlay';
 import { ShortcutSheet } from './ShortcutSheet';
@@ -61,6 +62,7 @@ export function AppShell() {
       </div>
       <CommandPalette actions={actions} />
       <ShortcutSheet actions={actions} />
+      <ItemDialog />
     </div>
   );
 }

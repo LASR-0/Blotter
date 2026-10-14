@@ -10,6 +10,7 @@ import {
 } from 'date-fns';
 import { X } from '@phosphor-icons/react';
 import { useNav } from '@/app/nav';
+import { useOverlay } from '@/app/overlay';
 import { ErrorPanel } from '@/components/EmptyState';
 import { Kbd } from '@/components/ui/kbd';
 import { Popover, PopoverClose, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -37,6 +38,7 @@ function Chip({ item }: { item: Item }) {
   return (
     <div
       title={`${chipTime(item)} ${item.title}`}
+      onDoubleClick={() => useOverlay.getState().openItem({ id: item.id })}
       style={{
         background: `color-mix(in srgb, ${color} ${done ? 7 : 16}%, var(--color-bg))`,
         borderLeft: `3px solid ${color}`,
@@ -76,13 +78,16 @@ function DayPopover({ day, items, count }: { day: Date; items: Item[]; count: nu
             const color = itemColor(item);
             const done = item.status === 'done';
             return (
-              <div
+              <button
+                type="button"
                 key={item.id}
+                onClick={() => useOverlay.getState().openItem({ id: item.id })}
+                title="Open"
                 style={{
                   background: `color-mix(in srgb, ${color} 14%, var(--color-surface-raised))`,
                   borderLeft: `3px solid ${color}`,
                 }}
-                className="flex items-center gap-2 rounded-sm px-2 py-1.5 text-sm"
+                className="flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm hover:brightness-110"
               >
                 <span className="w-[84px] flex-none font-mono text-xs text-text-muted">
                   {item.all_day
@@ -94,7 +99,7 @@ function DayPopover({ day, items, count }: { day: Date; items: Item[]; count: nu
                 <span className={cn('flex-1 font-medium', done && 'text-text-muted line-through')}>
                   {item.title}
                 </span>
-              </div>
+              </button>
             );
           })}
         </div>

@@ -93,6 +93,7 @@ pub fn run() {
             commands::db_status,
             commands::list_ops,
             commands::run_op,
+            commands::run_batch,
             commands::get_setting,
             commands::set_setting,
         ])

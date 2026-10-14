@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef } from 'react';
 import { format, isSameDay, parseISO } from 'date-fns';
 import { Clock, PushPin } from '@phosphor-icons/react';
+import { useOverlay } from '@/app/overlay';
 import { blockedIntervals } from '@/lib/availability';
 import { cn } from '@/lib/cn';
 import type { Blockout, Item } from '@/lib/types';
@@ -99,6 +100,7 @@ export function TimelineRail({
               <div
                 key={item.id}
                 title={item.title}
+                onDoubleClick={() => useOverlay.getState().openItem({ id: item.id })}
                 className="absolute right-1 flex items-center gap-1 overflow-hidden rounded-[3px] px-1.5 text-[10.5px]"
                 style={{
                   left: GUTTER_PX + 4,

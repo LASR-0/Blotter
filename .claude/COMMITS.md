@@ -50,8 +50,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 09 | 2 | `feat(ui): command palette` | committed `bd6509b` |
 | 10 | 3 | `feat(ui): week view time grid` | committed `9de2693` |
 | 11 | 3 | `feat(ui): month and year views` | committed `e63069b` |
-| 12 | 3 | `feat(ui): diary view with day columns and timeline rail` | ready |
-| 13 | 3 | `feat(ui): item dialog and completion with timestamps` | planned |
+| 12 | 3 | `feat(ui): diary view with day columns and timeline rail` | committed `c0e2b59` |
+| 13 | 3 | `feat(ui): item dialog and completion with timestamps` | ready |
 | 14 | 3 | `feat(ui): keyboard navigation and keyboard move/resize` | planned |
 | 15 | 3 | `feat(ui): drag-and-drop rescheduling in week view` | planned |
 | 16 | 4 | `feat(ui): inbox panel and view` | planned |
@@ -724,7 +724,7 @@ Notes:
     - Keyboard navigation of days (arrows, Enter → Week) comes with #14; block-out strips
       and conflict icons in Month with #21/#22.
 
-### #12 — Diary view with day columns and timeline rail            [status: ready]
+### #12 — Diary view with day columns and timeline rail            [status: committed c0e2b59]
 Phase: 3
 Message:
     feat(ui): diary view with day columns and timeline rail
@@ -787,3 +787,73 @@ Notes:
       the rail's Auto-slot button arrives with auto-slot in #22.
     - "Add task" makes an all-day task on that day (no time yet), which is how a day-only
       task is stored. Planning hours are fixed at 07:00–22:00 until the General settings (#38).
+
+### #13 — Item dialog and completion with timestamps            [status: ready]
+Phase: 3
+Message:
+    feat(ui): item dialog and completion with timestamps
+
+    The item dialog from the design: heading-font title; Kind (task, event,
+    reminder) and Anchoring (flexible, fixed, with an explanation); When as
+    date, typed time and duration (no date = Inbox, date only = all-day);
+    an optional due date; priority; tag chips; reminders (offsets before
+    the start); notes. The header shows Recurring and the completion time
+    for done items; the footer has a two-click Delete, who created it and
+    when it was last edited, Cancel and Save (Ctrl+Enter).
+
+    Edits become a minimal batch (only changed fields; unschedule when the
+    date is cleared; reminder adds/removes) sent through a new run_batch
+    command, so one Save is one atomic, undoable change-log batch. Draft
+    building, validation and time/duration parsing ("5:30pm", "1h30") are
+    pure, tested modules.
+
+    Double-click opens an item from Diary cards, Week events, Month chips,
+    the timeline and Inbox rails; Month popover rows and palette item
+    results open it on click/Enter; "New item" is in the palette.
+Files:
+    A  src/app/ItemDialog.tsx
+    A  src/lib/itemDraft.ts
+    A  src/lib/itemDraft.test.ts
+    A  src/lib/format.test.ts
+    M  src/lib/format.ts
+    M  src/lib/duration.ts
+    M  src/lib/duration.test.ts
+    M  src/lib/api.ts
+    M  src/app/overlay.ts
+    M  src/app/AppShell.tsx
+    M  src/app/CommandPalette.tsx
+    M  src/actions/actions.ts
+    M  src/components/ItemCard.tsx
+    M  src/views/WeekView.tsx
+    M  src/views/MonthView.tsx
+    M  src/views/diary/InboxRail.tsx
+    M  src/views/diary/TimelineRail.tsx
+    M  src-tauri/src/commands.rs
+    M  src-tauri/src/lib.rs
+    M  .claude/COMMITS.md
+    Stage everything in one go:  git add -A
+Test steps:
+    - pnpm check                → clean; Vitest 88 passed (+11 duration, +10 time, +8 draft)
+    - cargo test --workspace / clippy → unchanged, clean
+    - pnpm tauri dev (demo DB or your own):
+        · double-click a Diary card → dialog opens with title focused and fields filled
+        · change the title, press Ctrl+Enter → saved, card updates everywhere
+        · set Time to "5:30pm", tab away → shows 17:30; type "1h30" in duration → Save →
+          the card reads 17:30 · 1h 30m
+        · clear the date → hint "it goes to the Inbox"; Save → it moves to the Inbox
+        · add a reminder ("10m before") on a timed item → Save → reopen → it's listed; × removes it
+        · add tags by typing and pressing Enter; Backspace in the empty tag box removes the last
+        · Ctrl+K → "New item" → fill in → Save creates it
+        · Delete → button says "Click again to delete" → click → gone
+        · try saving an event with no date → inline error, nothing saved
+    - Ctrl+K, type part of a title, Enter on the result → opens that item's dialog.
+Notes:
+    - Verified here: opened Gym via the palette, edited the title, saved; the Week view
+      refreshed with the new title. The design screenshots matched in Gruvbox and Dark.
+    - Time is a typed 24-hour field rather than <input type="time">, because WebView2
+      follows the Windows locale (it showed "05:30 PM"). The date keeps the native picker,
+      which uses your regional dd/mm/yyyy.
+    - Repeats editing and the "this / following / all occurrences" choice come with
+      recurrence in #24; for now a recurring item shows its rule read-only.
+    - Undo of a Save (or Delete) arrives with undo/redo in #27; each Save is already a
+      single batch, so it will undo in one step.

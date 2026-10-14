@@ -11,6 +11,7 @@ import {
 } from 'date-fns';
 import { ArrowsClockwise } from '@phosphor-icons/react';
 import { useNav } from '@/app/nav';
+import { useOverlay } from '@/app/overlay';
 import { ErrorPanel } from '@/components/EmptyState';
 import { isOpError } from '@/lib/api';
 import { cn } from '@/lib/cn';
@@ -70,6 +71,7 @@ function EventBlock({ item, placed, now }: { item: Item; placed: Placed; now: Da
   return (
     <div
       title={`${item.title}${range ? ` · ${range}` : ''}`}
+      onDoubleClick={() => useOverlay.getState().openItem({ id: item.id })}
       style={style}
       className={cn(
         'absolute overflow-hidden rounded-sm',

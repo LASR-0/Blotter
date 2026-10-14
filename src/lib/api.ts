@@ -45,6 +45,14 @@ export async function runOp<T>(name: string, args?: Record<string, unknown>): Pr
   return outcome.result;
 }
 
+/** Runs several operations atomically as one undoable batch. */
+export async function runBatch(
+  calls: { name: string; args: Record<string, unknown> }[],
+): Promise<unknown[]> {
+  const outcome = await invoke<OpOutcome<unknown[]>>('run_batch', { calls });
+  return outcome.result;
+}
+
 export function listOps(): Promise<OpInfo[]> {
   return invoke<OpInfo[]>('list_ops');
 }

@@ -9,6 +9,7 @@ import {
   Gear,
   Keyboard,
   MagnifyingGlass,
+  NotePencil,
   Moon,
   Notebook,
   Palette,
@@ -154,6 +155,14 @@ export function buildActions(): Action[] {
       binding: 'Ctrl+K',
       inOverlay: true,
       run: () => overlay().toggle('palette'),
+    },
+    {
+      id: 'item.new',
+      label: 'New item',
+      group: 'Actions',
+      icon: NotePencil,
+      keywords: ['create', 'add', 'task', 'event'],
+      run: () => overlay().openItem({ defaults: {} }),
     },
     {
       id: 'help.shortcuts',

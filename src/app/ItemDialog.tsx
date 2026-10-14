@@ -1,0 +1,579 @@
+import { useState, type FormEvent, type KeyboardEvent, type ReactNode } from 'react';
+import { Dialog } from 'radix-ui';
+import { format, isToday, parseISO } from 'date-fns';
+import {
+  ArrowsClockwise,
+  ArrowsOutLineHorizontal,
+  Bell,
+  Calendar,
+  CalendarBlank,
+  CheckSquare,
+  Clock,
+  FlagCheckered,
+  Plus,
+  PushPin,
+  Timer,
+  Trash,
+  X,
+} from '@phosphor-icons/react';
+import { ErrorPanel } from '@/components/EmptyState';
+import { Button } from '@/components/ui/button';
+import { Kbd } from '@/components/ui/kbd';
+import { Segmented } from '@/components/ui/segmented';
+import { isOpError, runBatch, runOp } from '@/lib/api';
+import { cn } from '@/lib/cn';
+import { formatDuration } from '@/lib/duration';
+import { parseTime, timeOf } from '@/lib/format';
+import { buildChanges, draftFromItem, emptyDraft, type ItemDraft } from '@/lib/itemDraft';
+import { useOp } from '@/lib/queries';
+import { tagColor } from '@/lib/tags';
+import type { Item, ItemKind } from '@/lib/types';
+import { useOverlay } from './overlay';
+
+interface ItemDetail extends Item {
+  reminders: { id: string; offset_min: number | null; at: string | null }[];
+}
+
+const REMINDER_OFFSETS = [5, 10, 15, 30, 60, 120, 1440];
+
+const errorText = (e: unknown) =>
+  isOpError(e) ? [e.message, ...e.details].filter(Boolean).join(' · ') : String(e);
+
+function reminderLabel(r: { offset_min: number | null; at: string | null }): string {
+  if (r.offset_min !== null)
+    return r.offset_min === 0 ? 'at start' : `${formatDuration(r.offset_min)} before`;
+  return r.at ? format(parseISO(r.at), 'EEE d MMM HH:mm') : '';
+}
+
+function Row({ label, children, top }: { label: string; children: ReactNode; top?: boolean }) {
+  return (
+    <>
+      <span className={cn('text-text-muted', top && 'self-start pt-1.5')}>{label}</span>
+      <div className="flex min-w-0 flex-wrap items-center gap-1.5">{children}</div>
+    </>
+  );
+}
+
+const FIELD =
+  'flex h-[30px] items-center gap-1.5 rounded-md border border-border-strong bg-bg px-2.5 font-mono text-sm text-text focus-within:border-accent';
+
+function TagEditor({ tags, onChange }: { tags: string[]; onChange: (t: string[]) => void }) {
+  const [draft, setDraft] = useState('');
+  const add = () => {
+    const tag = draft.trim().replace(/^#/, '').toLowerCase();
+    if (tag && !tags.includes(tag)) onChange([...tags, tag]);
+    setDraft('');
+  };
+  const onKey = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      add();
+    } else if (e.key === 'Backspace' && !draft && tags.length) {
+      onChange(tags.slice(0, -1));
+    }
+  };
+  return (
+    <>
+      {tags.map((t) => (
+        <span
+          key={t}
+          className="flex h-[26px] items-center gap-1.5 rounded-full border border-border-strong pr-1.5 pl-2.5 text-sm"
+        >
+          <span className="size-[7px] rounded-full" style={{ background: tagColor(t) }} />
+          {t}
+          <button
+            type="button"
+            aria-label={`Remove tag ${t}`}
+            onClick={() => onChange(tags.filter((x) => x !== t))}
+            className="grid cursor-pointer place-items-center text-text-muted hover:text-text"
+          >
+            <X size={11} />
+          </button>
+        </span>
+      ))}
+      <label className="flex h-[26px] items-center gap-1 rounded-full border border-dashed border-border-strong px-2.5 text-sm text-text-muted focus-within:border-accent">
+        <Plus size={12} />
+        <input
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={onKey}
+          onBlur={add}
+          placeholder="Tag"
+          aria-label="Add tag"
+          className="w-16 bg-transparent text-text outline-none"
+        />
+      </label>
+    </>
+  );
+}
+
+function ItemForm({
+  item,
+  initial,
+  onDone,
+}: {
+  item?: ItemDetail;
+  initial: ItemDraft;
+  onDone: () => void;
+}) {
+  const [draft, setDraft] = useState(initial);
+  const [showDue, setShowDue] = useState(Boolean(initial.dueDate));
+  const [addingReminder, setAddingReminder] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const set = <K extends keyof ItemDraft>(key: K, value: ItemDraft[K]) =>
+    setDraft((d) => ({ ...d, [key]: value }));
+
+  const save = async () => {
+    const result = buildChanges(draft, item ? { item, draft: initial } : undefined);
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    setSaving(true);
+    try {
+      if (result.create) {
+        const created = await runOp<Item>('create_item', result.create);
+        if (result.newReminders.length)
+          await runBatch(
+            result.newReminders.map((offset_min) => ({
+              name: 'set_reminder',
+              args: { item_id: created.id, offset_min },
+            })),
+          );
+      } else if (result.calls.length) {
+        await runBatch(result.calls);
+      }
+      onDone();
+    } catch (e) {
+      setError(errorText(e));
+      setSaving(false);
+    }
+  };
+
+  const remove = async () => {
+    if (!item) return;
+    if (!confirmDelete) {
+      setConfirmDelete(true);
+      return;
+    }
+    try {
+      await runOp('delete_item', { id: item.id });
+      onDone();
+    } catch (e) {
+      setError(errorText(e));
+    }
+  };
+
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    void save();
+  };
+  const onKeyDown = (e: KeyboardEvent) => {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      void save();
+    }
+  };
+
+  const timed = Boolean(draft.date && parseTime(draft.time));
+  const edited = item ? parseISO(item.updated_at) : null;
+
+  return (
+    <form onSubmit={submit} onKeyDown={onKeyDown} className="flex flex-col">
+      <div className="flex items-center gap-2 px-[18px] pt-3.5">
+        <Dialog.Title className="m-0 text-sm font-normal text-text-muted">
+          {item ? 'Edit item' : 'New item'}
+        </Dialog.Title>
+        {item?.rrule && (
+          <span className="flex items-center gap-1 rounded-full border border-border-strong px-[7px] py-px text-xs text-text-muted">
+            <ArrowsClockwise />
+            Recurring
+          </span>
+        )}
+        {item?.status === 'done' && item.completed_at && (
+          <span className="rounded-full bg-accent-tint px-[7px] py-px font-mono text-xs text-accent-text">
+            ✓ {timeOf(item.completed_at)}
+          </span>
+        )}
+        <span className="flex-1" />
+        <Dialog.Close
+          type="button"
+          aria-label="Close"
+          className="grid size-[26px] cursor-pointer place-items-center rounded-md text-text-muted hover:bg-hover"
+        >
+          <X />
+        </Dialog.Close>
+      </div>
+
+      <div className="px-[18px] pt-1.5">
+        <input
+          autoFocus
+          value={draft.title}
+          onChange={(e) => set('title', e.target.value)}
+          placeholder="What needs doing?"
+          aria-label="Title"
+          className="h-10 w-full rounded-sm bg-transparent px-1 font-heading text-xl font-heading-weight text-text outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring"
+        />
+      </div>
+
+      <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-x-3.5 gap-y-2.5 px-[18px] py-4">
+        <Row label="Kind">
+          <Segmented<ItemKind>
+            ariaLabel="Kind"
+            value={draft.kind}
+            onChange={(kind) =>
+              setDraft((d) => ({
+                ...d,
+                kind,
+                // Events default to fixed; switching to one pins it.
+                anchoring: kind === 'event' ? 'fixed' : d.anchoring,
+              }))
+            }
+            options={[
+              {
+                value: 'task',
+                label: (
+                  <>
+                    <CheckSquare />
+                    Task
+                  </>
+                ),
+              },
+              {
+                value: 'event',
+                label: (
+                  <>
+                    <Calendar />
+                    Event
+                  </>
+                ),
+              },
+              {
+                value: 'reminder',
+                label: (
+                  <>
+                    <Bell />
+                    Reminder
+                  </>
+                ),
+              },
+            ]}
+          />
+        </Row>
+
+        <Row label="Anchoring">
+          <Segmented
+            ariaLabel="Anchoring"
+            value={draft.anchoring}
+            onChange={(a) => set('anchoring', a)}
+            options={[
+              {
+                value: 'flexible',
+                label: (
+                  <>
+                    <ArrowsOutLineHorizontal />
+                    Flexible
+                  </>
+                ),
+              },
+              {
+                value: 'fixed',
+                label: (
+                  <>
+                    <PushPin />
+                    Fixed
+                  </>
+                ),
+              },
+            ]}
+          />
+          <span className="text-xs leading-[1.4] text-text-muted">
+            {draft.anchoring === 'fixed'
+              ? 'Stays exactly here, even inside block-outs.'
+              : 'Can be moved by auto-slot. Never placed in block-outs.'}
+          </span>
+        </Row>
+
+        <Row label="When">
+          <label className={FIELD}>
+            <CalendarBlank className="text-text-muted" />
+            <input
+              type="date"
+              value={draft.date}
+              onChange={(e) => set('date', e.target.value)}
+              aria-label="Date"
+              className="bg-transparent outline-none"
+            />
+          </label>
+          <label className={cn(FIELD, !draft.date && 'opacity-50')}>
+            <Clock className="text-text-muted" />
+            <input
+              value={draft.time}
+              disabled={!draft.date}
+              onChange={(e) => set('time', e.target.value)}
+              onBlur={(e) => {
+                const t = parseTime(e.target.value);
+                if (t) set('time', t);
+              }}
+              placeholder="--:--"
+              aria-label="Time"
+              className="w-12 bg-transparent outline-none placeholder:text-text-muted"
+            />
+          </label>
+          <label className={FIELD}>
+            <Timer className="text-text-muted" />
+            <input
+              value={draft.duration}
+              onChange={(e) => set('duration', e.target.value)}
+              placeholder="30m"
+              aria-label="Duration"
+              className="w-14 bg-transparent outline-none placeholder:text-text-muted"
+            />
+          </label>
+          {!showDue && (
+            <button
+              type="button"
+              onClick={() => setShowDue(true)}
+              className="flex h-[30px] cursor-pointer items-center gap-1.5 rounded-md border border-dashed border-border-strong px-2.5 text-sm text-text-muted hover:text-text"
+            >
+              <FlagCheckered />
+              Due date
+            </button>
+          )}
+          {!draft.date && (
+            <span className="w-full text-xs text-text-muted">
+              No date:{' '}
+              {draft.kind === 'task' ? 'it goes to the Inbox.' : 'events and reminders need one.'}
+            </span>
+          )}
+        </Row>
+
+        {showDue && (
+          <Row label="Due">
+            <label className={FIELD}>
+              <FlagCheckered className="text-text-muted" />
+              <input
+                type="date"
+                value={draft.dueDate}
+                onChange={(e) => set('dueDate', e.target.value)}
+                aria-label="Due date"
+                className="bg-transparent outline-none"
+              />
+            </label>
+            <label className={cn(FIELD, !draft.dueDate && 'opacity-50')}>
+              <Clock className="text-text-muted" />
+              <input
+                value={draft.dueTime}
+                disabled={!draft.dueDate}
+                onChange={(e) => set('dueTime', e.target.value)}
+                onBlur={(e) => {
+                  const t = parseTime(e.target.value);
+                  if (t) set('dueTime', t);
+                }}
+                placeholder="--:--"
+                aria-label="Due time"
+                className="w-12 bg-transparent outline-none placeholder:text-text-muted"
+              />
+            </label>
+            <Button
+              variant="bare"
+              size="icon-sm"
+              aria-label="Remove due date"
+              onClick={() => {
+                setDraft((d) => ({ ...d, dueDate: '', dueTime: '' }));
+                setShowDue(false);
+              }}
+            >
+              <X />
+            </Button>
+          </Row>
+        )}
+
+        <Row label="Priority">
+          <Segmented
+            ariaLabel="Priority"
+            value={String(draft.priority)}
+            onChange={(p) => set('priority', Number(p))}
+            options={[
+              { value: '0', label: 'None' },
+              { value: '1', label: '!1' },
+              { value: '2', label: '!2' },
+              { value: '3', label: '!3' },
+            ]}
+          />
+        </Row>
+
+        <Row label="Tags">
+          <TagEditor tags={draft.tags} onChange={(t) => set('tags', t)} />
+        </Row>
+
+        {item?.rrule && (
+          <Row label="Repeats">
+            <span className="font-mono text-[10.5px] text-text-muted">{item.rrule}</span>
+          </Row>
+        )}
+
+        <Row label="Reminders">
+          {draft.reminders.map((r, i) => (
+            <span
+              key={r.id ?? `new-${i}`}
+              className="flex h-[26px] items-center gap-1.5 rounded-md border border-border-strong pr-1.5 pl-2.5 font-mono text-sm"
+            >
+              <Bell className="text-text-muted" />
+              {reminderLabel(r)}
+              <button
+                type="button"
+                aria-label="Remove reminder"
+                onClick={() =>
+                  set(
+                    'reminders',
+                    draft.reminders.filter((_, j) => j !== i),
+                  )
+                }
+                className="grid cursor-pointer place-items-center text-text-muted hover:text-text"
+              >
+                <X size={11} />
+              </button>
+            </span>
+          ))}
+          {addingReminder ? (
+            <select
+              autoFocus
+              aria-label="Remind me"
+              defaultValue=""
+              onBlur={() => setAddingReminder(false)}
+              onChange={(e) => {
+                const offset = Number(e.target.value);
+                if (!Number.isNaN(offset))
+                  set('reminders', [...draft.reminders, { offset_min: offset, at: null }]);
+                setAddingReminder(false);
+              }}
+              className="h-[26px] rounded-md border border-accent bg-bg px-1.5 text-sm text-text"
+            >
+              <option value="" disabled>
+                Remind me…
+              </option>
+              {REMINDER_OFFSETS.map((m) => (
+                <option key={m} value={m}>
+                  {formatDuration(m)} before
+                </option>
+              ))}
+            </select>
+          ) : (
+            <button
+              type="button"
+              disabled={!timed}
+              title={timed ? undefined : 'Give it a date and time first'}
+              onClick={() => setAddingReminder(true)}
+              className="flex h-[26px] cursor-pointer items-center gap-1 rounded-md border border-dashed border-border-strong px-2.5 text-sm text-text-muted hover:text-text disabled:cursor-default disabled:opacity-50"
+            >
+              <Plus size={12} />
+              Reminder
+            </button>
+          )}
+        </Row>
+
+        <Row label="Notes" top>
+          <textarea
+            rows={2}
+            value={draft.notes}
+            onChange={(e) => set('notes', e.target.value)}
+            placeholder="Add notes…"
+            aria-label="Notes"
+            className="w-full resize-y rounded-md border border-border-strong bg-bg px-2.5 py-[7px] text-text outline-none focus:border-accent"
+          />
+        </Row>
+      </div>
+
+      {error && (
+        <p role="alert" className="mx-[18px] my-0 font-mono text-xs leading-normal text-danger">
+          {error}
+        </p>
+      )}
+
+      <div className="flex items-center gap-2 px-[18px] py-3.5">
+        {item && (
+          <Button
+            variant="ghost"
+            className={cn(
+              'text-danger',
+              confirmDelete && 'bg-[color-mix(in_srgb,var(--color-danger)_12%,transparent)]',
+            )}
+            onClick={() => void remove()}
+            onBlur={() => setConfirmDelete(false)}
+          >
+            <Trash />
+            {confirmDelete ? 'Click again to delete' : 'Delete'}
+          </Button>
+        )}
+        <span className="flex-1" />
+        {item && edited && (
+          <span className="font-mono text-[10.5px] text-text-muted">
+            {item.source === 'user' ? 'created by you' : `created by ${item.source.toUpperCase()}`}{' '}
+            · edited {isToday(edited) ? format(edited, 'HH:mm') : format(edited, 'd MMM')}
+          </span>
+        )}
+        <Dialog.Close asChild>
+          <Button>Cancel</Button>
+        </Dialog.Close>
+        <Button type="submit" variant="primary" disabled={saving}>
+          Save
+          <Kbd onAccent>Ctrl ↵</Kbd>
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+function ExistingItem({ id, onDone }: { id: string; onDone: () => void }) {
+  const detail = useOp<ItemDetail>('get_item', { id });
+  if (detail.isPending)
+    return (
+      <div className="p-6 font-mono text-xs text-text-muted">
+        <Dialog.Title className="sr-only">Edit item</Dialog.Title>
+        Loading…
+      </div>
+    );
+  if (detail.isError)
+    return (
+      <div className="p-4">
+        <Dialog.Title className="sr-only">Edit item</Dialog.Title>
+        <ErrorPanel title="Couldn't open this item" message={errorText(detail.error)} />
+      </div>
+    );
+  const item = detail.data;
+  return (
+    <ItemForm
+      key={item.updated_at}
+      item={item}
+      initial={draftFromItem(item, item.reminders)}
+      onDone={onDone}
+    />
+  );
+}
+
+/** The item dialog: create, edit and delete one task, event or reminder. */
+export function ItemDialog() {
+  const target = useOverlay((s) => (s.overlay === 'item' ? s.item : null));
+  const close = useOverlay((s) => s.close);
+  return (
+    <Dialog.Root open={target !== null} onOpenChange={(o) => !o && close()}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 z-40 bg-[color-mix(in_srgb,var(--color-bg)_62%,transparent)]" />
+        <Dialog.Content
+          aria-describedby={undefined}
+          className="fixed top-[60px] left-1/2 z-41 max-h-[calc(100vh-80px)] w-[580px] max-w-[calc(100vw-32px)] -translate-x-1/2 overflow-auto rounded-lg bg-surface-raised text-base text-text shadow-overlay focus:outline-none"
+        >
+          {target &&
+            ('id' in target ? (
+              <ExistingItem id={target.id} onDone={close} />
+            ) : (
+              <ItemForm initial={emptyDraft(target.defaults)} onDone={close} />
+            ))}
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
+  );
+}

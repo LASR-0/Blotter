@@ -152,3 +152,43 @@ pub fn run_op(
     }
     Ok(outcome)
 }
+
+/// One call in a `run_batch` request.
+#[derive(Debug, serde::Deserialize)]
+pub struct BatchCall {
+    pub name: String,
+    #[serde(default)]
+    pub args: Option<Value>,
+}
+
+/// Runs several operations as one atomic batch (one change-log batch, so
+/// they undo together). If any fails, none take effect.
+#[tauri::command]
+pub fn run_batch(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    calls: Vec<BatchCall>,
+) -> Result<OpOutcome, CommandError> {
+    let names: Vec<String> = calls.iter().map(|c| c.name.clone()).collect();
+    let calls: Vec<blotter_core::OpCall> = calls
+        .into_iter()
+        .map(|c| blotter_core::OpCall {
+            name: c.name,
+            args: c.args.unwrap_or(Value::Null),
+        })
+        .collect();
+    let outcome = {
+        let mut planner = state.planner.lock().map_err(|_| lock_error())?;
+        planner.execute_batch(&calls, &Actor::User)?
+    };
+    if let Some(batch_id) = &outcome.batch_id {
+        let _ = app.emit(
+            CHANGED_EVENT,
+            ChangedPayload {
+                batch_id: batch_id.clone(),
+                ops: names,
+            },
+        );
+    }
+    Ok(outcome)
+}

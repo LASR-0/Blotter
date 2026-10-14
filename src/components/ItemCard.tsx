@@ -1,4 +1,5 @@
 import { ArrowsClockwise, Check, PushPin } from '@phosphor-icons/react';
+import { useOverlay } from '@/app/overlay';
 import { isOpError, runOp } from '@/lib/api';
 import { cn } from '@/lib/cn';
 import { cardTime, timeOf } from '@/lib/format';
@@ -29,6 +30,8 @@ export function ItemCard({
 
   return (
     <div
+      onDoubleClick={() => useOverlay.getState().openItem({ id: item.id })}
+      title="Double-click to edit"
       className={cn(
         'relative rounded-md border px-3 py-2.5',
         done
@@ -44,6 +47,7 @@ export function ItemCard({
           aria-label={done ? `Mark "${item.title}" open` : `Complete "${item.title}"`}
           title="Toggle complete"
           onClick={toggle}
+          onDoubleClick={(e) => e.stopPropagation()}
           className={cn(
             'mt-px grid size-4 flex-none cursor-pointer place-items-center rounded-sm p-0 text-on-accent',
             done ? 'border border-accent bg-accent' : 'border-[1.5px] border-border-strong',

@@ -1,14 +1,12 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Command, useCommandState } from 'cmdk';
 import { Dialog } from 'radix-ui';
-import { parseISO } from 'date-fns';
 import { CalendarBlank, CheckSquare, MagnifyingGlass, Tray } from '@phosphor-icons/react';
 import { ACTION_GROUPS, type Action } from '@/actions/actions';
 import { Kbd, KeyChips } from '@/components/ui/kbd';
 import { itemMeta } from '@/lib/format';
 import { useOp } from '@/lib/queries';
 import type { Item } from '@/lib/types';
-import { useNav } from './nav';
 import { useOverlay } from './overlay';
 
 /** Waits this long after the last keystroke before searching items. */
@@ -58,18 +56,6 @@ function Row({
 function FooterCount() {
   const count = useCommandState((s) => s.filtered.count);
   return <span>{count} results</span>;
-}
-
-/** Opens an item where it lives: its day in the Diary, or the Inbox. */
-function revealItem(item: Item) {
-  const nav = useNav.getState();
-  const date = item.start_at
-    ? parseISO(item.start_at)
-    : item.start_date
-      ? parseISO(item.start_date)
-      : null;
-  if (date) nav.goToDate(date);
-  else nav.go('inbox');
 }
 
 export function CommandPalette({ actions }: { actions: readonly Action[] }) {
@@ -163,7 +149,7 @@ function PaletteBody({ actions, close }: { actions: readonly Action[]; close: ()
                 }
                 label={item.title}
                 hint={itemMeta(item) || (item.start_at || item.start_date ? '' : 'Inbox')}
-                onSelect={() => run(() => revealItem(item))}
+                onSelect={() => run(() => useOverlay.getState().openItem({ id: item.id }))}
               />
             ))}
           </Command.Group>

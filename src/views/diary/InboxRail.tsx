@@ -7,6 +7,7 @@ import {
   Tray,
 } from '@phosphor-icons/react';
 import { useNav } from '@/app/nav';
+import { useOverlay } from '@/app/overlay';
 import { Tooltip } from '@/components/ui/tooltip';
 import { isOpError, runOp } from '@/lib/api';
 import { cn } from '@/lib/cn';
@@ -91,6 +92,7 @@ export function InboxRail() {
           <div
             key={item.id}
             title={item.title}
+            onDoubleClick={() => useOverlay.getState().openItem({ id: item.id })}
             className="flex h-8 flex-none items-center gap-2 rounded-md border border-border bg-bg px-2"
           >
             <DotsSixVertical size={13} className="text-text-muted opacity-70" />

@@ -41,3 +41,23 @@ export function cardTime(item: Item, overdue = false): string {
   }
   return dur ? `~${dur}` : '';
 }
+
+/**
+ * Reads a typed time of day into `HH:MM` (24-hour): `17:30`, `1730`,
+ * `9:05`, `930`, `5pm`, `5:30 PM`, `12am`. Null if it isn't a valid time.
+ */
+export function parseTime(input: string): string | null {
+  const m = /^(\d{1,2})(?::?(\d{2}))?\s*(am|pm|a|p)?$/.exec(input.trim().toLowerCase());
+  if (!m) return null;
+  let h = Number(m[1]);
+  const min = m[2] === undefined ? 0 : Number(m[2]);
+  const meridiem = m[3]?.[0];
+  if (min > 59) return null;
+  if (meridiem) {
+    if (h < 1 || h > 12) return null;
+    h = (h % 12) + (meridiem === 'p' ? 12 : 0);
+  } else if (h > 23) {
+    return null;
+  }
+  return `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
+}
