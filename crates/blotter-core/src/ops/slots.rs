@@ -392,7 +392,7 @@ pub(crate) fn busy_time(
         start_date: from.with_timezone(&tz).date_naive(),
         end_date: to.with_timezone(&tz).date_naive(),
     };
-    Ok(store::items::list_in_range(ctx.conn, range)?
+    Ok(crate::recurrence::agenda(ctx.conn, range, tz)?
         .into_iter()
         .filter(|i| i.status == ItemStatus::Open && !exclude.contains(&i.id))
         .filter_map(|i| Some((i.start_at?, i.end_at?)))
@@ -454,7 +454,10 @@ pub(crate) fn conflicts(ctx: &Ctx<'_>, items: &[Item]) -> Result<Vec<Conflict>> 
 /// item's time or anchoring changes, so an item caught inside a block-out
 /// created later can still be edited, completed or moved out.
 pub(crate) fn check_placement(ctx: &Ctx<'_>, before: Option<&Item>, item: &Item) -> Result<()> {
-    if item.anchoring != Anchoring::Flexible || item.status != ItemStatus::Open {
+    if item.anchoring != Anchoring::Flexible
+        || item.status != ItemStatus::Open
+        || item.rrule.is_some()
+    {
         return Ok(());
     }
     let (Some(start), Some(end)) = (item.start_at, item.end_at) else {

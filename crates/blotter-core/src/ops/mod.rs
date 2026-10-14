@@ -9,6 +9,7 @@
 mod blockouts;
 pub mod input;
 mod items;
+mod occurrences;
 mod reads;
 mod reminders;
 mod rollover;

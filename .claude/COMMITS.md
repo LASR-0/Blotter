@@ -62,8 +62,9 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 20a | 5 | `fix(ui): give quick-add errors their own row` | committed `5f7e140` |
 | 21 | 5 | `feat(ui): block-out settings and calendar shading` | committed `72a0d77` |
 | 22 | 5 | `feat: inbox auto-slot and conflict warnings` | committed `8777f83` |
-| 23 | 5 | `feat: end-of-day rollover` | ready |
-| 24 | 6 | `feat(core): recurring items with occurrence exceptions` | planned |
+| 23 | 5 | `feat: end-of-day rollover` | committed `25f3f7a` |
+| 24 | 6 | `feat(core): recurring items with occurrence exceptions` | ready (UI split out as #24a) |
+| 24a | 6 | `feat(ui): recurring item editing` | planned |
 | 25 | 6 | `feat(app): reminder engine and OS notifications` | planned |
 | 26 | 6 | `feat: snooze, missed-reminder catch-up and autostart setting` | planned |
 | 27 | 7 | `feat: undo/redo from change log` | planned |
@@ -1518,7 +1519,7 @@ Notes:
       shortcuts, which made a stray "box" task in the demo DB. That's a harness timing
       issue, not an app bug: Ctrl+K works when sent on its own.
 
-### #23 — End-of-day rollover            [status: ready]
+### #23 — End-of-day rollover            [status: committed 25f3f7a]
 Phase: 5
 Message:
     feat: end-of-day rollover
@@ -1584,3 +1585,74 @@ Notes:
       Diary's Overdue section mostly shows fixed items and tasks past their deadline.
     - The banner lives in memory: dismissing it is final; a rollover while the app is hidden
       shows when the window next opens.
+
+### #24 — Recurring items with occurrence exceptions (core)            [status: ready]
+Phase: 6
+Message:
+    feat(core): recurring items with occurrence exceptions
+
+    Recurring series are expanded on read. A series is one stored item
+    with an RFC 5545 RRULE (rrule 0.14); its own start is the first
+    occurrence. list_agenda, get_day_summary, the slot engine's busy time
+    and conflicts now see every occurrence in their range. Occurrences
+    keep their wall-clock time across DST: a fixed series in its own
+    timezone, a flexible one in the user's. All-day series repeat by
+    date.
+
+    Each occurrence has a stable id, <series>@<original start>
+    (2026-10-15T22:00:00Z, or 2026-10-15 for all-day). The item ops
+    accept it:
+    - update_item and delete_item take scope this (default) | following
+      | all.
+    - this: the occurrence is stored as an override (a child with
+      parent_id and recurrence_id). A deleted occurrence is a cancelled
+      override, i.e. an exception.
+    - all: changes the series; a time change on one occurrence moves
+      every occurrence by the same amount.
+    - following: ends the series just before the occurrence (UNTIL) and
+      starts a new series there, carrying a reduced COUNT, later
+      overrides and reminders. Deleting following just ends the series.
+    - complete/uncomplete and schedule_item on an occurrence store an
+      override; the series stays open. Completing a whole series is
+      refused, and occurrences can't go to the Inbox.
+    - get_item on an occurrence returns its override or the expanded
+      occurrence, with the series' reminders. set_reminder on an
+      occurrence attaches to the series.
+
+    RRULEs are now parsed on write (normalised, e.g. "rrule:freq=weekly"
+    becomes FREQ=WEEKLY) and anything more frequent than daily is
+    refused. The overdue and range queries leave series rows out, so an
+    old series no longer looks overdue.
+Files:
+    A  crates/blotter-core/src/recurrence.rs
+    A  crates/blotter-core/src/ops/occurrences.rs
+    M  crates/blotter-core/Cargo.toml          (rrule 0.14.0)
+    M  Cargo.lock
+    M  crates/blotter-core/src/lib.rs
+    M  crates/blotter-core/src/ops/items.rs
+    M  crates/blotter-core/src/ops/mod.rs
+    M  crates/blotter-core/src/ops/reads.rs
+    M  crates/blotter-core/src/ops/reminders.rs
+    M  crates/blotter-core/src/ops/slots.rs
+    M  crates/blotter-core/src/store/items.rs
+    M  .claude/COMMITS.md
+    M  .claude/roadmap.md
+    Stage everything in one go:  git add -A
+Test steps:
+    - cargo test --workspace    → 109 core (+5 recurrence, +8 occurrence ops) + 6 app passed
+    - cargo clippy --workspace --all-targets -- -D warnings → clean; cargo fmt --check → clean
+    - pnpm check                → unchanged, clean
+    - pnpm tauri dev (demo DB): n, "gym session every weekday 6pm ~45m @fixed", Enter, g w →
+      gym session on each weekday from its start, with the recurring icon; Friday's overlaps
+      Dinner with Jess and shows the conflict mark
+    - Dragging one occurrence, x on one, or Save/Delete in its dialog affect only that
+      occurrence (the UI doesn't send a scope yet, so "this" applies)
+Notes:
+    - Split from the planned single commit: the UI (the this/following/all choice, a Repeats
+      editor and the recurring icon on overrides) is #24a. Until then every UI change to an
+      occurrence applies to that occurrence only, which is safe.
+    - Verified live: the series above expanding in Week, with conflicts.
+    - Decisions: "all" leaves existing overrides as they are (they stay exceptions). Recurring
+      flexible tasks aren't checked against block-outs, and auto-slot and rollover skip them,
+      as before.
+    - Expansion is capped at 4000 occurrences per series per read.

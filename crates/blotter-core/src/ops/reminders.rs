@@ -55,8 +55,14 @@ pub struct Cleared {
     pub cleared: Vec<String>,
 }
 
+/// The series id for an occurrence id, else `id` itself.
+fn series_or_self(id: &str) -> &str {
+    crate::recurrence::split_occurrence_id(id).map_or(id, |(series, _)| series)
+}
+
 fn set_reminder(ctx: &mut Ctx<'_>, a: SetReminderArgs) -> Result<Reminder> {
-    let item = require_item(ctx, &a.item_id)?;
+    // A reminder on one occurrence belongs to its series (it fires for each).
+    let item = require_item(ctx, series_or_self(&a.item_id))?;
     let at = match (a.offset_min, a.at) {
         (Some(_), None) => {
             if !item.is_scheduled() {
@@ -106,8 +112,8 @@ fn clear_reminder(ctx: &mut Ctx<'_>, a: ClearReminderArgs) -> Result<Cleared> {
     let targets = match (a.reminder_id, a.item_id) {
         (Some(id), None) => vec![store::reminders::require(ctx.conn, &id)?],
         (None, Some(item_id)) => {
-            require_item(ctx, &item_id)?;
-            store::reminders::list_for_item(ctx.conn, &item_id)?
+            let item = require_item(ctx, series_or_self(&item_id))?;
+            store::reminders::list_for_item(ctx.conn, &item.id)?
         }
         _ => {
             return Err(CoreError::invalid(

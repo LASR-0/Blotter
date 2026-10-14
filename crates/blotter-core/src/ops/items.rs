@@ -6,10 +6,12 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use super::input::{DateInput, DateTimeInput, patch};
+use super::occurrences::{self, Scope, Target};
 use super::{Ctx, OpDef, require_item};
 use crate::error::{CoreError, Result};
 use crate::id::new_id;
 use crate::model::{Actor, Anchoring, Item, ItemKind, ItemStatus, Source};
+use crate::recurrence::{self, Slot};
 use crate::store;
 use crate::time::Instant;
 
@@ -32,7 +34,7 @@ pub(super) fn defs() -> Vec<OpDef> {
         ),
         OpDef::new(
             "delete_item",
-            "Delete an item, its reminders and any recurrence overrides.",
+            "Delete an item, its reminders and any recurrence overrides. For one occurrence of a \n             recurring item (id `<series>@<start>`), `scope` picks this occurrence (default), \n             this and following, or all.",
             true,
             delete_item,
         ),
@@ -137,12 +139,24 @@ pub struct UpdateItemArgs {
     pub tz: Option<Option<String>>,
     /// Position within a Diary day (lower sorts first); used when reordering.
     pub sort_order: Option<f64>,
+    /// For a recurring item: change this occurrence (default), this and the
+    /// following ones, or the whole series.
+    pub scope: Option<Scope>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct IdArgs {
     pub id: String,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct DeleteItemArgs {
+    pub id: String,
+    /// For a recurring item: delete this occurrence (default), this and the
+    /// following ones, or the whole series.
+    pub scope: Option<Scope>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -219,7 +233,70 @@ fn create_item(ctx: &mut Ctx<'_>, a: CreateItemArgs) -> Result<Item> {
     Ok(item)
 }
 
-fn update_item(ctx: &mut Ctx<'_>, a: UpdateItemArgs) -> Result<Item> {
+fn update_item(ctx: &mut Ctx<'_>, mut a: UpdateItemArgs) -> Result<Item> {
+    let scope = a.scope.take().unwrap_or_default();
+    let Target::Occurrence {
+        series,
+        slot,
+        existing,
+    } = occurrences::resolve(ctx, &a.id)?
+    else {
+        return update_stored(ctx, a);
+    };
+    match scope {
+        Scope::This => {
+            if a.rrule.is_some() {
+                return Err(CoreError::invalid(
+                    "change the repeat rule for the whole series (scope `all`) or from this \n                     occurrence on (scope `following`)",
+                ));
+            }
+            a.id = occurrences::override_for(ctx, &series, slot, existing)?.id;
+        }
+        Scope::All => {
+            shift_to_series(ctx, &mut a, &series, slot);
+            a.id = series.id.clone();
+        }
+        Scope::Following => a.id = occurrences::split(ctx, &series, slot)?.id,
+    }
+    update_stored(ctx, a)
+}
+
+/// Rewrites times given for one occurrence as the same change to the
+/// series' first occurrence, so "move this to 10:00, all occurrences"
+/// moves every occurrence by the same amount.
+fn shift_to_series(ctx: &Ctx<'_>, a: &mut UpdateItemArgs, series: &Item, slot: Slot) {
+    let tz = ctx.settings.tz;
+    let (occ_start, occ_date) = match slot {
+        Slot::Timed { start, .. } => (Some(start), start.with_timezone(&tz).date_naive()),
+        Slot::AllDay { date, .. } => (None, date),
+    };
+    let first_date = series
+        .start_date
+        .or_else(|| series.start_at.map(|s| s.with_timezone(&tz).date_naive()));
+    let shift_date = |d: DateInput| match first_date {
+        Some(first) => DateInput(first + (d.0 - occ_date)),
+        None => d,
+    };
+    let shift_time = |t: DateTimeInput| match (occ_start, series.start_at) {
+        (Some(occ), Some(first)) => DateTimeInput::Absolute(first + (t.resolve(tz) - occ)),
+        _ => {
+            // All-day occurrence turned timed: keep the time, move the date.
+            let local = t.resolve(tz).with_timezone(&tz);
+            DateTimeInput::Local(
+                shift_date(DateInput(local.date_naive()))
+                    .0
+                    .and_time(local.time()),
+            )
+        }
+    };
+    a.start = a.start.map(shift_time);
+    a.end = a.end.map(shift_time);
+    a.date = a.date.map(shift_date);
+    a.end_date = a.end_date.map(|d| d.map(shift_date));
+}
+
+/// Applies `a` to one stored item.
+fn update_stored(ctx: &mut Ctx<'_>, a: UpdateItemArgs) -> Result<Item> {
     let before = require_item(ctx, &a.id)?;
     let mut item = before.clone();
     let tz = ctx.settings.tz;
@@ -323,8 +400,41 @@ fn update_item(ctx: &mut Ctx<'_>, a: UpdateItemArgs) -> Result<Item> {
     Ok(item)
 }
 
-fn delete_item(ctx: &mut Ctx<'_>, a: IdArgs) -> Result<Deleted> {
-    let item = require_item(ctx, &a.id)?;
+fn delete_item(ctx: &mut Ctx<'_>, a: DeleteItemArgs) -> Result<Deleted> {
+    let Target::Occurrence {
+        series,
+        slot,
+        existing,
+    } = occurrences::resolve(ctx, &a.id)?
+    else {
+        let item = require_item(ctx, &a.id)?;
+        return delete_stored(ctx, item);
+    };
+    match a.scope.unwrap_or_default() {
+        // A deleted occurrence is a cancelled override (an exception).
+        Scope::This => {
+            let before = occurrences::override_for(ctx, &series, slot, existing)?;
+            let mut item = before.clone();
+            set_status(&mut item, ItemStatus::Cancelled, ctx.now);
+            item.updated_at = ctx.now;
+            store::items::update(ctx.conn, &item)?;
+            ctx.record(ENTITY, &item.id, Some(&before), Some(&item))?;
+            Ok(Deleted { deleted: a.id })
+        }
+        Scope::Following => {
+            if !occurrences::end_before(ctx, &series, slot)? {
+                return delete_stored(ctx, *series);
+            }
+            for o in occurrences::overrides_from(ctx, &series, slot)? {
+                delete_stored(ctx, o)?;
+            }
+            Ok(Deleted { deleted: a.id })
+        }
+        Scope::All => delete_stored(ctx, *series),
+    }
+}
+
+fn delete_stored(ctx: &mut Ctx<'_>, item: Item) -> Result<Deleted> {
     // Record everything the cascade will remove, so undo can restore it.
     for child in store::items::list_children(ctx.conn, &item.id)? {
         record_reminder_deletions(ctx, &child.id)?;
@@ -352,7 +462,21 @@ fn uncomplete_item(ctx: &mut Ctx<'_>, a: IdArgs) -> Result<Item> {
 }
 
 fn change_status(ctx: &mut Ctx<'_>, id: &str, status: ItemStatus) -> Result<Item> {
-    let before = require_item(ctx, id)?;
+    // Completing one occurrence stores it as an override; the series stays open.
+    let before = match occurrences::resolve(ctx, id)? {
+        Target::Item(item) if item.rrule.is_some() => {
+            return Err(CoreError::invalid(format!(
+                "'{}' repeats: complete one occurrence (its id is the series id, \n                 '@' and its start) instead of the whole series",
+                item.title
+            )));
+        }
+        Target::Item(item) => item,
+        Target::Occurrence {
+            series,
+            slot,
+            existing,
+        } => occurrences::override_for(ctx, &series, slot, existing)?,
+    };
     if before.status == status {
         return Ok(before);
     }
@@ -373,7 +497,15 @@ fn set_status(item: &mut Item, status: ItemStatus, now: Instant) {
 }
 
 fn schedule_item(ctx: &mut Ctx<'_>, a: ScheduleItemArgs) -> Result<Item> {
-    let before = require_item(ctx, &a.id)?;
+    // Rescheduling one occurrence moves just that one (as an override).
+    let before = match occurrences::resolve(ctx, &a.id)? {
+        Target::Item(item) => item,
+        Target::Occurrence {
+            series,
+            slot,
+            existing,
+        } => occurrences::override_for(ctx, &series, slot, existing)?,
+    };
     let mut item = before.clone();
     let tz = ctx.settings.tz;
     match (a.start, a.date) {
@@ -399,7 +531,15 @@ fn schedule_item(ctx: &mut Ctx<'_>, a: ScheduleItemArgs) -> Result<Item> {
 }
 
 fn unschedule_item(ctx: &mut Ctx<'_>, a: IdArgs) -> Result<Item> {
-    let before = require_item(ctx, &a.id)?;
+    let before = require_item(
+        ctx,
+        recurrence::split_occurrence_id(&a.id).map_or(a.id.as_str(), |(s, _)| s),
+    )?;
+    if before.rrule.is_some() || before.parent_id.is_some() {
+        return Err(CoreError::invalid(
+            "a recurring item can't go to the Inbox; delete the occurrence instead",
+        ));
+    }
     if before.kind != ItemKind::Task {
         return Err(CoreError::invalid(format!(
             "only tasks can go to the Inbox; this item is a {}",
@@ -517,16 +657,12 @@ pub(crate) fn finalize(ctx: &Ctx<'_>, item: &mut Item) -> Result<()> {
         item.duration_min = None;
     }
     if let Some(rrule) = &item.rrule {
-        if !rrule.trim_start().to_ascii_uppercase().starts_with("FREQ=")
-            && !rrule
-                .trim_start()
-                .to_ascii_uppercase()
-                .starts_with("RRULE:")
-        {
-            return Err(CoreError::invalid(format!(
-                "rrule '{rrule}' must be an RFC 5545 rule like FREQ=WEEKLY;BYDAY=MO"
-            )));
+        if item.parent_id.is_some() {
+            return Err(CoreError::invalid(
+                "an occurrence can't have its own repeat rule; change the series",
+            ));
         }
+        item.rrule = Some(recurrence::normalize_rule(rrule)?);
     }
 
     if matches!(item.kind, ItemKind::Event | ItemKind::Reminder) && !item.is_scheduled() {

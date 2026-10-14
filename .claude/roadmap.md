@@ -473,9 +473,11 @@ Each phase states the intent, then the acceptance criteria (AC) and leads to ver
 - #21 (block-out settings page, `b l` lifting, and calendar shading from core windows) is committed.
 - #22 (`auto_slot` with a result panel, plus conflict flags in the agenda, Week and Diary) is committed.
 - #23 (end-of-day rollover: inbox or reslot mode, once a day after 04:00, startup and tray timer, banner) is committed. **Phase 5 is complete.**
-- Next: Phase 6, #24 (recurring items with occurrence exceptions).
+- Next: Phase 6.
 
 ### Phase 6 — Recurrence and reminders
+
+**Progress (2026-10-14):** #24 (recurrence core: expansion, occurrence ids, this/following/all scopes, exceptions) is committed; #24a (the editing UI) is next.
 **Intent:**
 - RRULE items with occurrence editing,
 - the reminder engine,

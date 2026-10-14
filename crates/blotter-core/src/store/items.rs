@@ -156,14 +156,16 @@ pub fn delete(conn: &Connection, id: &str) -> Result<bool> {
     Ok(conn.execute("DELETE FROM items WHERE id = ?1", [id])? > 0)
 }
 
-/// Items scheduled within `range`, in display order.
+/// Items scheduled within `range`, in display order. Recurring series and
+/// cancelled occurrences are left out; `recurrence::agenda` expands series.
 pub fn list_in_range(conn: &Connection, range: ItemRange) -> Result<Vec<Item>> {
     let sql = format!(
-        "SELECT {COLUMNS} FROM items WHERE \
+        "SELECT {COLUMNS} FROM items WHERE rrule IS NULL \
+           AND NOT (parent_id IS NOT NULL AND status = 'cancelled') AND ( \
            (all_day = 0 AND start_at IS NOT NULL AND start_at < :end \
              AND (COALESCE(end_at, start_at) > :start OR start_at >= :start)) \
            OR (all_day = 1 AND start_date <= :end_date \
-             AND COALESCE(end_date, start_date) >= :start_date) \
+             AND COALESCE(end_date, start_date) >= :start_date)) \
          ORDER BY COALESCE(start_at, start_date), sort_order, created_at"
     );
     collect(
@@ -173,6 +175,22 @@ pub fn list_in_range(conn: &Connection, range: ItemRange) -> Result<Vec<Item>> {
             ":start": time::fmt_instant(range.start),
             ":end": time::fmt_instant(range.end),
             ":start_date": time::fmt_date(range.start_date),
+            ":end_date": time::fmt_date(range.end_date),
+        },
+    )
+}
+
+/// Recurring series that start before `range` ends (they may have
+/// occurrences in it).
+pub fn list_series(conn: &Connection, range: ItemRange) -> Result<Vec<Item>> {
+    let sql = format!(
+        "SELECT {COLUMNS} FROM items WHERE rrule IS NOT NULL AND parent_id IS NULL \n           AND status <> 'cancelled' \n           AND ((all_day = 0 AND start_at < :end) OR (all_day = 1 AND start_date <= :end_date)) \n         ORDER BY created_at"
+    );
+    collect(
+        conn,
+        &sql,
+        named_params! {
+            ":end": time::fmt_instant(range.end),
             ":end_date": time::fmt_date(range.end_date),
         },
     )
@@ -213,7 +231,7 @@ pub fn list_overdue(
     today: NaiveDate,
 ) -> Result<Vec<Item>> {
     let sql = format!(
-        "SELECT {COLUMNS} FROM items WHERE status = 'open' AND kind = 'task' AND (            (all_day = 0 AND end_at IS NOT NULL AND end_at <= :today_start)            OR (all_day = 1 AND COALESCE(end_date, start_date) < :today)            OR (due_at IS NOT NULL AND due_at < :now))          ORDER BY COALESCE(end_at, end_date, start_date, due_at), sort_order"
+        "SELECT {COLUMNS} FROM items WHERE status = 'open' AND kind = 'task' AND rrule IS NULL AND (            (all_day = 0 AND end_at IS NOT NULL AND end_at <= :today_start)            OR (all_day = 1 AND COALESCE(end_date, start_date) < :today)            OR (due_at IS NOT NULL AND due_at < :now))          ORDER BY COALESCE(end_at, end_date, start_date, due_at), sort_order"
     );
     collect(
         conn,

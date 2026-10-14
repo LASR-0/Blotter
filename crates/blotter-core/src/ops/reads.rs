@@ -6,10 +6,12 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use super::input::{DateInput, NoArgs, start_of_day};
+use super::occurrences::{Target, resolve};
 use super::slots::{Conflict, conflicts};
 use super::{Ctx, OpDef};
 use crate::error::{CoreError, Result};
 use crate::model::{Blockout, BlockoutException, Item, ItemStatus, Reminder};
+use crate::recurrence;
 use crate::store;
 use crate::store::items::ItemRange;
 use crate::time::Instant;
@@ -196,7 +198,7 @@ fn checked_days(start: DateInput, end: Option<DateInput>) -> Result<(NaiveDate, 
 
 fn list_agenda(ctx: &mut Ctx<'_>, a: ListAgendaArgs) -> Result<Agenda> {
     let (start, end) = checked_days(a.start, a.end)?;
-    let mut items = store::items::list_in_range(ctx.conn, day_range(ctx, start, end))?;
+    let mut items = recurrence::agenda(ctx.conn, day_range(ctx, start, end), ctx.settings.tz)?;
     if a.include_done == Some(false) {
         items.retain(|i| i.status != ItemStatus::Done);
     }
@@ -210,9 +212,24 @@ fn list_agenda(ctx: &mut Ctx<'_>, a: ListAgendaArgs) -> Result<Agenda> {
 }
 
 fn get_item(ctx: &mut Ctx<'_>, a: GetItemArgs) -> Result<ItemDetail> {
+    // An occurrence shows its override if it has one; reminders belong to the series.
+    let (item, reminders_of) = match resolve(ctx, &a.id)? {
+        Target::Item(item) => {
+            let id = item.id.clone();
+            (item, id)
+        }
+        Target::Occurrence {
+            series,
+            slot,
+            existing,
+        } => (
+            existing.unwrap_or_else(|| recurrence::occurrence_item(&series, slot)),
+            series.id,
+        ),
+    };
     Ok(ItemDetail {
-        item: store::items::require(ctx.conn, &a.id)?,
-        reminders: store::reminders::list_for_item(ctx.conn, &a.id)?,
+        reminders: store::reminders::list_for_item(ctx.conn, &reminders_of)?,
+        item,
     })
 }
 
@@ -251,7 +268,7 @@ fn list_blockout_windows(ctx: &mut Ctx<'_>, a: DateRangeArgs) -> Result<Blockout
 fn get_day_summary(ctx: &mut Ctx<'_>, a: DaySummaryArgs) -> Result<DaySummary> {
     let date = a.date.map(|d| d.0).unwrap_or_else(|| today(ctx));
     let range = day_range(ctx, date, date);
-    let items = store::items::list_in_range(ctx.conn, range)?;
+    let items = recurrence::agenda(ctx.conn, range, ctx.settings.tz)?;
     let planned_min = items
         .iter()
         .filter(|i| i.status != ItemStatus::Cancelled)

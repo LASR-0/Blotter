@@ -11,6 +11,7 @@ pub mod id;
 pub mod model;
 pub mod ops;
 mod planner;
+pub mod recurrence;
 pub mod settings;
 pub mod slots;
 pub mod store;
