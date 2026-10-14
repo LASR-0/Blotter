@@ -5,6 +5,16 @@
 //! crate has no Tauri dependency so it can be unit-tested on its own and
 //! shared by the desktop app and the MCP server.
 
+pub mod db;
+pub mod error;
+pub mod id;
+pub mod model;
+pub mod store;
+pub mod time;
+
+pub use db::Database;
+pub use error::{CoreError, Result};
+
 /// Crate version, surfaced in the About page and MCP server info.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 

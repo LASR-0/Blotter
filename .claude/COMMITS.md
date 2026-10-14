@@ -41,8 +41,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 |---|---|---|---|
 | 01 | 0 | `chore: scaffold Tauri 2 + React + Vite app with Cargo workspace` | committed `2ce6f7e` |
 | 02 | 0 | `chore: add rustfmt, clippy, eslint, prettier and vitest tooling` | committed `467e1ca` |
-| 03 | 0 | `ci: build and test on Windows and Linux` | ready |
-| 04 | 1 | `feat(core): domain models, SQLite schema and migrations` | planned |
+| 03 | 0 | `ci: build and test on Windows and Linux` | committed `e9760fe` (CI green) |
+| 04 | 1 | `feat(core): domain models, SQLite schema and migrations` | ready |
 | 05 | 1 | `feat(core): operation registry with JSON schemas and change log` | planned |
 | 06 | 2 | `feat(app): tray, close-to-tray and single-instance CLI handling` | planned |
 | 07 | 2 | `feat(ui): shadcn/ui setup, theme tokens and built-in presets` | planned |
@@ -195,7 +195,7 @@ Notes:
     - The Linux-only cfg block is not compiled on Windows; #03's ubuntu CI job is
       what proves it is clippy-clean.
 
-### #03 — CI on Windows and Linux            [status: ready]
+### #03 — CI on Windows and Linux            [status: committed e9760fe, CI green]
 Phase: 0
 Message:
     ci: build and test on Windows and Linux
@@ -225,3 +225,65 @@ Notes:
       src-tauri/src/lib.rs gets compiled and linted. If it fails, send me the log
       and I'll add a fix entry.
     - Bundling (installers) is not built in CI yet; that arrives in Phase 13.
+
+### #04 — Domain models, SQLite schema and migrations            [status: ready]
+Phase: 1
+Message:
+    feat(core): domain models, SQLite schema and migrations
+
+    Initial migration with every v1 table from roadmap §4.4 (items, tags,
+    reminders, block-outs + exceptions, ICS subscriptions + cached events,
+    change log, proposals, snapshots, chat, providers, settings,
+    keybindings, themes). CHECK constraints guard invariants such as
+    done <=> completed_at and exclusive reminder offset/at.
+
+    blotter-core gains models (Item, Reminder, Blockout, Weekdays, Change,
+    Actor), canonical UTC text encoding for instants, ULID ids, and a
+    storage layer of plain functions over a Connection. The app opens the
+    database in the OS app-data directory in WAL mode on startup.
+Files:
+    A  crates/blotter-core/migrations/0001_initial.sql
+    M  crates/blotter-core/Cargo.toml
+    M  crates/blotter-core/src/lib.rs
+    A  crates/blotter-core/src/db.rs
+    A  crates/blotter-core/src/error.rs
+    A  crates/blotter-core/src/id.rs
+    A  crates/blotter-core/src/time.rs
+    A  crates/blotter-core/src/model/mod.rs
+    A  crates/blotter-core/src/model/item.rs
+    A  crates/blotter-core/src/model/reminder.rs
+    A  crates/blotter-core/src/model/blockout.rs
+    A  crates/blotter-core/src/model/change.rs
+    A  crates/blotter-core/src/store/mod.rs
+    A  crates/blotter-core/src/store/items.rs
+    A  crates/blotter-core/src/store/reminders.rs
+    A  crates/blotter-core/src/store/blockouts.rs
+    A  crates/blotter-core/src/store/changes.rs
+    A  crates/blotter-core/src/store/settings.rs
+    M  src-tauri/src/lib.rs
+    M  src/App.tsx
+    M  src/styles.css
+    M  Cargo.lock
+    M  .claude/COMMITS.md
+    Stage everything in one go:  git add -A
+Test steps:
+    - cargo test --workspace                                  → 28 passed in blotter-core
+    - cargo clippy --workspace --all-targets -- -D warnings  → no warnings
+    - cargo fmt --all --check                                 → clean
+    - pnpm check                                              → clean, 8 passed
+    - pnpm tauri dev → the placeholder screen now shows a second line:
+          db C:\Users\ROXBLUK\AppData\Roaming\io.github.lasr0.Blotter\blotter.db · wal · schema v1
+      and that folder contains blotter.db, blotter.db-wal and blotter.db-shm.
+    - Close and relaunch → same line, no error (migrations are idempotent).
+Notes:
+    - rusqlite 0.40 (bundled SQLite) + rusqlite_migration 2.6 chosen over sqlx:
+      synchronous, no async runtime in the core, trivially testable in memory.
+    - Instants are stored as `YYYY-MM-DDTHH:MM:SSZ` text so SQL string comparison
+      equals time order; all-day items use start_date/end_date (end inclusive).
+    - Writes use INSERT … ON CONFLICT DO UPDATE, never REPLACE, so restoring an
+      item on undo can't cascade-delete its reminders (covered by a test).
+    - ulid 3 renamed Ulid::new() to Ulid::generate().
+    - Recurring-series expansion in range queries arrives in Phase 6; for now a
+      series item appears at its first occurrence only.
+    - The db status line on the placeholder screen is temporary; the real app
+      layout replaces it in #08.
