@@ -7,7 +7,10 @@ import { DiaryView } from '@/views/DiaryView';
 import { InboxView } from '@/views/InboxView';
 import { PendingView } from '@/views/PendingView';
 import { SettingsView } from '@/views/SettingsView';
+import { CommandPalette } from './CommandPalette';
 import { SIDEBAR_AUTO_COLLAPSE_PX, useNav } from './nav';
+import { useOverlay } from './overlay';
+import { ShortcutSheet } from './ShortcutSheet';
 import { Sidebar } from './Sidebar';
 import { TopBar } from './TopBar';
 
@@ -28,7 +31,8 @@ export function AppShell() {
   const actions = useMemo(() => buildActions(), []);
   const contexts = useMemo(() => [view], [view]);
 
-  useKeymap(actions, contexts);
+  const overlayOpen = useOverlay((s) => s.overlay !== null);
+  useKeymap(actions, contexts, overlayOpen);
   usePlannerSync();
   useNarrowWindow();
 
@@ -51,6 +55,8 @@ export function AppShell() {
           )}
         </main>
       </div>
+      <CommandPalette actions={actions} />
+      <ShortcutSheet actions={actions} />
     </div>
   );
 }

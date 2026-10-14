@@ -4,18 +4,21 @@ import {
   CalendarDots,
   CheckCircle,
   Gear,
+  MagnifyingGlass,
   Notebook,
   SidebarSimple,
   SquaresFour,
   Tray,
   type Icon,
 } from '@phosphor-icons/react';
+import { Kbd } from '@/components/ui/kbd';
 import { Tooltip } from '@/components/ui/tooltip';
 import { cn } from '@/lib/cn';
 import type { View } from '@/lib/period';
 import { useOp } from '@/lib/queries';
 import type { Blockout, Item } from '@/lib/types';
 import { isSidebarCollapsed, useNav } from './nav';
+import { useOverlay } from './overlay';
 
 interface NavEntry {
   view: View;
@@ -111,6 +114,7 @@ export function Sidebar() {
   const openSettings = useNav((s) => s.openSettings);
   const toggleSidebar = useNav((s) => s.toggleSidebar);
   const collapsed = useNav(isSidebarCollapsed);
+  const openOverlay = useOverlay((s) => s.open);
   const inbox = useOp<Item[]>('list_inbox');
   const blockouts = useOp<Blockout[]>('list_blockouts');
   const inboxCount = inbox.data?.filter((i) => i.status === 'open').length ?? 0;
@@ -148,6 +152,28 @@ export function Sidebar() {
             className="grid size-6 flex-none cursor-pointer place-items-center rounded-sm text-text-muted hover:bg-hover hover:text-text"
           >
             <SidebarSimple />
+          </button>
+        </Tooltip>
+      </div>
+
+      <div className="flex-none px-2 pb-2">
+        <Tooltip label="Command palette" shortcut="Ctrl K" side="right">
+          <button
+            type="button"
+            onClick={() => openOverlay('palette')}
+            aria-label={collapsed ? 'Search or command' : undefined}
+            className={cn(
+              'flex h-[30px] w-full cursor-pointer items-center gap-2 rounded-md border border-border bg-bg text-text-muted hover:border-border-strong',
+              collapsed ? 'justify-center' : 'px-2',
+            )}
+          >
+            <MagnifyingGlass />
+            {!collapsed && (
+              <>
+                <span className="flex-1 text-left">Search or command</span>
+                <Kbd>Ctrl K</Kbd>
+              </>
+            )}
           </button>
         </Tooltip>
       </div>

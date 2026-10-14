@@ -64,6 +64,12 @@ pub struct DbStatus {
     schema_version: i64,
 }
 
+/// Exits the process (the tray keeps it alive otherwise).
+#[tauri::command]
+pub fn quit_app(app: AppHandle) {
+    app.exit(0);
+}
+
 #[tauri::command]
 pub fn app_version() -> &'static str {
     blotter_core::VERSION

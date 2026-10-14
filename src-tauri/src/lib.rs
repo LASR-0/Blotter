@@ -84,6 +84,7 @@ pub fn run() {
         .on_window_event(shell::on_window_event)
         .invoke_handler(tauri::generate_handler![
             commands::app_version,
+            commands::quit_app,
             commands::db_status,
             commands::list_ops,
             commands::run_op,

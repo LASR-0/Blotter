@@ -1,4 +1,5 @@
 import type { ComponentProps } from 'react';
+import { formatBinding } from '@/keymap/keymap';
 import { cn } from '@/lib/cn';
 
 interface KbdProps extends ComponentProps<'kbd'> {
@@ -26,24 +27,23 @@ export function Kbd({ size = 'sm', onAccent, className, ...props }: KbdProps) {
   );
 }
 
-/** Renders a binding like `Ctrl+K` or a chord like `g w` as chips. */
-export function KeyHint({ keys, size = 'sm' }: { keys: string; size?: 'sm' | 'md' }) {
-  const steps = keys.split(' ');
+/**
+ * A binding as one chip per key, as in the palette and shortcut sheet:
+ * `Ctrl+K` → [Ctrl] [K], `g w` → [g] [w].
+ */
+export function KeyChips({ binding, className }: { binding: string; className?: string }) {
+  const keys = formatBinding(binding)
+    .split(' ')
+    .flatMap((step) => step.split(/\+(?!$)/));
   return (
-    <span className="inline-flex items-center gap-1">
-      {steps.map((step, i) => (
-        <span key={i} className="inline-flex items-center gap-1">
-          {i > 0 && <span className="font-mono text-xs text-text-muted">then</span>}
-          {size === 'sm' ? (
-            <Kbd size="sm">{step.replaceAll('+', ' ')}</Kbd>
-          ) : (
-            step.split('+').map((k) => (
-              <Kbd key={k} size="md">
-                {k}
-              </Kbd>
-            ))
-          )}
-        </span>
+    <span className={cn('inline-flex gap-[3px]', className)}>
+      {keys.map((k, i) => (
+        <kbd
+          key={i}
+          className="min-w-[18px] rounded-[3px] border border-b-2 border-border-strong bg-surface px-[5px] text-center font-mono text-[10.5px] text-text-muted"
+        >
+          {k}
+        </kbd>
       ))}
     </span>
   );

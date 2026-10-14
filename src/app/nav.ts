@@ -22,6 +22,8 @@ interface NavState {
   toggleDiaryCalendar: () => void;
   step: (dir: 1 | -1) => void;
   today: () => void;
+  /** Shows `date` in the Diary (or the current calendar view if one is open). */
+  goToDate: (date: Date) => void;
   toggleSidebar: () => void;
   setNarrow: (narrow: boolean) => void;
   openSettings: (page?: SettingsPage) => void;
@@ -45,6 +47,8 @@ export const useNav = create<NavState>()(
       toggleDiaryCalendar: () => set((s) => ({ view: s.view === 'diary' ? s.calView : 'diary' })),
       step: (dir) => set((s) => ({ anchor: stepPeriod(s.view, s.anchor, dir) })),
       today: () => set({ anchor: midnight() }),
+      goToDate: (date) =>
+        set((s) => ({ anchor: midnight(date), view: isCalendarView(s.view) ? s.view : 'diary' })),
       toggleSidebar: () => set((s) => ({ sidebarCollapsed: !isSidebarCollapsed(s) })),
       setNarrow: (narrow) => set({ narrow }),
       openSettings: (page) =>

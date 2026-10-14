@@ -18,17 +18,22 @@ function isTyping(target: EventTarget | null): boolean {
 
 /**
  * Installs the global key handler. `contexts` are the active view contexts
- * (bindings with context `global` always apply).
+ * (bindings with context `global` always apply). While an overlay is open
+ * only actions marked `inOverlay` respond; the overlay handles the rest.
  */
-export function useKeymap(actions: readonly Action[], contexts: readonly string[]): void {
+export function useKeymap(
+  actions: readonly Action[],
+  contexts: readonly string[],
+  overlayOpen: boolean,
+): void {
   const bindings = useMemo<Binding[]>(
     () =>
       actions.flatMap((a) =>
-        a.binding
+        a.binding && (!overlayOpen || a.inOverlay)
           ? [{ actionId: a.id, sequence: parseBinding(a.binding), context: a.context ?? 'global' }]
           : [],
       ),
-    [actions],
+    [actions, overlayOpen],
   );
   const byId = useMemo(() => new Map(actions.map((a) => [a.id, a])), [actions]);
   const contextSet = useMemo(() => new Set(contexts), [contexts]);

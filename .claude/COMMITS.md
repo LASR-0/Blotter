@@ -46,8 +46,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 05 | 1 | `feat(core): operation registry with JSON schemas and change log` | committed `f405964` (CI green) |
 | 06 | 2 | `feat(app): tray, close-to-tray and single-instance CLI handling` | committed `de724f7` |
 | 07 | 2 | `feat(ui): shadcn/ui setup, theme tokens and built-in presets` | committed `7051ac3` (CI green) |
-| 08 | 2 | `feat(ui): app layout, routing and action/keymap registry` | ready |
-| 09 | 2 | `feat(ui): command palette` | planned |
+| 08 | 2 | `feat(ui): app layout, routing and action/keymap registry` | committed `0fbe467` |
+| 09 | 2 | `feat(ui): command palette` | ready |
 | 10 | 3 | `feat(ui): week view time grid` | planned |
 | 11 | 3 | `feat(ui): month and year views` | planned |
 | 12 | 3 | `feat(ui): diary view with day columns and timeline rail` | planned |
@@ -469,7 +469,7 @@ Notes:
       Switch, Select, Popover…) are added in the commits that first use them.
     - prettier-plugin-tailwindcss now sorts class names; `pnpm format` may reorder classes.
 
-### #08 — App layout, routing and action/keymap registry            [status: ready]
+### #08 — App layout, routing and action/keymap registry            [status: committed 0fbe467]
 Phase: 2
 Message:
     feat(ui): app layout, routing and action/keymap registry
@@ -543,3 +543,64 @@ Notes:
       Quick add (#17), chat toggle (#31), Calendars & tags list (#21/#35).
     - Diary is a single day list for now; the multi-column Diary with the time meter
       and timeline rail is #12.
+
+### #09 — Command palette and shortcut sheet            [status: ready]
+Phase: 2
+Message:
+    feat(ui): command palette
+
+    Ctrl+K opens a cmdk palette in a Radix dialog, styled to the design:
+    grouped actions (Go to, View, Actions, Theme) with icons and key chips,
+    fuzzy matching on labels and keywords, and an Items group that searches
+    titles, notes and tags through the search_items operation (debounced).
+    Choosing an item jumps to its day, or to the Inbox.
+
+    ? opens the keyboard-shortcut sheet, generated from the action
+    registry's live bindings. New actions: Command palette (Ctrl+K),
+    Keyboard shortcuts (?), Quit Blotter (Ctrl+Q, via a quit_app command).
+    While an overlay is open only overlay-safe bindings respond. The
+    sidebar gains the "Search or command" button.
+Files:
+    A  src/app/CommandPalette.tsx
+    A  src/app/ShortcutSheet.tsx
+    A  src/app/overlay.ts
+    M  src/app/AppShell.tsx
+    M  src/app/Sidebar.tsx
+    M  src/app/nav.ts
+    M  src/actions/actions.ts
+    M  src/keymap/useKeymap.ts
+    M  src/components/ui/kbd.tsx
+    M  src-tauri/src/commands.rs
+    M  src-tauri/src/lib.rs
+    M  package.json
+    M  pnpm-lock.yaml
+    M  .claude/COMMITS.md
+    Stage everything in one go:  git add -A
+Test steps:
+    - pnpm install              → completes
+    - pnpm check                → clean; Vitest 31 passed
+    - cargo clippy --workspace --all-targets -- -D warnings → clean
+    - pnpm tauri dev, keyboard only:
+        · Ctrl+K → palette opens with the cursor in the search box
+        · type "wee" → Week is first and selected; Enter → Week view, palette closes
+        · Ctrl+K, type "pap", Enter → Paper theme applied
+        · Ctrl+K, ↑/↓ moves the highlight (wraps at the ends); Esc closes
+        · Ctrl+K twice → opens then closes
+        · add an Inbox task "Call plumber"; Ctrl+K, type "plum" → it appears under Items;
+          Enter → Inbox view
+        · while the palette is open, typing "g" or "i" just types (no navigation)
+        · ? → shortcut sheet with Go to / View / Actions columns; Esc closes
+        · Ctrl+Q → Blotter quits completely (gone from the tray and Task Manager)
+    - Click "Search or command" in the sidebar → palette opens
+Notes:
+    - Verified here with real keystrokes and screenshots: Ctrl+K opens the palette,
+      "wee" ranks Week first, Esc/? open the sheet, Ctrl+Q exits the process.
+    - Fixed during testing: rows first matched on "group + label", which made
+      "wee" fuzzy-match unrelated rows; they now match on label + keywords only.
+      The sheet no longer opens with a focus ring on its Esc button.
+    - cmdk moves the highlight to whatever row the mouse is over; that is normal
+      behaviour, but it means a resting mouse over the palette can change the
+      selection while you type.
+    - The design's palette also lists Quick add, Daily briefing, Auto-slot, Undo,
+      Snapshot and Toggle chat; they join the registry with their features (#17, #33,
+      #22, #27, #28, #31). "Rebind in Settings → Keybindings" on the sheet comes with #36.
