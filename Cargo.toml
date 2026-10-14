@@ -6,7 +6,7 @@ members = ["crates/blotter-core", "src-tauri"]
 version = "0.1.0"
 edition = "2024"
 license = "MIT"
-repository = "https://github.com/LASR-0/blotter"
+repository = "https://github.com/LASR-0/Blotter"
 rust-version = "1.85"
 
 [workspace.dependencies]
@@ -19,3 +19,11 @@ thiserror = "2.0.21"
 codegen-units = 1
 lto = true
 strip = true
+
+[workspace.lints.rust]
+unsafe_code = "deny"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+unwrap_used = "warn"
+expect_used = "warn"

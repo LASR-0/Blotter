@@ -1,0 +1,7 @@
+dist/
+target/
+node_modules/
+pnpm-lock.yaml
+src-tauri/gen/
+src-tauri/icons/
+.claude/

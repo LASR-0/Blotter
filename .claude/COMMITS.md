@@ -39,8 +39,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 
 | # | Phase | Planned message | Status |
 |---|---|---|---|
-| 01 | 0 | `chore: scaffold Tauri 2 + React + Vite app with Cargo workspace` | ready |
-| 02 | 0 | `chore: add rustfmt, clippy, eslint, prettier and vitest tooling` | planned |
+| 01 | 0 | `chore: scaffold Tauri 2 + React + Vite app with Cargo workspace` | committed `2ce6f7e` |
+| 02 | 0 | `chore: add rustfmt, clippy, eslint, prettier and vitest tooling` | ready |
 | 03 | 0 | `ci: build and test on Windows and Linux` | planned |
 | 04 | 1 | `feat(core): domain models, SQLite schema and migrations` | planned |
 | 05 | 1 | `feat(core): operation registry with JSON schemas and change log` | planned |
@@ -90,7 +90,7 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 ## Entries
 <!-- Ready and committed entries go below, newest last. -->
 
-### #01 — Scaffold Tauri 2 + React + Vite with Cargo workspace            [status: ready]
+### #01 — Scaffold Tauri 2 + React + Vite with Cargo workspace            [status: committed 2ce6f7e]
 Phase: 0
 Message:
     chore: scaffold Tauri 2 + React + Vite app with Cargo workspace
@@ -151,3 +151,46 @@ Notes:
     - On the KSB network, npm/pnpm need NODE_OPTIONS=--use-system-ca and cargo
       needs CARGO_HTTP_CHECK_REVOKE=false (corporate TLS inspection). CI is unaffected.
     - Icons were generated from public/blotter.svg with `pnpm tauri icon`.
+
+### #02 — Lint, format and test tooling            [status: ready]
+Phase: 0
+Message:
+    chore: add rustfmt, clippy, eslint, prettier and vitest tooling
+
+    Workspace lint policy: clippy::all warn, unwrap/expect warn outside
+    tests, unsafe_code denied (one audited exception for the Linux WebKit
+    env var). ESLint 10 flat config with typescript-eslint and react-hooks,
+    Prettier, Vitest 5. `pnpm check` runs typecheck, lint, format check and
+    tests. run() now reports a startup failure instead of panicking.
+Files:
+    M  Cargo.toml
+    M  crates/blotter-core/Cargo.toml
+    M  src-tauri/Cargo.toml
+    M  src-tauri/src/lib.rs
+    M  package.json
+    M  pnpm-lock.yaml
+    M  tsconfig.node.json
+    A  .editorconfig
+    A  .prettierrc.json
+    A  .prettierignore
+    A  clippy.toml
+    A  rustfmt.toml
+    A  eslint.config.js
+    A  vitest.config.ts
+    A  src/lib/duration.ts
+    A  src/lib/duration.test.ts
+    M  .claude/COMMITS.md
+    Stage everything in one go:  git add -A
+Test steps:
+    - pnpm install                                        → completes
+    - pnpm check                                          → tsc, eslint, prettier all clean; Vitest 8 passed
+    - cargo fmt --all --check                             → no output, exit 0
+    - cargo clippy --workspace --all-targets -- -D warnings → finishes with no warnings
+    - cargo test --workspace                              → 1 passed
+    - pnpm tauri dev                                      → same window as #01 still opens
+Notes:
+    - Cargo repository URL corrected to github.com/LASR-0/Blotter (capital B, matching the remote).
+    - src/lib/duration.ts (formatDuration → "45m", "1h 30m") is the first real util;
+      the Diary time meter and cards will use it.
+    - The Linux-only cfg block is not compiled on Windows; #03's ubuntu CI job is
+      what proves it is clippy-clean.

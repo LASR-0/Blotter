@@ -18,7 +18,10 @@ fn apply_platform_workarounds() {
             // SAFETY: called at the top of `run`, before Tauri or any other
             // thread is started, so no other thread can read the environment
             // concurrently.
-            unsafe { std::env::set_var(KEY, "1") };
+            #[allow(unsafe_code)]
+            unsafe {
+                std::env::set_var(KEY, "1")
+            };
         }
     }
 }
@@ -27,8 +30,12 @@ fn apply_platform_workarounds() {
 pub fn run() {
     apply_platform_workarounds();
 
-    tauri::Builder::default()
+    let result = tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![app_version])
-        .run(tauri::generate_context!())
-        .expect("error while running Blotter");
+        .run(tauri::generate_context!());
+
+    if let Err(err) = result {
+        eprintln!("Blotter failed to start: {err}");
+        std::process::exit(1);
+    }
 }
