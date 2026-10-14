@@ -40,8 +40,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | # | Phase | Planned message | Status |
 |---|---|---|---|
 | 01 | 0 | `chore: scaffold Tauri 2 + React + Vite app with Cargo workspace` | committed `2ce6f7e` |
-| 02 | 0 | `chore: add rustfmt, clippy, eslint, prettier and vitest tooling` | ready |
-| 03 | 0 | `ci: build and test on Windows and Linux` | planned |
+| 02 | 0 | `chore: add rustfmt, clippy, eslint, prettier and vitest tooling` | committed `467e1ca` |
+| 03 | 0 | `ci: build and test on Windows and Linux` | ready |
 | 04 | 1 | `feat(core): domain models, SQLite schema and migrations` | planned |
 | 05 | 1 | `feat(core): operation registry with JSON schemas and change log` | planned |
 | 06 | 2 | `feat(app): tray, close-to-tray and single-instance CLI handling` | planned |
@@ -152,7 +152,7 @@ Notes:
       needs CARGO_HTTP_CHECK_REVOKE=false (corporate TLS inspection). CI is unaffected.
     - Icons were generated from public/blotter.svg with `pnpm tauri icon`.
 
-### #02 — Lint, format and test tooling            [status: ready]
+### #02 — Lint, format and test tooling            [status: committed 467e1ca]
 Phase: 0
 Message:
     chore: add rustfmt, clippy, eslint, prettier and vitest tooling
@@ -194,3 +194,34 @@ Notes:
       the Diary time meter and cards will use it.
     - The Linux-only cfg block is not compiled on Windows; #03's ubuntu CI job is
       what proves it is clippy-clean.
+
+### #03 — CI on Windows and Linux            [status: ready]
+Phase: 0
+Message:
+    ci: build and test on Windows and Linux
+
+    GitHub Actions on push to main, PRs and manual dispatch. A frontend
+    job runs `pnpm check` and the Vite build. A Rust matrix on
+    windows-latest and ubuntu-latest builds the frontend (generate_context
+    embeds dist/), then runs clippy -D warnings and the workspace tests;
+    rustfmt runs once on Linux. Installs the WebKitGTK 4.1, appindicator
+    and xdo dev packages on Ubuntu.
+Files:
+    A  .github/workflows/ci.yml
+    M  .claude/COMMITS.md
+    Stage everything in one go:  git add -A
+Test steps:
+    - pnpm format:check        → clean (Prettier also checks the workflow YAML)
+    - Commit and push, then open the repo's Actions tab
+                               → the "CI" run shows three jobs: Frontend, Rust (windows-latest),
+                                 Rust (ubuntu-latest), all green
+    - The first run is slow (~10–15 min for the Rust jobs); rust-cache makes
+      later runs much faster.
+Notes:
+    - Actions pinned to majors: checkout@v7, setup-node@v7, pnpm/action-setup@v6
+      (reads pnpm 12.3.4 from package.json "packageManager"), Swatinem/rust-cache@v2,
+      dtolnay/rust-toolchain@stable.
+    - The Ubuntu job is the first time the Linux-only WebKit workaround in
+      src-tauri/src/lib.rs gets compiled and linted. If it fails, send me the log
+      and I'll add a fix entry.
+    - Bundling (installers) is not built in CI yet; that arrives in Phase 13.
