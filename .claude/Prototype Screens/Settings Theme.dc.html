@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&amp;family=Geist+Mono:wght@400;500&amp;family=Newsreader:opsz,wght@6..72,500&amp;display=swap">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/bold/style.css">
+<script src="blotter-themes.js"></script>
+<style>body{margin:0;background:var(--color-bg);color:var(--color-text);font-family:var(--font-ui);font-size:13px}*{box-sizing:border-box}:focus-visible{outline:2px solid var(--color-focus-ring);outline-offset:2px}</style>
+</helmet>
+<div style="display:flex;flex-direction:column;height:100%;min-height:0;color:var(--color-text);font-family:var(--font-ui);font-size:var(--text-base)">
+  <div style="display:flex;align-items:center;flex-wrap:wrap;gap:10px;padding:14px 20px;border-bottom:1px solid var(--color-border)">
+    <h1 style="margin:0;font-family:var(--font-heading);font-weight:var(--heading-weight);font-size:var(--text-xl)">Theme</h1>
+    <span style="font-size:11px;padding:2px 8px;border-radius:99px;border:1px dashed var(--color-pencil);color:var(--color-text-muted);font-family:var(--font-mono);white-space:nowrap">draft · {{ draftName }}</span>
+    <sc-if value="{{ hasWarn }}" hint-placeholder-val="{{ true }}"><span style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--color-warning);white-space:nowrap"><i class="ph-fill ph-warning"></i>{{ warnCount }} below WCAG AA</span></sc-if>
+    <span style="flex:1"></span>
+    <button style="height:30px;padding:0 12px;border:1px solid var(--color-border-strong);border-radius:var(--radius-md);background:transparent;color:var(--color-text);font:inherit;cursor:pointer;display:flex;align-items:center;gap:6px"><i class="ph ph-copy"></i>Duplicate</button>
+    <button style="height:30px;padding:0 12px;border:1px solid var(--color-border-strong);border-radius:var(--radius-md);background:transparent;color:var(--color-text);font:inherit;cursor:pointer;display:flex;align-items:center;gap:6px"><i class="ph ph-file-arrow-down"></i>Export</button>
+    <button onClick="{{ discard }}" style="height:30px;padding:0 12px;border:1px solid transparent;border-radius:var(--radius-md);background:transparent;color:var(--color-text-muted);font:inherit;cursor:pointer" style-hover="background:var(--color-hover)">Discard</button>
+    <button onClick="{{ apply }}" style="height:30px;padding:0 14px;border:1px solid var(--color-accent);border-radius:var(--radius-md);background:var(--color-accent);color:var(--color-on-accent);font:inherit;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:8px">{{ applyLabel }}<span style="font-family:var(--font-mono);font-size:10px;padding:0 4px;border-radius:3px;background:color-mix(in srgb,var(--color-on-accent) 18%,transparent)">Ctrl ↵</span></button>
+  </div>
+  <div style="flex:1;min-height:0;display:flex">
+    <div style="width:340px;flex:none;border-right:1px solid var(--color-border);overflow:auto;padding:14px 16px 30px;display:flex;flex-direction:column;gap:16px">
+      <div style="display:flex;flex-direction:column;gap:6px"><span style="font-size:12px;color:var(--color-text-muted)">Start from preset</span>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px"><sc-for list="{{ presets }}" as="p" hint-placeholder-count="4"><button onClick="{{ p.onClick }}" style="{{ p.style }}"><span style="display:flex;height:18px;border-radius:3px;overflow:hidden;border:1px solid var(--color-border)"><span style="flex:2;background:{{ p.bg }}"></span><span style="flex:1;background:{{ p.accent }}"></span></span>{{ p.label }}</button></sc-for></div>
+      </div>
+      <sc-for list="{{ groups }}" as="g" hint-placeholder-count="5">
+        <div style="display:flex;flex-direction:column;gap:2px">
+          <span style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--color-text-muted);padding-bottom:4px">{{ g.name }}</span>
+          <sc-for list="{{ g.tokens }}" as="t" hint-placeholder-count="4">
+            <div style="display:flex;flex-direction:column;gap:3px;padding:3px 0">
+              <div style="display:flex;align-items:center;gap:8px">
+                <span style="width:22px;height:22px;border-radius:4px;flex:none;background:{{ t.value }};border:1px solid var(--color-border-strong)"></span>
+                <span style="flex:1;font-family:var(--font-mono);font-size:11px;color:var(--color-text-muted);overflow:hidden;text-overflow:ellipsis">{{ t.name }}</span>
+                <input value="{{ t.value }}" onChange="{{ t.onChange }}" spellcheck="false" style="{{ t.inputStyle }}">
+              </div>
+              <sc-if value="{{ t.warn }}" hint-placeholder-val="{{ false }}"><span style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--color-warning);padding-left:30px"><i class="ph-fill ph-warning"></i>{{ t.warnText }}</span></sc-if>
+            </div>
+          </sc-for>
+        </div>
+      </sc-for>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <span style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--color-text-muted)">Shape &amp; type</span>
+        <label style="display:flex;align-items:center;gap:10px;font-size:12px;color:var(--color-text-muted)"><span style="width:70px">Radius</span><input type="range" min="0" max="12" value="{{ radius }}" onChange="{{ onRadius }}" style="flex:1;accent-color:var(--color-accent)"><span style="font-family:var(--font-mono);width:34px;text-align:right;color:var(--color-text)">{{ radius }}px</span></label>
+        <div style="display:flex;align-items:center;gap:10px;font-size:12px;color:var(--color-text-muted)"><span style="width:70px">Headings</span><div style="display:flex;padding:2px;border:1px solid var(--color-border);border-radius:var(--radius-md)"><button onClick="{{ setSans }}" style="{{ sansBtn }}">Sans</button><button onClick="{{ setSerif }}" style="{{ serifBtn }}">Serif</button></div></div>
+        <div style="display:flex;align-items:center;gap:10px;font-size:12px;color:var(--color-text-muted)"><span style="width:70px">Density</span><div style="display:flex;padding:2px;border:1px solid var(--color-border);border-radius:var(--radius-md)"><span style="padding:3px 10px;border-radius:4px;background:var(--color-surface-raised);color:var(--color-text);box-shadow:0 0 0 1px var(--color-border-strong)">Compact</span><span style="padding:3px 10px">Comfortable</span></div></div>
+      </div>
+    </div>
+
+    <div style="{{ previewStyle }}">
+      <div style="display:flex;align-items:center;gap:8px;font-size:11px;color:var(--color-text-muted);text-transform:uppercase;letter-spacing:.06em">Live preview<span style="text-transform:none;letter-spacing:0">· only this panel uses the draft until you apply</span></div>
+      <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px">
+        <div style="padding:14px;border:1px solid var(--color-border);border-radius:var(--radius-lg);background:var(--color-surface);display:flex;flex-direction:column;gap:12px">
+          <span style="font-size:11px;color:var(--color-text-muted)">Buttons · input · tooltip</span>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <span style="height:28px;padding:0 12px;border-radius:var(--radius-md);background:var(--color-accent);color:var(--color-on-accent);display:flex;align-items:center;font-weight:500">Primary</span>
+            <span style="height:28px;padding:0 12px;border-radius:var(--radius-md);border:1px solid var(--color-border-strong);background:var(--color-surface-raised);display:flex;align-items:center">Secondary</span>
+            <span style="height:28px;padding:0 12px;border-radius:var(--radius-md);display:flex;align-items:center;color:var(--color-text-muted)">Ghost</span>
+            <span style="height:28px;padding:0 12px;border-radius:var(--radius-md);border:1px solid var(--color-border-strong);display:flex;align-items:center;outline:2px solid var(--color-focus-ring);outline-offset:2px">Focused</span>
+          </div>
+          <div style="position:relative;display:flex;align-items:center;gap:8px;padding-top:30px">
+            <span style="flex:1;height:30px;padding:0 10px;border-radius:var(--radius-md);border:1px solid var(--color-accent);background:var(--color-bg);display:flex;align-items:center">Dentist tue 3pm<span style="width:1px;height:14px;background:var(--color-accent);margin-left:1px"></span></span>
+            <span style="position:relative;width:30px;height:30px;border-radius:var(--radius-md);border:1px solid var(--color-border-strong);display:grid;place-items:center"><i class="ph ph-sparkle"></i>
+              <span style="position:absolute;bottom:calc(100% + 6px);right:0;white-space:nowrap;padding:4px 8px;border-radius:var(--radius-sm);background:var(--color-text);color:var(--color-bg);font-size:11px;display:flex;gap:6px">Toggle chat<span style="font-family:var(--font-mono);opacity:.75">Ctrl /</span></span></span>
+          </div>
+        </div>
+        <div style="padding:14px;border:1px solid var(--color-border);border-radius:var(--radius-lg);background:var(--color-bg);display:flex;flex-direction:column;gap:8px">
+          <span style="font-size:11px;color:var(--color-text-muted)">Diary cards</span>
+          <div style="padding:9px 11px;border-radius:var(--radius-md);background:var(--color-surface);border:1px solid var(--color-border);display:flex;gap:9px"><span style="width:15px;height:15px;border-radius:4px;border:1.5px solid var(--color-border-strong);flex:none"></span><span style="display:flex;flex-direction:column;gap:3px"><span style="font-weight:500">Telehealth consult</span><span style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-muted)">11:30–12:15 · <i class="ph-fill ph-push-pin"></i> in Work</span></span></div>
+          <div style="padding:9px 11px;border-radius:var(--radius-md);border:1px dashed var(--color-pencil);display:flex;gap:9px"><span style="width:15px;height:15px;border-radius:4px;border:1px dashed var(--color-pencil);flex:none"></span><span style="display:flex;flex-direction:column;gap:3px"><span style="font-weight:500">Call Mum</span><span style="font-family:var(--font-mono);font-size:11px;color:var(--color-pencil)">✎ proposed · 18:30</span></span></div>
+          <div style="padding:9px 11px;border-radius:var(--radius-md);display:flex;gap:9px"><span style="width:15px;height:15px;border-radius:4px;background:var(--color-accent);flex:none"></span><span style="display:flex;flex-direction:column;gap:3px"><span style="text-decoration:line-through;color:var(--color-text-muted)">Morning run</span><span style="font-family:var(--font-mono);font-size:10.5px;color:var(--color-text-muted)">✓ 07:48</span></span></div>
+        </div>
+        <div style="padding:14px;border:1px solid var(--color-border);border-radius:var(--radius-lg);background:var(--color-bg);display:flex;flex-direction:column;gap:8px">
+          <span style="font-size:11px;color:var(--color-text-muted)">Week grid · block-out · conflict</span>
+          <div style="position:relative;height:150px;display:grid;grid-template-columns:30px 1fr 1fr 1fr;border-top:1px solid var(--color-border)">
+            <div style="font-family:var(--font-mono);font-size:9.5px;color:var(--color-text-muted);display:flex;flex-direction:column;justify-content:space-between;padding:2px 0">15<span>16</span><span>17</span></div>
+            <div style="position:relative;border-left:1px solid var(--color-border);background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--color-blockout) 30%,transparent) 0 1.5px,transparent 1.5px 7px)"><span style="position:absolute;left:4px;top:3px;font-size:9.5px;font-family:var(--font-mono);color:var(--color-text-muted);background:var(--color-bg);padding:0 3px">Work</span></div>
+            <div style="position:relative;border-left:1px solid var(--color-border);background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--color-blockout) 30%,transparent) 0 1.5px,transparent 1.5px 7px)">
+              <div style="position:absolute;left:2px;right:50%;top:20px;height:60px;border-radius:4px;background:color-mix(in srgb,var(--tag-health) 18%,var(--color-bg));border:1px solid var(--color-conflict);border-left:3px solid var(--color-conflict);font-size:10px;padding:2px 4px"><i class="ph-fill ph-warning" style="color:var(--color-conflict)"></i> Dentist</div>
+              <div style="position:absolute;left:50%;right:2px;top:50px;height:40px;border-radius:4px;background:color-mix(in srgb,var(--tag-personal) 18%,var(--color-bg));border:1px solid var(--color-conflict);border-left:3px solid var(--color-conflict);font-size:10px;padding:2px 4px">P–T</div>
+            </div>
+            <div style="position:relative;border-left:1px solid var(--color-border)">
+              <div style="position:absolute;left:2px;right:2px;top:100px;height:40px;border-radius:4px;border:1px dashed var(--color-pencil);font-size:10px;padding:2px 4px">✎ Gym</div>
+              <div style="position:absolute;left:-4px;right:0;top:70px;height:2px;background:var(--color-danger)"></div>
+            </div>
+          </div>
+        </div>
+        <div style="padding:14px;border:1px solid var(--color-border);border-radius:var(--radius-lg);background:var(--color-surface);display:flex;flex-direction:column;gap:8px">
+          <span style="font-size:11px;color:var(--color-text-muted)">Chat · proposal</span>
+          <span style="align-self:flex-end;padding:7px 10px;border-radius:10px 10px 3px 10px;background:var(--color-accent-tint);font-size:12px">Fit in a call with Mum tonight</span>
+          <div style="border:1px dashed var(--color-pencil);border-radius:var(--radius-lg);background:var(--color-bg);padding:9px 10px;display:flex;align-items:center;gap:8px;font-size:12px"><span style="font-family:var(--font-mono);color:var(--color-accent-text)">+</span><span style="flex:1"><span style="font-weight:500">Call Mum</span><br><span style="font-family:var(--font-mono);font-size:10.5px;color:var(--color-text-muted)">Tue 18:30–18:50</span></span><span style="width:24px;height:24px;border-radius:var(--radius-md);border:1px solid var(--color-border-strong);display:grid;place-items:center"><i class="ph-bold ph-check"></i></span></div>
+        </div>
+        <div style="padding:14px;border:1px solid var(--color-border);border-radius:var(--radius-lg);background:var(--color-bg);display:flex;flex-direction:column;gap:10px">
+          <span style="font-size:11px;color:var(--color-text-muted)">Dialog · toast</span>
+          <div style="padding:12px;border-radius:var(--radius-lg);background:var(--color-surface-raised);box-shadow:var(--shadow-overlay);display:flex;flex-direction:column;gap:8px"><span style="font-family:var(--font-heading);font-weight:var(--heading-weight);font-size:15px">Delete "Meal prep"?</span><span style="font-size:12px;color:var(--color-text-muted)">You can undo this with Ctrl+Z.</span><div style="display:flex;justify-content:flex-end;gap:6px"><span style="height:26px;padding:0 10px;border-radius:var(--radius-md);border:1px solid var(--color-border-strong);display:flex;align-items:center;font-size:12px">Cancel</span><span style="height:26px;padding:0 10px;border-radius:var(--radius-md);background:var(--color-danger);color:var(--color-on-accent);display:flex;align-items:center;font-size:12px;font-weight:500">Delete</span></div></div>
+          <div style="padding:10px 12px;border-radius:var(--radius-md);background:var(--color-surface-raised);box-shadow:var(--shadow-overlay);display:flex;align-items:center;gap:8px;font-size:12px"><i class="ph-fill ph-bell-ringing" style="color:var(--color-accent-text)"></i><span style="flex:1">Telehealth consult in 10 min</span><span style="font-family:var(--font-mono);font-size:11px;padding:2px 6px;border:1px solid var(--color-border-strong);border-radius:4px">5m</span></div>
+        </div>
+        <div style="padding:14px;border:1px solid var(--color-border);border-radius:var(--radius-lg);background:var(--color-surface);display:flex;flex-direction:column;gap:8px">
+          <span style="font-size:11px;color:var(--color-text-muted)">Command palette</span>
+          <div style="border-radius:var(--radius-lg);background:var(--color-surface-raised);box-shadow:var(--shadow-overlay);overflow:hidden">
+            <div style="padding:9px 12px;border-bottom:1px solid var(--color-border);display:flex;gap:8px;align-items:center"><i class="ph ph-magnifying-glass" style="color:var(--color-text-muted)"></i>go to w</div>
+            <div style="padding:6px">
+              <div style="display:flex;align-items:center;gap:8px;height:28px;padding:0 8px;border-radius:var(--radius-md);background:var(--color-accent-tint);font-size:12px"><i class="ph ph-calendar"></i><span style="flex:1">Go to Week</span><span style="font-family:var(--font-mono);font-size:10px;color:var(--color-text-muted)">g w</span></div>
+              <div style="display:flex;align-items:center;gap:8px;height:28px;padding:0 8px;font-size:12px"><i class="ph ph-arrows-left-right"></i><span style="flex:1">Toggle Diary ↔ Calendar</span><span style="font-family:var(--font-mono);font-size:10px;color:var(--color-text-muted)">v</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;onApply&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;(vars:object)=&gt;void&quot;}}">
+class Component extends DCLogic {
+  state = { base: 'dark', draft: null, radius: 6, serif: false, applied: false };
+  componentDidMount() { if (!window.BLOTTER_THEMES) this.poll = setInterval(() => { if (window.BLOTTER_THEMES) { clearInterval(this.poll); this.forceUpdate(); } }, 50); }
+  componentWillUnmount() { clearInterval(this.poll); }
+  lum(hex) { const m = /^#?([0-9a-f]{6})$/i.exec((hex || '').trim()); if (!m) return null; const n = parseInt(m[1], 16); return [n >> 16, (n >> 8) & 255, n & 255].map(v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }).reduce((a, v, i) => a + v * [0.2126, 0.7152, 0.0722][i], 0); }
+  ratio(a, b) { const x = this.lum(a), y = this.lum(b); if (x == null || y == null) return null; return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); }
+  renderVals() {
+    const T = window.BLOTTER_THEMES, G = window.BLOTTER_TOKEN_GROUPS;
+    if (!T) return { presets: [], groups: [], previewStyle: {}, hasWarn: false };
+    const s = this.state;
+    const draft = s.draft || { ...T[s.base].vars, ...(s.base === 'dark' ? { '--color-text-muted': '#6a6c78' } : {}) };
+    const checks = { '--color-text': [['--color-bg', 'background'], ['--color-surface', 'surface']], '--color-text-muted': [['--color-bg', 'background'], ['--color-surface', 'surface']], '--color-accent-text': [['--color-accent-tint', 'accent tint']], '--color-on-accent': [['--color-accent', 'accent']] };
+    let warnCount = 0;
+    const set = (k, v) => this.setState({ draft: { ...draft, [k]: v }, applied: false });
+    const groups = G.map(([name, keys]) => ({ name, tokens: keys.map(k => {
+      let warn = false, warnText = '';
+      (checks[k] || []).forEach(([bg, label]) => { const r = this.ratio(draft[k], draft[bg]); if (r != null && r < 4.5 && !warn) { warn = true; warnText = `${r.toFixed(2)}:1 on ${label} — AA needs 4.5:1`; } });
+      if (warn) warnCount++;
+      return { name: k.replace('--', ''), value: draft[k], warn, warnText, onChange: (e) => set(k, e.target.value),
+        inputStyle: { width: 84, height: 24, padding: '0 6px', fontFamily: 'var(--font-mono)', fontSize: 11, borderRadius: 4, background: 'var(--color-bg)', color: 'var(--color-text)', border: '1px solid ' + (warn ? 'var(--color-warning)' : 'var(--color-border-strong)') } };
+    }) }));
+    const presets = Object.keys(T).map(k => ({ label: T[k].label, bg: T[k].vars['--color-bg'], accent: T[k].vars['--color-accent'], onClick: () => this.setState({ base: k, draft: null, serif: k === 'paper', applied: false }),
+      style: { display: 'flex', flexDirection: 'column', gap: 5, padding: 6, borderRadius: 'var(--radius-md)', font: 'inherit', fontSize: 11, cursor: 'pointer', color: 'var(--color-text)', background: 'transparent', border: '1px solid ' + (s.base === k ? 'var(--color-accent)' : 'var(--color-border)') } }));
+    const pv = { ...draft, '--radius-md': s.radius + 'px', '--radius-lg': (s.radius + 4) + 'px', '--font-heading': s.serif ? '"Newsreader", Georgia, serif' : draft['--font-ui'] };
+    const previewStyle = { ...pv, flex: 1, minWidth: 0, overflow: 'auto', padding: 18, display: 'flex', flexDirection: 'column', gap: 12, background: 'var(--color-bg)', color: 'var(--color-text)', fontFamily: 'var(--font-ui)' };
+    const seg = (on) => ({ font: 'inherit', fontSize: 12, padding: '3px 10px', borderRadius: 4, border: 0, cursor: 'pointer', background: on ? 'var(--color-surface-raised)' : 'transparent', color: on ? 'var(--color-text)' : 'var(--color-text-muted)', boxShadow: on ? '0 0 0 1px var(--color-border-strong)' : 'none' });
+    return { presets, groups, previewStyle, hasWarn: warnCount > 0, warnCount, draftName: T[s.base].label + (s.draft || s.base === 'dark' ? ' (edited)' : ''),
+      radius: s.radius, onRadius: (e) => this.setState({ radius: +e.target.value }),
+      sansBtn: seg(!s.serif), serifBtn: seg(s.serif), setSans: () => this.setState({ serif: false }), setSerif: () => this.setState({ serif: true }),
+      applyLabel: s.applied ? 'Applied' : 'Apply',
+      apply: () => { this.setState({ applied: true }); this.props.onApply && this.props.onApply(pv); },
+      discard: () => this.setState({ draft: T[s.base].vars, applied: false }) };
+  }
+}
+</script>
+</body>
+</html>

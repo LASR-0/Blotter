@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&amp;family=Geist+Mono:wght@400;500&amp;family=Newsreader:opsz,wght@6..72,500&amp;display=swap">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
+<script src="blotter-themes.js"></script>
+<style>body{margin:0;background:var(--color-bg);color:var(--color-text);font-family:var(--font-ui);font-size:13px}*{box-sizing:border-box}a{color:var(--color-accent-text)}a:hover{color:var(--color-text)}:focus-visible{outline:2px solid var(--color-focus-ring);outline-offset:2px}</style>
+</helmet>
+<div style="display:flex;flex-direction:column;height:100%;min-height:0;background:var(--color-bg);color:var(--color-text);font-family:var(--font-ui);font-size:var(--text-base)">
+  <div style="display:flex;align-items:center;gap:16px;padding:10px 20px;border-bottom:1px solid var(--color-border)">
+    <div role="tablist" style="display:flex;padding:2px;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-surface)">
+      <button onClick="{{ setSched }}" style="{{ segA }}">Scheduled load</button>
+      <button onClick="{{ setDone }}" style="{{ segB }}">Completed</button>
+    </div>
+    <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--color-text-muted)">
+      <span>Less</span>
+      <span style="width:12px;height:12px;border-radius:3px;background:var(--heat-0);border:1px solid var(--color-border)"></span>
+      <span style="width:12px;height:12px;border-radius:3px;background:var(--heat-1)"></span>
+      <span style="width:12px;height:12px;border-radius:3px;background:var(--heat-2)"></span>
+      <span style="width:12px;height:12px;border-radius:3px;background:var(--heat-3)"></span>
+      <span style="width:12px;height:12px;border-radius:3px;background:var(--heat-4)"></span>
+      <span>More</span>
+    </div>
+    <span style="flex:1"></span>
+    <span style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-muted)">{{ summary }}</span>
+  </div>
+  <div style="flex:1;min-height:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));grid-template-rows:repeat(3,minmax(0,1fr));gap:18px 28px;padding:18px 24px 22px">
+    <sc-for list="{{ months }}" as="m" hint-placeholder-count="12">
+      <div style="display:flex;flex-direction:column;gap:6px;min-height:0">
+        <div style="display:flex;align-items:baseline;gap:8px"><span style="font-family:var(--font-heading);font-weight:var(--heading-weight);font-size:var(--text-lg);color:{{ m.color }}">{{ m.name }}</span><span style="font-family:var(--font-mono);font-size:10px;color:var(--color-text-muted)">{{ m.count }}</span></div>
+        <div style="flex:1;min-height:0;display:grid;grid-template-columns:repeat(7,minmax(0,1fr));grid-template-rows:auto repeat(6,minmax(0,1fr));gap:3px">
+          <sc-for list="{{ wd }}" as="w" hint-placeholder-count="7"><span style="font-size:9.5px;color:var(--color-text-muted);text-align:center;font-family:var(--font-mono)">{{ w }}</span></sc-for>
+          <sc-for list="{{ m.cells }}" as="c" hint-placeholder-count="35">
+            <div tabindex="{{ c.tab }}" onClick="{{ c.onFocus }}" title="{{ c.tip }}" style="{{ c.style }}">{{ c.n }}
+              <sc-if value="{{ c.focused }}" hint-placeholder-val="{{ false }}">
+                <div style="position:absolute;z-index:5;left:50%;bottom:calc(100% + 8px);transform:translateX(-50%);white-space:nowrap;padding:6px 9px;border-radius:var(--radius-md);background:var(--color-surface-raised);box-shadow:var(--shadow-overlay);font-size:11px;color:var(--color-text);display:flex;align-items:center;gap:8px;font-weight:400">
+                  <span style="font-weight:500">{{ focusTip }}</span>
+                  <span style="font-family:var(--font-mono);font-size:10px;padding:0 4px;border:1px solid var(--color-border-strong);border-bottom-width:2px;border-radius:3px;color:var(--color-text-muted)">↵ Week</span>
+                </div>
+              </sc-if>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;keys&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;},&quot;onOpenWeek&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;()=&gt;void&quot;}}">
+class Component extends DCLogic {
+  state = { mode: 'sched', focus: '10-20' };
+  componentDidMount() {
+    this.onKey = (e) => {
+      if (this.props.keys === false) return;
+      const t = (e.target.tagName || '').toLowerCase(); if (t === 'input' || t === 'textarea' || e.ctrlKey) return;
+      const d = { ArrowLeft: -1, h: -1, ArrowRight: 1, l: 1, ArrowUp: -7, k: -7, ArrowDown: 7, j: 7 }[e.key];
+      if (e.key === 'Enter' && this.props.onOpenWeek) return this.props.onOpenWeek();
+      if (!d) return; e.preventDefault();
+      const [m, day] = this.state.focus.split('-').map(Number), dt = new Date(2026, m, day + d);
+      if (dt.getFullYear() === 2026) this.setState({ focus: dt.getMonth() + '-' + dt.getDate() });
+    };
+    window.addEventListener('keydown', this.onKey);
+  }
+  componentWillUnmount() { window.removeEventListener('keydown', this.onKey); }
+  renderVals() {
+    const s = this.state, names = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    const rnd = (n) => { const x = Math.sin(n * 12.9898) * 43758.5453; return x - Math.floor(x); };
+    let total = 0;
+    const months = names.map((name, m) => {
+      const first = (new Date(2026, m, 1).getDay() + 6) % 7, len = new Date(2026, m + 1, 0).getDate(), cells = [];
+      let count = 0;
+      for (let i = 0; i < first; i++) cells.push({ n: '', tab: -1, style: {}, tip: '' });
+      for (let d = 1; d <= len; d++) {
+        const dt = new Date(2026, m, d), wd = (dt.getDay() + 6) % 7, past = dt <= new Date(2026, 9, 13), doy = m * 31 + d;
+        let items = Math.round(rnd(doy) * 5 + (wd < 5 ? 2 : 0) + (m === 11 && d > 14 ? 3 : 0));
+        if (s.mode === 'done') items = past ? Math.max(0, Math.round(items * (0.55 + rnd(doy + 7) * 0.45))) : 0;
+        if (s.mode === 'sched' && dt > new Date(2026, 10, 30) && rnd(doy + 3) > 0.6) items = Math.max(0, items - 4);
+        count += items;
+        const lvl = items === 0 ? 0 : items < 3 ? 1 : items < 5 ? 2 : items < 7 ? 3 : 4;
+        const key = m + '-' + d, focused = s.focus === key, today = m === 9 && d === 13;
+        cells.push({ n: d, tab: focused ? 0 : -1, focused, tip: `${d} ${name.slice(0, 3)} · ${items} items`,
+          style: { position: 'relative', borderRadius: 3, background: `var(--heat-${lvl})`, display: 'grid', placeItems: 'center', fontSize: 10, fontFamily: 'var(--font-mono)', cursor: 'default', minHeight: 0,
+            color: lvl >= 3 ? 'var(--color-on-accent)' : 'var(--color-text-muted)', fontWeight: lvl >= 3 ? 500 : 400,
+            boxShadow: today ? 'inset 0 0 0 1.5px var(--color-text)' : 'none',
+            outline: focused ? '2px solid var(--color-focus-ring)' : 'none', outlineOffset: 1, zIndex: focused ? 4 : 'auto' },
+          onFocus: () => this.setState({ focus: key }) });
+      }
+      total += count;
+      return { name, cells, count: count + (s.mode === 'done' ? ' done' : ' items'), color: m === 9 ? 'var(--color-accent-text)' : 'var(--color-text)' };
+    });
+    const [fm, fd] = s.focus.split('-').map(Number), fdt = new Date(2026, fm, fd);
+    const seg = (on) => ({ font: 'inherit', fontSize: 12, height: 26, padding: '0 12px', border: 0, borderRadius: 4, cursor: 'pointer',
+      background: on ? 'var(--color-surface-raised)' : 'transparent', color: on ? 'var(--color-text)' : 'var(--color-text-muted)', boxShadow: on ? '0 0 0 1px var(--color-border-strong)' : 'none', fontWeight: on ? 500 : 400 });
+    return { months, wd: ['M', 'T', 'W', 'T', 'F', 'S', 'S'], segA: seg(s.mode === 'sched'), segB: seg(s.mode === 'done'),
+      setSched: () => this.setState({ mode: 'sched' }), setDone: () => this.setState({ mode: 'done' }),
+      focusTip: fdt.toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' }) + ' · 6 items, 4h 10m',
+      summary: s.mode === 'sched' ? `${total} scheduled in 2026` : `${total} completed in 2026` };
+  }
+}
+</script>
+</body>
+</html>

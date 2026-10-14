@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&amp;family=Geist+Mono:wght@400;500&amp;display=swap">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
+<script src="blotter-themes.js"></script>
+<style>body{margin:0;background:var(--color-bg);color:var(--color-text);font-family:var(--font-ui);font-size:13px}*{box-sizing:border-box}:focus-visible{outline:2px solid var(--color-focus-ring);outline-offset:2px}input::placeholder{color:var(--color-text-muted)}</style>
+</helmet>
+<div style="width:100%;max-width:600px;border-radius:var(--radius-lg);background:var(--color-surface-raised);box-shadow:var(--shadow-overlay);color:var(--color-text);font-family:var(--font-ui);font-size:var(--text-base);overflow:hidden">
+  <sc-if value="{{ capture }}" hint-placeholder-val="{{ false }}">
+    <div style="display:flex;align-items:center;gap:8px;padding:8px 14px;border-bottom:1px solid var(--color-border);font-size:11px;color:var(--color-text-muted)"><i class="ph-fill ph-lightning" style="color:var(--color-accent-text)"></i>Quick capture<span style="flex:1"></span>writes straight to the Inbox</div>
+  </sc-if>
+  <div style="display:flex;align-items:center;gap:10px;padding:12px 14px">
+    <i class="ph ph-plus-circle" style="font-size:18px;color:var(--color-accent-text)"></i>
+    <input autofocus="{{ true }}" value="{{ text }}" onChange="{{ onText }}" onKeyDown="{{ onKey }}" placeholder="Add a task…  e.g. dentist tue 3pm ~45m @fixed" style="flex:1;min-width:0;height:28px;background:transparent;border:0;outline:none;font:inherit;font-size:var(--text-lg);color:var(--color-text)">
+    <span style="font-family:var(--font-mono);font-size:10px;padding:0 5px;border:1px solid var(--color-border-strong);border-bottom-width:2px;border-radius:3px;color:var(--color-text-muted)">Esc</span>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:6px;padding:0 14px 12px;min-height:26px">
+    <sc-for list="{{ chips }}" as="c" hint-placeholder-count="4">
+      <span style="display:flex;align-items:center;gap:6px;height:24px;padding:0 8px;border-radius:99px;background:var(--color-accent-tint);color:var(--color-text);font-size:12px;border:1px solid color-mix(in srgb,var(--color-accent) 30%,transparent)"><i class="ph {{ c.icon }}" style="color:var(--color-accent-text)"></i><span style="color:var(--color-text-muted);font-size:11px">{{ c.k }}</span><span style="font-family:var(--font-mono);font-size:11.5px">{{ c.v }}</span><span style="font-family:var(--font-mono);font-size:10px;color:var(--color-text-muted);opacity:.8">{{ c.src }}</span></span>
+    </sc-for>
+    <sc-if value="{{ noChips }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;color:var(--color-text-muted)">Type a date, time, ~duration, #tag, !priority, @fixed or "every …"</span></sc-if>
+  </div>
+  <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-top:1px solid var(--color-border);background:var(--color-surface)">
+    <span style="width:4px;align-self:stretch;border-radius:2px;background:{{ previewColor }}"></span>
+    <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px">
+      <span style="font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ title }}</span>
+      <span style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-muted)">{{ summary }}</span>
+    </div>
+    <span style="font-size:11px;padding:2px 8px;border-radius:99px;border:1px solid var(--color-border-strong);color:var(--color-text-muted);display:flex;align-items:center;gap:5px;white-space:nowrap"><i class="ph {{ destIcon }}"></i>{{ dest }}</span>
+  </div>
+  <div style="display:flex;align-items:center;gap:14px;padding:8px 14px;border-top:1px solid var(--color-border);font-size:11px;color:var(--color-text-muted)">
+    <span style="display:flex;align-items:center;gap:5px"><span style="font-family:var(--font-mono);font-size:10px;padding:0 4px;border:1px solid var(--color-border-strong);border-bottom-width:2px;border-radius:3px">↵</span>Create</span>
+    <span style="display:flex;align-items:center;gap:5px"><span style="font-family:var(--font-mono);font-size:10px;padding:0 4px;border:1px solid var(--color-border-strong);border-bottom-width:2px;border-radius:3px">Ctrl ↵</span>Create &amp; open details</span>
+    <span style="display:flex;align-items:center;gap:5px"><span style="font-family:var(--font-mono);font-size:10px;padding:0 4px;border:1px solid var(--color-border-strong);border-bottom-width:2px;border-radius:3px">Alt ↵</span>Keep open</span>
+    <span style="flex:1"></span><span>{{ created }}</span>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:600,&quot;height&quot;:260},&quot;mode&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;bar&quot;,&quot;capture&quot;],&quot;default&quot;:&quot;bar&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;initialText&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;dentist tue 3pm ~45m @fixed&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;onClose&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;()=&gt;void&quot;},&quot;onCreate&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;(t:string)=&gt;void&quot;}}">
+class Component extends DCLogic {
+  constructor(p) { super(p); this.state = { text: p.initialText ?? 'dentist tue 3pm ~45m @fixed', created: '' }; }
+  parse(t) {
+    const chips = []; let rest = ' ' + t + ' ', o = {};
+    const take = (re, fn) => { const m = rest.match(re); if (m) { fn(m); rest = rest.replace(m[0], ' '); } };
+    take(/\severy\s+(weekday|day|week|2 weeks|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/i, m => { o.rec = m[1]; chips.push({ icon: 'ph-arrows-clockwise', k: 'Repeats', v: 'every ' + m[1], src: m[0].trim() }); });
+    take(/\sdue\s+(mon|tue|wed|thu|fri|sat|sun|today|tomorrow)\w*/i, m => { o.due = m[1]; chips.push({ icon: 'ph-flag-checkered', k: 'Due', v: this.day(m[1]), src: m[0].trim() }); });
+    take(/\s(today|tomorrow|tmr|mon|tue|wed|thu|fri|sat|sun)(day|sday|nesday|rsday|urday)?\b/i, m => { o.day = m[1]; chips.push({ icon: 'ph-calendar-blank', k: 'Date', v: this.day(m[1]), src: m[0].trim() }); });
+    take(/\s(\d{1,2})(?::(\d{2}))?\s?(am|pm)\b|\s(\d{1,2}):(\d{2})\b/i, m => { let h = +(m[1] || m[4]), mi = +(m[2] || m[5] || 0); if (m[3] && m[3].toLowerCase() === 'pm' && h < 12) h += 12; if (m[3] && m[3].toLowerCase() === 'am' && h === 12) h = 0; o.time = [h, mi]; chips.push({ icon: 'ph-clock', k: 'Time', v: this.fmt(h, mi), src: m[0].trim() }); });
+    take(/\s~(\d+)(m|h)(\d+)?\b/i, m => { const min = m[2].toLowerCase() === 'h' ? (+m[1]) * 60 + (+(m[3] || 0)) : +m[1]; o.dur = min; chips.push({ icon: 'ph-timer', k: 'Duration', v: min >= 60 ? `${Math.floor(min / 60)}h${min % 60 ? ' ' + (min % 60) + 'm' : ''}` : min + 'm', src: m[0].trim() }); });
+    take(/\s!([1-3])\b/, m => { o.pri = m[1]; chips.push({ icon: 'ph-flag', k: 'Priority', v: 'P' + m[1], src: m[0].trim() }); });
+    take(/\s@fixed\b/i, () => { o.fixed = true; chips.push({ icon: 'ph-push-pin', k: 'Anchoring', v: 'fixed', src: '@fixed' }); });
+    let tm; while ((tm = rest.match(/\s#(\w+)/))) { o.tags = (o.tags || []).concat(tm[1]); chips.push({ icon: 'ph-hash', k: 'Tag', v: tm[1], src: '' }); rest = rest.replace(tm[0], ' '); }
+    return { o, chips, title: rest.replace(/\s+/g, ' ').trim() };
+  }
+  day(d) { d = d.toLowerCase(); const map = { today: 'Tue 13 Oct', tomorrow: 'Wed 14 Oct', tmr: 'Wed 14 Oct', mon: 'Mon 19 Oct', tue: 'Tue 20 Oct', wed: 'Wed 14 Oct', thu: 'Thu 15 Oct', fri: 'Fri 16 Oct', sat: 'Sat 17 Oct', sun: 'Sun 18 Oct' }; return map[d.slice(0, 3)] || map[d] || d; }
+  fmt(h, m) { return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0'); }
+  renderVals() {
+    const s = this.state, { o, chips, title } = this.parse(s.text), capture = this.props.mode === 'capture';
+    const anchoring = o.fixed ? 'Fixed' : 'Flexible';
+    let summary = anchoring + ' task', dest = 'Inbox', destIcon = 'ph-tray';
+    if (o.day || o.time) {
+      const d = this.day(o.day || 'today'), dur = o.dur || 30;
+      summary = `${anchoring} · ${d}` + (o.time ? ` ${this.fmt(...o.time)}–${this.fmt(o.time[0] + Math.floor((o.time[1] + dur) / 60), (o.time[1] + dur) % 60)}` : ` · ${dur}m, auto-slotted`);
+      dest = capture ? 'Inbox · scheduled on triage' : (o.time ? 'Calendar' : 'Auto-slot'); destIcon = o.time ? 'ph-calendar-check' : 'ph-magic-wand';
+    } else if (o.dur) summary += ` · ${o.dur}m`;
+    if (o.rec) summary += ` · every ${o.rec}`;
+    if (o.fixed && o.time && o.time[0] >= 9 && o.time[0] < 17) summary += ' · inside Work (allowed)';
+    return { text: s.text, chips, noChips: chips.length === 0, capture, title: title || 'Untitled', summary, dest, destIcon,
+      previewColor: o.tags ? `var(--tag-${o.tags[0]}, var(--color-accent))` : 'var(--color-accent)',
+      created: s.created,
+      onText: (e) => this.setState({ text: e.target.value }),
+      onKey: (e) => { if (e.key === 'Enter') { this.setState({ created: `Created "${title || 'Untitled'}"`, text: e.altKey ? '' : s.text }); this.props.onCreate && !e.altKey && setTimeout(() => this.props.onCreate(title), 400); } if (e.key === 'Escape') this.props.onClose && this.props.onClose(); } };
+  }
+}
+</script>
+</body>
+</html>

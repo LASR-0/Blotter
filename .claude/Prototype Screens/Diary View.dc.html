@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&amp;family=Geist+Mono:wght@400;500&amp;family=Newsreader:opsz,wght@6..72,500&amp;display=swap">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/bold/style.css">
+<script src="blotter-themes.js"></script>
+<style>body{margin:0;background:var(--color-bg);color:var(--color-text);font-family:var(--font-ui);font-size:13px}*{box-sizing:border-box}a{color:var(--color-accent-text)}a:hover{color:var(--color-text)}:focus-visible{outline:2px solid var(--color-focus-ring);outline-offset:2px}</style>
+</helmet>
+<div style="position:relative;display:flex;height:100%;min-height:0;background:var(--color-bg);color:var(--color-text);font-family:var(--font-ui);font-size:var(--text-base)">
+
+  <!-- Inbox rail -->
+  <sc-if value="{{ showInbox }}" hint-placeholder-val="{{ true }}">
+  <aside style="width:232px;flex:none;display:flex;flex-direction:column;border-right:1px solid var(--color-border);background:var(--color-surface);min-height:0">
+    <div style="display:flex;align-items:center;gap:8px;padding:14px 14px 10px">
+      <i class="ph ph-tray" style="font-size:15px;color:var(--color-text-muted)"></i>
+      <span style="font-weight:600">Inbox</span>
+      <span style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-muted)">6</span>
+      <span style="flex:1"></span>
+      <span title="Collapse inbox (i)" style="display:flex;gap:4px;align-items:center;color:var(--color-text-muted)"><i class="ph ph-caret-double-left"></i></span>
+    </div>
+    <div style="padding:0 10px 10px">
+      <div style="display:flex;align-items:center;gap:8px;height:30px;padding:0 8px;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-bg);color:var(--color-text-muted)">
+        <i class="ph ph-plus"></i><span style="flex:1">Brain-dump a task…</span>
+        <span style="font-family:var(--font-mono);font-size:10px;padding:0 4px;border:1px solid var(--color-border-strong);border-bottom-width:2px;border-radius:3px">n</span>
+      </div>
+    </div>
+    <div style="flex:1;overflow:auto;padding:0 10px;display:flex;flex-direction:column;gap:4px">
+      <sc-for list="{{ inbox }}" as="it" hint-placeholder-count="6">
+        <div style="{{ it.style }}" title="Drag onto a day or the timeline">
+          <i class="ph ph-dots-six-vertical" style="color:var(--color-text-muted);font-size:13px;opacity:.7"></i>
+          <span style="width:7px;height:7px;border-radius:50%;flex:none;background:{{ it.color }}"></span>
+          <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ it.title }}</span>
+          <span style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-muted)">{{ it.dur }}</span>
+        </div>
+      </sc-for>
+    </div>
+    <div style="padding:10px;border-top:1px solid var(--color-border);display:flex;flex-direction:column;gap:6px">
+      <button style="display:flex;align-items:center;gap:8px;height:30px;padding:0 10px;border-radius:var(--radius-md);border:1px solid var(--color-border-strong);background:var(--color-surface-raised);color:var(--color-text);font:inherit;cursor:pointer" style-hover="background:var(--color-hover)">
+        <i class="ph ph-magic-wand"></i><span style="flex:1;text-align:left">Auto-slot inbox</span>
+        <span style="font-family:var(--font-mono);font-size:10px;padding:0 4px;border:1px solid var(--color-border-strong);border-bottom-width:2px;border-radius:3px;color:var(--color-text-muted)">s</span>
+      </button>
+    </div>
+  </aside>
+  </sc-if>
+
+  <!-- Day columns -->
+  <div style="flex:1;min-width:0;display:flex;overflow-x:auto;overflow-y:hidden">
+    <sc-for list="{{ days }}" as="d" hint-placeholder-count="4">
+      <section style="{{ d.colStyle }}">
+        <header style="padding:18px 16px 12px;display:flex;flex-direction:column;gap:10px">
+          <div style="display:flex;align-items:flex-end;gap:10px">
+            <span style="font-family:var(--font-heading);font-weight:var(--heading-weight);font-size:{{ d.numSize }};line-height:.9;letter-spacing:-.02em;color:{{ d.numColor }}">{{ d.num }}</span>
+            <div style="display:flex;flex-direction:column;line-height:1.25;padding-bottom:2px">
+              <span style="font-weight:600;font-size:var(--text-md)">{{ d.weekday }}</span>
+              <span style="color:var(--color-text-muted);font-size:var(--text-sm)">{{ d.month }}</span>
+            </div>
+            <span style="flex:1"></span>
+            <sc-if value="{{ d.today }}" hint-placeholder-val="{{ false }}">
+              <span style="font-size:11px;padding:2px 8px;border-radius:99px;background:var(--color-accent-tint);color:var(--color-accent-text);font-weight:500">Today</span>
+            </sc-if>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:5px">
+            <div style="height:4px;border-radius:2px;background:var(--color-border);overflow:hidden;display:flex">
+              <span style="width:{{ d.pct }};background:{{ d.meterColor }};border-radius:2px"></span>
+            </div>
+            <div style="display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:11px;color:var(--color-text-muted)">
+              <span>{{ d.planned }} planned</span><span>{{ d.avail }} free</span>
+            </div>
+          </div>
+        </header>
+        <div style="flex:1;overflow:auto;padding:0 12px 16px;display:flex;flex-direction:column;gap:8px">
+          <sc-for list="{{ d.cards }}" as="c" hint-placeholder-count="4">
+            <sc-if value="{{ c.section }}" hint-placeholder-val="{{ false }}">
+              <div style="font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:{{ c.sectionColor }};padding:6px 2px 0;font-weight:500">{{ c.sectionLabel }}</div>
+            </sc-if>
+            <div tabindex="0" onClick="{{ c.onFocus }}" onDoubleClick="{{ c.onOpen }}" style="{{ c.style }}" style-hover="border-color:var(--color-border-strong)">
+              <div style="display:flex;gap:10px;align-items:flex-start">
+                <button onClick="{{ c.onToggle }}" title="Toggle complete (x)" style="{{ c.boxStyle }}"><i class="ph-bold ph-check" style="font-size:10px;opacity:{{ c.checkOpacity }}"></i></button>
+                <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:5px">
+                  <span style="{{ c.titleStyle }}">{{ c.title }}</span>
+                  <div style="display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;font-size:11px;color:var(--color-text-muted)">
+                    <span style="font-family:var(--font-mono);color:{{ c.timeColor }}">{{ c.time }}</span>
+                    <sc-if value="{{ c.fixed }}" hint-placeholder-val="{{ false }}"><span style="display:flex;align-items:center;gap:3px;white-space:nowrap" title="Fixed — allowed inside block-outs"><i class="ph-fill ph-push-pin"></i>{{ c.fixedLabel }}</span></sc-if>
+                    <sc-if value="{{ c.recurring }}" hint-placeholder-val="{{ false }}"><i class="ph ph-arrows-clockwise" title="Recurring"></i></sc-if>
+                    <sc-if value="{{ c.ics }}" hint-placeholder-val="{{ false }}"><span style="display:flex;align-items:center;gap:3px;white-space:nowrap" title="Read-only ICS subscription"><i class="ph ph-link-simple"></i>Work cal</span></sc-if>
+                    <sc-for list="{{ c.tags }}" as="t" hint-placeholder-count="1">
+                      <span style="display:flex;align-items:center;gap:4px"><span style="width:6px;height:6px;border-radius:50%;background:{{ t.color }}"></span>{{ t.name }}</span>
+                    </sc-for>
+                  </div>
+                  <sc-if value="{{ c.conflict }}" hint-placeholder-val="{{ false }}">
+                    <span style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--color-conflict)"><i class="ph-fill ph-warning"></i>{{ c.conflictText }}</span>
+                  </sc-if>
+                  <sc-if value="{{ c.done }}" hint-placeholder-val="{{ false }}">
+                    <span style="font-family:var(--font-mono);font-size:10.5px;color:var(--color-text-muted)">✓ {{ c.doneAt }}</span>
+                  </sc-if>
+                </div>
+              </div>
+              <sc-if value="{{ c.proposed }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex;align-items:center;gap:6px;margin-top:8px;padding-top:8px;border-top:1px dashed var(--color-border-strong);font-size:11px;color:var(--color-pencil)">
+                  <i class="ph ph-pencil-simple"></i><span style="font-family:var(--font-mono);letter-spacing:.02em">proposed</span><span style="color:var(--color-text-muted)">{{ c.why }}</span>
+                  <span style="flex:1"></span>
+                  <button onClick="{{ c.onAccept }}" title="Accept (a)" style="font:inherit;font-size:11px;height:22px;padding:0 8px;border-radius:4px;border:1px solid var(--color-border-strong);background:var(--color-surface-raised);color:var(--color-text);cursor:pointer" style-hover="border-color:var(--color-accent)">Accept</button>
+                  <button onClick="{{ c.onReject }}" title="Reject (r)" style="font:inherit;font-size:11px;height:22px;width:22px;border-radius:4px;border:1px solid transparent;background:transparent;color:var(--color-text-muted);cursor:pointer;display:grid;place-items:center" style-hover="background:var(--color-hover)"><i class="ph ph-x"></i></button>
+                </div>
+              </sc-if>
+            </div>
+          </sc-for>
+          <div style="display:flex;align-items:center;gap:8px;height:30px;padding:0 10px;color:var(--color-text-muted);border-radius:var(--radius-md)" style-hover="background:var(--color-hover)"><i class="ph ph-plus"></i>Add task</div>
+        </div>
+      </section>
+    </sc-for>
+  </div>
+
+  <!-- Today timeline rail -->
+  <aside style="width:236px;flex:none;border-left:1px solid var(--color-border);display:flex;flex-direction:column;min-height:0;background:var(--color-bg)">
+    <div style="display:flex;align-items:center;gap:8px;padding:14px 14px 10px">
+      <i class="ph ph-clock" style="color:var(--color-text-muted)"></i>
+      <span style="font-weight:600">Timeline</span>
+      <span style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-muted)">Tue 13</span>
+    </div>
+    <div style="flex:1;overflow:auto;padding:4px 12px 16px 0">
+      <div style="position:relative;height:{{ railHeight }}">
+        <sc-for list="{{ hours }}" as="h" hint-placeholder-count="16">
+          <div style="position:absolute;left:0;right:0;top:{{ h.top }};display:flex;align-items:flex-start">
+            <span style="width:44px;text-align:right;padding-right:8px;margin-top:-6px;font-family:var(--font-mono);font-size:10px;color:var(--color-text-muted)">{{ h.label }}</span>
+            <span style="flex:1;border-top:1px solid var(--color-border)"></span>
+          </div>
+        </sc-for>
+        <div style="position:absolute;left:44px;right:0;top:{{ block.top }};height:{{ block.height }};background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--color-blockout) 32%,transparent) 0 1.5px,transparent 1.5px 7px);border-top:1px solid color-mix(in srgb,var(--color-blockout) 45%,transparent);border-bottom:1px solid color-mix(in srgb,var(--color-blockout) 45%,transparent)">
+          <span style="position:absolute;right:6px;top:4px;font-size:10px;font-family:var(--font-mono);color:var(--color-text-muted);background:var(--color-bg);padding:0 4px;border-radius:3px">Work 08:30–17:00</span>
+        </div>
+        <sc-for list="{{ railItems }}" as="r" hint-placeholder-count="7">
+          <div style="{{ r.style }}">
+            <span style="{{ r.titleStyle }}">{{ r.title }}</span>
+            <sc-if value="{{ r.pin }}" hint-placeholder-val="{{ false }}"><i class="ph-fill ph-push-pin" style="font-size:10px;margin-left:auto"></i></sc-if>
+          </div>
+        </sc-for>
+        <sc-if value="{{ dragDemo }}" hint-placeholder-val="{{ true }}">
+          <div style="position:absolute;left:48px;right:4px;top:{{ drop.top }};height:{{ drop.height }};border:1.5px dashed var(--color-accent);border-radius:4px;background:var(--color-accent-tint);display:flex;align-items:center;padding:0 6px;font-family:var(--font-mono);font-size:10px;color:var(--color-accent-text)">17:00–17:15</div>
+        </sc-if>
+        <div style="position:absolute;left:38px;right:0;top:{{ now.top }};display:flex;align-items:center;pointer-events:none">
+          <span style="width:7px;height:7px;border-radius:50%;background:var(--color-danger);margin-left:3px"></span>
+          <span style="flex:1;height:1.5px;background:var(--color-danger)"></span>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <sc-if value="{{ dragDemo }}" hint-placeholder-val="{{ true }}">
+    <div style="position:absolute;right:58px;top:{{ ghostTop }};width:212px;padding:9px 11px;border-radius:var(--radius-md);background:var(--color-surface-raised);border:1px solid var(--color-accent);box-shadow:var(--shadow-overlay);transform:rotate(-2deg);display:flex;flex-direction:column;gap:4px;pointer-events:none;z-index:5">
+      <div style="display:flex;align-items:center;gap:8px"><i class="ph ph-dots-six-vertical" style="color:var(--color-text-muted)"></i><span style="font-weight:500">Book flu shot</span></div>
+      <div style="display:flex;gap:10px;font-size:11px;color:var(--color-text-muted);padding-left:21px"><span style="font-family:var(--font-mono)">~15m</span><span style="display:flex;align-items:center;gap:4px"><span style="width:6px;height:6px;border-radius:50%;background:var(--tag-health)"></span>health</span></div>
+      <i class="ph-fill ph-hand-grabbing" style="position:absolute;right:-10px;bottom:-14px;font-size:20px;color:var(--color-text)"></i>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;keys&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;},&quot;dragDemo&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;},&quot;showInbox&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;},&quot;onOpenItem&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;(id:string)=&gt;void&quot;}}">
+class Component extends DCLogic {
+  state = { done: { c1: '07:48', c2: '08:04' }, focus: 'c4', rejected: {}, accepted: {} };
+  componentDidMount() {
+    this.onKey = (e) => {
+      if (this.props.keys === false) return;
+      const tag = (e.target.tagName || '').toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || e.ctrlKey || e.metaKey || e.altKey) return;
+      const cols = this.cols || [];
+      let ci = cols.findIndex(col => col.includes(this.state.focus)), ri = ci >= 0 ? cols[ci].indexOf(this.state.focus) : -1;
+      const k = e.key;
+      if (['j', 'ArrowDown', 'k', 'ArrowUp', 'h', 'ArrowLeft', 'l', 'ArrowRight'].includes(k)) {
+        if (ci < 0) { ci = 0; ri = 0; }
+        else if (k === 'j' || k === 'ArrowDown') ri = Math.min(ri + 1, cols[ci].length - 1);
+        else if (k === 'k' || k === 'ArrowUp') ri = Math.max(ri - 1, 0);
+        else { ci = Math.max(0, Math.min(cols.length - 1, ci + (k === 'l' || k === 'ArrowRight' ? 1 : -1))); ri = Math.min(ri, cols[ci].length - 1); }
+        e.preventDefault(); this.setState({ focus: cols[ci][ri] });
+      } else if (k === 'x' && this.state.focus) this.toggle(this.state.focus);
+      else if ((k === 'Enter' || k === 'e') && this.state.focus) this.props.onOpenItem && this.props.onOpenItem(this.state.focus);
+      else if (k === 'a' && this.state.focus) this.setState(s => ({ accepted: { ...s.accepted, [s.focus]: 1 } }));
+      else if (k === 'r' && this.state.focus) this.setState(s => ({ rejected: { ...s.rejected, [s.focus]: 1 } }));
+    };
+    window.addEventListener('keydown', this.onKey);
+  }
+  componentWillUnmount() { window.removeEventListener('keydown', this.onKey); }
+  toggle(id) { this.setState(s => { const d = { ...s.done }; if (d[id]) delete d[id]; else d[id] = '10:42'; return { done: d }; }); }
+  renderVals() {
+    const H = 34, T0 = 7, px = (h) => ((h - T0) * H) + 'px';
+    const tag = (n) => ({ name: n, color: `var(--tag-${n})` });
+    const C = (id, title, time, o = {}) => ({ id, title, time, tags: [], ...o });
+    const raw = [
+      { num: '13', weekday: 'Tuesday', month: 'October 2026', today: true, planned: '3h 05m', avail: '3h 25m', pct: 47, cards: [
+        C('o1', 'Renew car registration', 'due Mon 12 · 20m', { tags: [tag('home')], overdue: true }),
+        C('c1', 'Morning run', '07:15 · 30m', { tags: [tag('personal')], recurring: true }),
+        C('c2', 'Pay electricity bill', '07:40 · 15m', { tags: [tag('home')] }),
+        C('c3', 'Standup', '09:00–09:15', { ics: true, fixed: true, fixedLabel: '' }),
+        C('c4', 'Telehealth consult', '11:30–12:15', { tags: [tag('health')], fixed: true, fixedLabel: 'in Work' }),
+        C('c5', 'Gym', '17:30 · 45m', { tags: [tag('health')] }),
+        C('c6', 'Call Mum', '18:30 · 20m', { tags: [tag('personal')], proposed: true, why: 'new' }),
+        C('c7', 'Review insurance renewal', '19:00 · 45m', { tags: [tag('home')], proposed: true, why: 'from Wed' }),
+        C('c8', 'Read', '20:30 · 30m', { tags: [tag('personal')], recurring: true })] },
+      { num: '14', weekday: 'Wednesday', month: 'October', planned: '2h 45m', avail: '3h 45m', pct: 42, cards: [
+        C('w1', 'Morning run', '07:15 · 30m', { tags: [tag('personal')], recurring: true }),
+        C('w2', 'Standup', '09:00–09:15', { ics: true, fixed: true, fixedLabel: '' }),
+        C('w3', 'Yoga class', '17:30–18:30', { tags: [tag('health')], fixed: true, fixedLabel: '' }),
+        C('w4', 'Meal prep', '19:00 · 1h', { tags: [tag('home')] })] },
+      { num: '15', weekday: 'Thursday', month: 'October', planned: '1h 20m', avail: '5h 10m', pct: 20, cards: [
+        C('t1', 'Morning run', '07:15 · 30m', { tags: [tag('personal')], recurring: true }),
+        C('t2', 'Standup', '09:00–09:15', { ics: true, fixed: true, fixedLabel: '' }),
+        C('t3', 'Dentist', '15:00–15:45', { tags: [tag('health')], fixed: true, fixedLabel: 'in Work', conflict: true, conflictText: 'Overlaps Parent–teacher interview' }),
+        C('t4', 'Parent–teacher interview', '15:30–15:50', { tags: [tag('personal')], fixed: true, fixedLabel: 'in Work', conflict: true, conflictText: 'Overlaps Dentist' }),
+        C('t5', 'Pay credit card', '19:00 · 15m', { tags: [tag('home')] })] },
+      { num: '16', weekday: 'Friday', month: 'October', planned: '3h 30m', avail: '3h 00m', pct: 54, cards: [
+        C('f1', 'Morning run', '07:15 · 30m', { tags: [tag('personal')], recurring: true }),
+        C('f2', 'Team lunch', '12:00–13:00', { ics: true, fixed: true, fixedLabel: '' }),
+        C('f3', 'Dinner with Jess', '18:00–21:00', { tags: [tag('personal')], fixed: true, fixedLabel: '' })] },
+      { num: '17', weekday: 'Saturday', month: 'October', planned: '3h 45m', avail: '11h 15m', pct: 25, cards: [
+        C('s1', 'Farmers market', '09:00 · 1h', { tags: [tag('shopping')] }),
+        C('s2', 'Fix the leaking tap', '10:30 · 45m', { tags: [tag('home')], proposed: true, why: 'from Inbox' }),
+        C('s3', "Mia's party", '14:00–16:00', { tags: [tag('personal')], fixed: true, fixedLabel: '' })] }
+    ];
+    const s = this.state;
+    this.cols = raw.map(d => d.cards.filter(c => !s.rejected[c.id]).map(c => c.id));
+    const days = raw.map(d => {
+      const cards = d.cards.filter(c => !s.rejected[c.id]).map((c, i, arr) => {
+        const done = !!s.done[c.id], proposed = c.proposed && !s.accepted[c.id], focused = s.focus === c.id;
+        const section = d.today && (i === 0 || (arr[i - 1].overdue && !c.overdue));
+        const style = {
+          position: 'relative', padding: '10px 12px', borderRadius: 'var(--radius-md)', cursor: 'default',
+          background: done ? 'transparent' : proposed ? 'color-mix(in srgb, var(--color-surface) 45%, transparent)' : 'var(--color-surface)',
+          border: proposed ? '1px dashed var(--color-pencil)' : c.conflict ? '1px solid var(--color-conflict)' : '1px solid var(--color-border)',
+          outline: focused ? '2px solid var(--color-focus-ring)' : 'none', outlineOffset: '2px'
+        };
+        if (c.conflict) style.boxShadow = 'inset 0 0 0 1px color-mix(in srgb, var(--color-conflict) 25%, transparent)';
+        return {
+          ...c, done, proposed, doneAt: s.done[c.id],
+          section, sectionLabel: c.overdue ? 'Overdue' : 'Today', sectionColor: c.overdue ? 'var(--color-danger)' : 'var(--color-text-muted)',
+          style,
+          titleStyle: { fontSize: d.today ? 'var(--text-md)' : 'var(--text-base)', fontWeight: 500, lineHeight: 1.3, color: done ? 'var(--color-text-muted)' : 'var(--color-text)', textDecoration: done ? 'line-through' : 'none' },
+          timeColor: c.overdue ? 'var(--color-danger)' : 'var(--color-text-muted)',
+          boxStyle: { width: 16, height: 16, flex: 'none', marginTop: 1, borderRadius: 4, display: 'grid', placeItems: 'center', cursor: 'pointer', padding: 0,
+            border: proposed ? '1px dashed var(--color-pencil)' : done ? '1px solid var(--color-accent)' : '1.5px solid var(--color-border-strong)',
+            background: done ? 'var(--color-accent)' : 'transparent', color: 'var(--color-on-accent)' },
+          checkOpacity: done ? 1 : 0,
+          onToggle: (e) => { e.stopPropagation(); this.toggle(c.id); },
+          onFocus: () => this.setState({ focus: c.id }),
+          onOpen: () => this.props.onOpenItem && this.props.onOpenItem(c.id),
+          onAccept: (e) => { e.stopPropagation(); this.setState(st => ({ accepted: { ...st.accepted, [c.id]: 1 } })); },
+          onReject: (e) => { e.stopPropagation(); this.setState(st => ({ rejected: { ...st.rejected, [c.id]: 1 } })); }
+        };
+      });
+      return { ...d, cards, pct: d.pct + '%', numSize: d.today ? '44px' : '32px', numColor: d.today ? 'var(--color-accent-text)' : 'var(--color-text)',
+        meterColor: d.pct > 90 ? 'var(--color-danger)' : 'var(--color-accent)',
+        colStyle: { width: d.today ? 352 : 262, flex: 'none', display: 'flex', flexDirection: 'column', minHeight: 0, borderRight: '1px solid var(--color-border)', background: d.today ? 'color-mix(in srgb, var(--color-surface) 40%, var(--color-bg))' : 'var(--color-bg)' } };
+    });
+    const ib = [['Weekend shopping for presents', '~1h30', 'shopping'], ['Book flu shot', '~15m', 'health', true], ['Fix the leaking tap', '~45m', 'home'], ['Email landlord re: lease', '~10m', 'home'], ["Plan Mia's birthday", '~1h', 'personal'], ['Sort tax receipts', '~2h', 'home']];
+    const drag = this.props.dragDemo !== false;
+    const inbox = ib.map(([title, dur, t, ghost]) => ({ title, dur, color: `var(--tag-${t})`,
+      style: { display: 'flex', alignItems: 'center', gap: 8, height: 32, padding: '0 8px', borderRadius: 'var(--radius-md)', cursor: 'grab',
+        border: ghost && drag ? '1px dashed var(--color-border-strong)' : '1px solid transparent', opacity: ghost && drag ? 0.45 : 1,
+        background: ghost && drag ? 'transparent' : 'var(--color-bg)' } }));
+    const ri = (title, a, b, color, o = {}) => ({ title, pin: o.pin, style: {
+      position: 'absolute', left: 48, right: 4, top: px(a), height: Math.max(((b - a) * H) - 2, 14), borderRadius: 4, padding: '1px 6px', display: 'flex', alignItems: 'flex-start', gap: 4, fontSize: 10.5, overflow: 'hidden',
+      background: o.proposed ? 'transparent' : `color-mix(in srgb, ${color} ${o.done ? 8 : 18}%, var(--color-bg))`,
+      border: o.proposed ? '1px dashed var(--color-pencil)' : 'none', borderLeft: o.proposed ? '1px dashed var(--color-pencil)' : `3px solid ${color}`,
+      color: o.done ? 'var(--color-text-muted)' : 'var(--color-text)' },
+      titleStyle: { textDecoration: o.done ? 'line-through' : 'none', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } });
+    const railItems = [
+      ri('Morning run', 7.25, 7.75, 'var(--tag-personal)', { done: true }), ri('Electricity bill', 7.75, 8, 'var(--tag-home)', { done: true }),
+      ri('Standup', 9, 9.25, 'var(--tag-ics)'), ri('Telehealth consult', 11.5, 12.25, 'var(--tag-health)', { pin: true }),
+      ri('Gym', 17.5, 18.25, 'var(--tag-health)'), ri('Call Mum', 18.5, 18.84, 'var(--tag-personal)', { proposed: true }),
+      ri('Review insurance', 19, 19.75, 'var(--tag-home)', { proposed: true }), ri('Read', 20.5, 21, 'var(--tag-personal)')];
+    const hours = []; for (let h = 7; h <= 22; h++) hours.push({ top: px(h), label: String(h).padStart(2, '0') + ':00' });
+    return {
+      days, inbox, railItems, hours, dragDemo: drag, showInbox: this.props.showInbox !== false,
+      railHeight: (15 * H + 8) + 'px',
+      block: { top: px(8.5), height: (8.5 * H) + 'px' },
+      drop: { top: px(17), height: (0.25 * H + 4) + 'px' },
+      now: { top: `calc(${px(10.7)} - 3px)` },
+      ghostTop: `calc(${px(17)} + 70px)`
+    };
+  }
+}
+</script>
+</body>
+</html>

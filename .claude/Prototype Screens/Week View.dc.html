@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&amp;family=Geist+Mono:wght@400;500&amp;family=Newsreader:opsz,wght@6..72,500&amp;display=swap">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/bold/style.css">
+<script src="blotter-themes.js"></script>
+<style>body{margin:0;background:var(--color-bg);color:var(--color-text);font-family:var(--font-ui);font-size:13px}*{box-sizing:border-box}a{color:var(--color-accent-text)}a:hover{color:var(--color-text)}:focus-visible{outline:2px solid var(--color-focus-ring);outline-offset:2px}</style>
+</helmet>
+<div style="display:flex;flex-direction:column;height:100%;min-height:0;background:var(--color-bg);color:var(--color-text);font-family:var(--font-ui);font-size:var(--text-base)">
+  <div style="display:grid;grid-template-columns:56px repeat(7,minmax(0,1fr));border-bottom:1px solid var(--color-border)">
+    <div style="font-family:var(--font-mono);font-size:10px;color:var(--color-text-muted);padding:14px 8px 0 0;text-align:right">W42</div>
+    <sc-for list="{{ heads }}" as="d" hint-placeholder-count="7">
+      <div style="display:flex;align-items:center;gap:8px;padding:10px 10px 8px;border-left:1px solid var(--color-border)">
+        <span style="font-size:var(--text-sm);color:{{ d.wdColor }};font-weight:500">{{ d.wd }}</span>
+        <span style="{{ d.numStyle }}">{{ d.num }}</span>
+      </div>
+    </sc-for>
+  </div>
+  <div style="display:grid;grid-template-columns:56px repeat(7,minmax(0,1fr));grid-auto-rows:24px;row-gap:2px;padding:4px 0;border-bottom:1px solid var(--color-border);background:var(--color-surface)">
+    <div style="grid-row:1;grid-column:1;font-size:10px;color:var(--color-text-muted);text-align:right;padding:5px 8px 0 0">all-day</div>
+    <div style="grid-row:1;grid-column:3;margin:0 4px;border-radius:4px;background:color-mix(in srgb,var(--tag-home) 18%,var(--color-bg));border-left:3px solid var(--tag-home);font-size:11px;display:flex;align-items:center;gap:5px;padding:0 6px"><i class="ph ph-arrows-clockwise" style="color:var(--color-text-muted)"></i>Bin night</div>
+    <div style="grid-row:1;grid-column:7 / span 2;margin:0 4px;border-radius:4px;background:color-mix(in srgb,var(--tag-personal) 18%,var(--color-bg));border-left:3px solid var(--tag-personal);font-size:11px;display:flex;align-items:center;padding:0 6px">Mum visiting</div>
+  </div>
+  <div style="flex:1;min-height:0;overflow:auto">
+    <div style="position:relative;display:grid;grid-template-columns:56px repeat(7,minmax(0,1fr));height:{{ gridH }}">
+      <div style="position:relative">
+        <sc-for list="{{ hours }}" as="h" hint-placeholder-count="15">
+          <span style="position:absolute;right:8px;top:{{ h.top }};margin-top:-6px;font-family:var(--font-mono);font-size:10px;color:var(--color-text-muted)">{{ h.label }}</span>
+        </sc-for>
+      </div>
+      <sc-for list="{{ cols }}" as="col" hint-placeholder-count="7">
+        <div onClick="{{ col.onCell }}" style="{{ col.style }}">
+          <sc-for list="{{ hours }}" as="h" hint-placeholder-count="15">
+            <div style="position:absolute;left:0;right:0;top:{{ h.top }};border-top:1px solid var(--color-border)"></div>
+            <div style="position:absolute;left:0;right:0;top:{{ h.half }};border-top:1px dashed color-mix(in srgb,var(--color-border) 55%,transparent)"></div>
+          </sc-for>
+          <sc-if value="{{ col.block }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute;left:0;right:0;top:{{ blockTop }};height:{{ blockH }};background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--color-blockout) 30%,transparent) 0 1.5px,transparent 1.5px 8px);border-top:1px solid color-mix(in srgb,var(--color-blockout) 50%,transparent);border-bottom:1px solid color-mix(in srgb,var(--color-blockout) 50%,transparent);pointer-events:none">
+              <span style="position:absolute;left:6px;top:4px;font-size:10px;font-family:var(--font-mono);color:var(--color-text-muted);background:var(--color-bg);padding:0 4px;border-radius:3px;display:flex;gap:4px;align-items:center"><i class="ph ph-briefcase"></i>Work</span>
+            </div>
+          </sc-if>
+          <sc-if value="{{ col.cursor }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute;left:2px;right:2px;top:{{ col.cursorTop }};height:{{ halfH }};border:2px solid var(--color-focus-ring);border-radius:4px;background:var(--color-accent-tint);pointer-events:none;display:flex;align-items:center;padding:0 6px;font-family:var(--font-mono);font-size:10px;color:var(--color-accent-text)">{{ col.cursorLabel }} · n to add</div>
+          </sc-if>
+          <sc-for list="{{ col.events }}" as="e" hint-placeholder-count="3">
+            <div tabindex="0" onClick="{{ e.onFocus }}" onDoubleClick="{{ e.onOpen }}" style="{{ e.style }}" title="{{ e.tip }}">
+              <div style="display:flex;align-items:center;gap:4px;min-width:0">
+                <sc-if value="{{ e.conflict }}" hint-placeholder-val="{{ false }}"><i class="ph-fill ph-warning" style="color:var(--color-conflict);flex:none"></i></sc-if>
+                <span style="{{ e.titleStyle }}">{{ e.title }}</span>
+                <sc-if value="{{ e.pin }}" hint-placeholder-val="{{ false }}"><i class="ph-fill ph-push-pin" style="font-size:10px;margin-left:auto;flex:none;color:var(--color-text-muted)" title="Fixed inside block-out"></i></sc-if>
+              </div>
+              <sc-if value="{{ e.showTime }}" hint-placeholder-val="{{ false }}">
+                <span style="font-family:var(--font-mono);font-size:10px;color:var(--color-text-muted);white-space:nowrap;overflow:hidden">{{ e.timeText }}</span>
+              </sc-if>
+              <sc-if value="{{ e.proposed }}" hint-placeholder-val="{{ false }}">
+                <span style="font-family:var(--font-mono);font-size:9.5px;color:var(--color-pencil);display:flex;align-items:center;gap:3px"><i class="ph ph-pencil-simple"></i>proposed</span>
+              </sc-if>
+              <sc-if value="{{ e.focused }}" hint-placeholder-val="{{ false }}">
+                <span style="position:absolute;left:50%;bottom:-4px;width:18px;height:4px;margin-left:-9px;border-radius:2px;background:var(--color-focus-ring);cursor:ns-resize" title="Resize (Alt+↑/↓)"></span>
+              </sc-if>
+            </div>
+          </sc-for>
+          <sc-if value="{{ col.today }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute;left:-4px;right:0;top:{{ nowTop }};display:flex;align-items:center;pointer-events:none;z-index:3">
+              <span style="width:8px;height:8px;border-radius:50%;background:var(--color-danger)"></span><span style="flex:1;height:2px;background:var(--color-danger)"></span>
+            </div>
+          </sc-if>
+        </div>
+      </sc-for>
+      <div style="position:absolute;left:8px;top:{{ nowLabelTop }};font-family:var(--font-mono);font-size:10px;color:var(--color-on-accent);background:var(--color-danger);padding:0 4px;border-radius:3px;pointer-events:none">10:42</div>
+    </div>
+  </div>
+  <div style="display:flex;align-items:center;gap:16px;padding:6px 14px;border-top:1px solid var(--color-border);font-size:11px;color:var(--color-text-muted)">
+    <span style="display:flex;align-items:center;gap:6px"><span style="font-family:var(--font-mono);font-size:10px;padding:0 4px;border:1px solid var(--color-border-strong);border-bottom-width:2px;border-radius:3px">←↑↓→</span>move focus</span>
+    <span style="display:flex;align-items:center;gap:6px"><span style="font-family:var(--font-mono);font-size:10px;padding:0 4px;border:1px solid var(--color-border-strong);border-bottom-width:2px;border-radius:3px">Shift</span>+arrows move item</span>
+    <span style="display:flex;align-items:center;gap:6px"><span style="font-family:var(--font-mono);font-size:10px;padding:0 4px;border:1px solid var(--color-border-strong);border-bottom-width:2px;border-radius:3px">Alt</span>+arrows resize</span>
+    <span style="display:flex;align-items:center;gap:6px"><span style="font-family:var(--font-mono);font-size:10px;padding:0 4px;border:1px solid var(--color-border-strong);border-bottom-width:2px;border-radius:3px">Tab</span>cell ↔ item</span>
+    <span style="flex:1"></span>
+    <span style="font-family:var(--font-mono)">{{ status }}</span>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;keys&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;},&quot;showCursor&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;},&quot;onOpenItem&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;(id:string)=&gt;void&quot;}}">
+class Component extends DCLogic {
+  constructor(p) {
+    super(p);
+    const E = (d, a, b, title, tag, o = {}) => ({ id: d + title, d, a, b, title, tag, ...o });
+    const run = (d, done) => E(d, 7.25, 7.75, 'Morning run', 'personal', { rec: true, done });
+    const su = (d) => E(d, 9, 9.25, 'Standup', 'ics', { ics: true, fixed: true });
+    this.state = { focus: '1Telehealth consult', mode: 'item', cursor: { d: 5, t: 15 }, events: [
+      run(0, '07:46'), su(0), E(0, 17.5, 18.25, 'Groceries', 'shopping', { done: '18:21' }), E(0, 19.5, 19.84, 'Renew car registration', 'home', { overdue: true }),
+      run(1, '07:48'), E(1, 7.75, 8, 'Pay electricity bill', 'home', { done: '08:04' }), su(1), E(1, 11.5, 12.25, 'Telehealth consult', 'health', { fixed: true }),
+      E(1, 17.5, 18.25, 'Gym', 'health'), E(1, 18.5, 18.84, 'Call Mum', 'personal', { proposed: true }), E(1, 19, 19.75, 'Review insurance renewal', 'home', { proposed: true }), E(1, 20.5, 21, 'Read', 'personal', { rec: true }),
+      run(2), su(2), E(2, 17.5, 18.5, 'Yoga class', 'health', { fixed: true }), E(2, 19, 20, 'Meal prep', 'home'),
+      run(3), su(3), E(3, 15, 15.75, 'Dentist', 'health', { fixed: true, conflict: true, lane: 0 }), E(3, 15.5, 15.84, 'Parent–teacher interview', 'personal', { fixed: true, conflict: true, lane: 1 }), E(3, 19, 19.25, 'Pay credit card', 'home'),
+      run(4), su(4), E(4, 12, 13, 'Team lunch', 'ics', { ics: true, fixed: true }), E(4, 18, 21, 'Dinner with Jess', 'personal', { fixed: true }),
+      E(5, 9, 10, 'Farmers market', 'shopping'), E(5, 10.5, 11.25, 'Fix the leaking tap', 'home', { proposed: true }), E(5, 14, 16, "Mia's party", 'personal', { fixed: true }),
+      E(6, 10, 11.5, 'Long run', 'personal'), E(6, 16, 16.5, 'Weekly review', 'work', { rec: true })
+    ] };
+  }
+  componentDidMount() {
+    this.onKey = (e) => {
+      if (this.props.keys === false) return;
+      const tag = (e.target.tagName || '').toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || e.ctrlKey || e.metaKey) return;
+      const k = e.key, dir = { ArrowUp: [0, -0.5], ArrowDown: [0, 0.5], ArrowLeft: [-1, 0], ArrowRight: [1, 0], k: [0, -0.5], j: [0, 0.5], h: [-1, 0], l: [1, 0] }[k];
+      if (k === 'Tab') { e.preventDefault(); this.setState(s => ({ mode: s.mode === 'item' ? 'cell' : 'item' })); return; }
+      if (!dir) { if ((k === 'Enter' || k === 'e') && this.state.mode === 'item') this.props.onOpenItem && this.props.onOpenItem(this.state.focus); return; }
+      e.preventDefault();
+      const [dd, dt] = dir;
+      if (this.state.mode === 'cell') return this.setState(s => ({ cursor: { d: Math.max(0, Math.min(6, s.cursor.d + dd)), t: Math.max(7, Math.min(21.5, s.cursor.t + dt)) } }));
+      if (e.shiftKey || e.altKey) {
+        return this.setState(s => ({ events: s.events.map(ev => {
+          if (ev.id !== s.focus || ev.ics) return ev;
+          if (e.altKey) return { ...ev, b: Math.max(ev.a + 0.25, ev.b + dt / 2) };
+          const len = ev.b - ev.a, a = Math.max(7, Math.min(22 - len, ev.a + dt / 2));
+          return { ...ev, d: Math.max(0, Math.min(6, ev.d + dd)), a, b: a + len };
+        }) }));
+      }
+      const cur = this.state.events.find(ev => ev.id === this.state.focus);
+      if (!cur) return;
+      let list;
+      if (dd) list = this.state.events.filter(ev => ev.d === cur.d + dd).sort((x, y) => Math.abs(x.a - cur.a) - Math.abs(y.a - cur.a));
+      else list = this.state.events.filter(ev => ev.d === cur.d && (dt > 0 ? ev.a > cur.a || (ev.a === cur.a && ev.id > cur.id) : ev.a < cur.a)).sort((x, y) => dt > 0 ? x.a - y.a : y.a - x.a);
+      if (list && list[0]) this.setState({ focus: list[0].id });
+    };
+    window.addEventListener('keydown', this.onKey);
+  }
+  componentWillUnmount() { window.removeEventListener('keydown', this.onKey); }
+  renderVals() {
+    const H = 44, T0 = 7, y = (h) => (h - T0) * H, s = this.state;
+    const fmt = (h) => String(Math.floor(h)).padStart(2, '0') + ':' + String(Math.round((h % 1) * 60)).padStart(2, '0');
+    const wds = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const heads = wds.map((wd, i) => ({ wd, num: 12 + i, wdColor: i === 1 ? 'var(--color-accent-text)' : 'var(--color-text-muted)',
+      numStyle: i === 1 ? { fontWeight: 600, fontSize: 13, minWidth: 24, height: 24, borderRadius: 12, display: 'grid', placeItems: 'center', background: 'var(--color-accent)', color: 'var(--color-on-accent)' } : { fontWeight: 500, fontSize: 13 } }));
+    const hours = []; for (let h = 7; h < 22; h++) hours.push({ top: y(h) + 'px', half: (y(h) + H / 2) + 'px', label: fmt(h) });
+    const cols = wds.map((_, d) => {
+      const events = s.events.filter(e => e.d === d).map(e => {
+        const focused = s.mode === 'item' && s.focus === e.id, c = `var(--tag-${e.tag})`, hgt = Math.max((e.b - e.a) * H - 2, 17), compact = hgt < 30;
+        const inBlock = d < 5 && e.a >= 8.5 && e.b <= 17 && e.fixed && !e.ics;
+        const style = { position: 'absolute', top: y(e.a) + 1, height: hgt, left: e.lane === 1 ? '50%' : 3, right: e.lane === 0 ? '50%' : 3,
+          marginRight: e.lane === 0 ? 1 : 0, borderRadius: 4, padding: compact ? '0 5px' : '3px 6px', overflow: 'hidden', cursor: 'default', zIndex: focused ? 5 : compact ? 3 : 2,
+          display: 'flex', flexDirection: compact ? 'row' : 'column', alignItems: compact ? 'center' : 'stretch', gap: compact ? 4 : 1, fontSize: compact ? 10.5 : 11, lineHeight: compact ? (hgt - 2) + 'px' : 1.3,
+          background: e.proposed ? 'color-mix(in srgb, var(--color-bg) 70%, transparent)' : `color-mix(in srgb, ${c} ${e.done ? 7 : 17}%, var(--color-bg))`,
+          borderLeft: e.proposed ? `2px dashed var(--color-pencil)` : `3px solid ${e.conflict ? 'var(--color-conflict)' : c}`,
+          border: e.proposed ? '1px dashed var(--color-pencil)' : e.conflict ? '1px solid var(--color-conflict)' : undefined,
+          outline: focused ? '2px solid var(--color-focus-ring)' : 'none', outlineOffset: 1 };
+        if (!e.proposed && e.conflict) style.borderLeft = '3px solid var(--color-conflict)';
+        return { ...e, focused, pin: inBlock, showTime: hgt > 34, proposed: e.proposed, style,
+          timeText: fmt(e.a) + '–' + fmt(e.b) + (e.done ? '  ✓ ' + e.done : ''),
+          tip: e.title + ' · ' + fmt(e.a) + '–' + fmt(e.b) + (e.conflict ? ' · conflict' : ''),
+          titleStyle: { fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: e.done ? 'var(--color-text-muted)' : e.overdue ? 'var(--color-danger)' : 'var(--color-text)', textDecoration: e.done ? 'line-through' : 'none' },
+          onFocus: (ev) => { ev.stopPropagation(); this.setState({ focus: e.id, mode: 'item' }); },
+          onOpen: (ev) => { ev.stopPropagation(); this.props.onOpenItem && this.props.onOpenItem(e.id); } };
+      });
+      const cursor = s.mode === 'cell' || this.props.showCursor !== false ? s.cursor.d === d : false;
+      return { events, block: d < 5, today: d === 1, cursor, cursorTop: (y(s.cursor.t) + 1) + 'px', cursorLabel: fmt(s.cursor.t),
+        style: { position: 'relative', borderLeft: '1px solid var(--color-border)', background: d === 1 ? 'color-mix(in srgb, var(--color-accent) 4%, var(--color-bg))' : d > 4 ? 'var(--color-surface)' : 'transparent' },
+        onCell: (ev) => { const r = ev.currentTarget.getBoundingClientRect(); const t = Math.floor(((ev.clientY - r.top) / H) * 2) / 2 + T0; this.setState({ cursor: { d, t }, mode: 'cell' }); } };
+    });
+    const f = s.events.find(e => e.id === s.focus);
+    return { heads, hours, cols, gridH: (15 * H) + 'px', blockTop: y(8.5) + 'px', blockH: (8.5 * H) + 'px', halfH: (H / 2 - 2) + 'px',
+      nowTop: (y(10.7) - 4) + 'px', nowLabelTop: (y(10.7) - 7) + 'px',
+      status: s.mode === 'item' && f ? `focus: ${f.title} · ${wds[f.d]} ${fmt(f.a)}–${fmt(f.b)}` : `cursor: ${wds[s.cursor.d]} ${fmt(s.cursor.t)}` };
+  }
+}
+</script>
+</body>
+</html>

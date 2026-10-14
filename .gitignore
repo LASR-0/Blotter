@@ -1,0 +1,21 @@
+# Node
+node_modules/
+dist/
+*.tsbuildinfo
+*.log
+
+# Rust
+target/
+
+# Tauri
+src-tauri/gen/schemas/
+
+# Editors / OS
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+
+# Claude Code local state (the roadmap, ledger and design references stay tracked)
+.claude/settings.local.json

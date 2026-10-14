@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<title>Blotter — design reference</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&amp;family=Geist+Mono:wght@400;500&amp;family=Newsreader:opsz,wght@6..72,500&amp;display=swap">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/bold/style.css">
+<script src="blotter-themes.js"></script>
+<style>body{margin:0;background:#0b0c0f;color:#e6e7ea;font-family:"Geist",system-ui,sans-serif;font-size:13px}*{box-sizing:border-box}a{color:#b2a8fb}a:hover{color:#e6e7ea}:focus-visible{outline:2px solid #b2a8fb;outline-offset:2px}</style>
+</helmet>
+
+<section id="intro" style="padding:64px 64px 24px;display:flex;flex-direction:column;gap:14px;max-width:1200px">
+  <span style="font-family:'Geist Mono',monospace;font-size:12px;color:#989aa4">Design reference · v1 · 13 Oct 2026</span>
+  <h1 style="margin:0;font-size:44px;font-weight:600;letter-spacing:-.02em">Blotter</h1>
+  <p style="margin:0;font-size:16px;line-height:1.6;color:#b8bac3;max-width:760px">Every screen and state from roadmap §5 and §9. Each frame is the live prototype at its stated window size. Open <a href="Blotter.dc.html">Blotter.dc.html</a> to use it with the keyboard: <code style="font-family:'Geist Mono',monospace">Ctrl K</code>, <code style="font-family:'Geist Mono',monospace">?</code>, <code style="font-family:'Geist Mono',monospace">n</code>, <code style="font-family:'Geist Mono',monospace">g w</code>, <code style="font-family:'Geist Mono',monospace">v</code>, <code style="font-family:'Geist Mono',monospace">Ctrl /</code>.</p>
+  <div style="display:flex;gap:18px;flex-wrap:wrap;font-size:13px;white-space:nowrap">
+    <a href="#presets">1 · Presets</a><a href="#minsize">2 · Minimum size</a><a href="#screens">3 · Views &amp; overlays</a><a href="#settings">4 · Settings</a><a href="#windows">5 · Small windows</a><a href="#states">6 · Empty, loading, error</a><a href="#components">7 · Components</a><a href="#tokens">8 · Tokens</a><a href="#notes">9 · Annotations</a>
+  </div>
+</section>
+
+<section id="presets" style="padding:40px 64px;display:flex;flex-direction:column;gap:24px">
+  <h2 style="margin:0;font-size:24px;font-weight:600">1 · Diary and Week in all four presets <span style="font-family:'Geist Mono',monospace;font-size:13px;color:#989aa4;font-weight:400">1440 × 900</span></h2>
+  <div style="display:flex;flex-wrap:wrap;gap:48px">
+    <sc-for list="{{ presetFrames }}" as="f" hint-placeholder-count="8">
+      <div id="{{ f.id }}" data-frame="{{ f.id }}" style="display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;gap:10px;align-items:center;white-space:nowrap"><span style="font-family:'Geist Mono',monospace;font-size:12px;padding:2px 8px;border-radius:4px;background:#1d1e24;color:#e6e7ea">{{ f.id }}</span><span style="font-size:14px;font-weight:500">{{ f.label }}</span></div>
+        <div style="width:1440px;height:900px;position:relative;overflow:hidden;border-radius:10px;box-shadow:0 0 0 1px #2a2b32">
+          <sc-if value="{{ f.on }}" hint-placeholder-val="{{ false }}"><dc-import name="Blotter" embedded="{{ true }}" keys="{{ false }}" theme="{{ f.theme }}" view="{{ f.view }}" style="position:absolute;inset:0" hint-size="1440px,900px"></dc-import></sc-if>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+</section>
+
+<section id="minsize" style="padding:40px 64px;display:flex;flex-direction:column;gap:24px">
+  <h2 style="margin:0;font-size:24px;font-weight:600">2 · Minimum window <span style="font-family:'Geist Mono',monospace;font-size:13px;color:#989aa4;font-weight:400">1024 × 700</span></h2>
+  <p style="margin:0;color:#b8bac3;max-width:760px;line-height:1.6">Below 1180px wide the sidebar collapses to its 52px icon rail (tooltips carry the label and shortcut). Diary keeps today's column at full width and the later days scroll horizontally.</p>
+  <div style="display:flex;flex-wrap:wrap;gap:48px">
+    <sc-for list="{{ minFrames }}" as="f" hint-placeholder-count="2">
+      <div id="{{ f.id }}" data-frame="{{ f.id }}" style="display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;gap:10px;align-items:center;white-space:nowrap"><span style="font-family:'Geist Mono',monospace;font-size:12px;padding:2px 8px;border-radius:4px;background:#1d1e24">{{ f.id }}</span><span style="font-size:14px;font-weight:500">{{ f.label }}</span></div>
+        <div style="width:1024px;height:700px;position:relative;overflow:hidden;border-radius:10px;box-shadow:0 0 0 1px #2a2b32">
+          <sc-if value="{{ f.on }}" hint-placeholder-val="{{ false }}"><dc-import name="Blotter" embedded="{{ true }}" keys="{{ false }}" view="{{ f.view }}" sidebar-collapsed="{{ f.collapsed }}" inbox-rail="{{ f.rail }}" style="position:absolute;inset:0" hint-size="1024px,700px"></dc-import></sc-if>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+</section>
+
+<section id="screens" style="padding:40px 64px;display:flex;flex-direction:column;gap:24px">
+  <h2 style="margin:0;font-size:24px;font-weight:600">3 · Views and overlays <span style="font-family:'Geist Mono',monospace;font-size:13px;color:#989aa4;font-weight:400">Dark · 1440 × 900</span></h2>
+  <div style="display:flex;flex-wrap:wrap;gap:48px">
+    <sc-for list="{{ screenFrames }}" as="f" hint-placeholder-count="12">
+      <div id="{{ f.id }}" data-frame="{{ f.id }}" style="display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;gap:10px;align-items:center;white-space:nowrap"><span style="font-family:'Geist Mono',monospace;font-size:12px;padding:2px 8px;border-radius:4px;background:#1d1e24">{{ f.id }}</span><span style="font-size:14px;font-weight:500">{{ f.label }}</span><span style="font-size:13px;color:#989aa4">{{ f.note }}</span></div>
+        <div style="width:1440px;height:900px;position:relative;overflow:hidden;border-radius:10px;box-shadow:0 0 0 1px #2a2b32">
+          <sc-if value="{{ f.on }}" hint-placeholder-val="{{ false }}"><dc-import name="Blotter" embedded="{{ true }}" keys="{{ false }}" view="{{ f.view }}" overlay="{{ f.overlay }}" chat="{{ f.chat }}" chat-scenario="{{ f.scenario }}" style="position:absolute;inset:0" hint-size="1440px,900px"></dc-import></sc-if>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+</section>
+
+<section id="settings" style="padding:40px 64px;display:flex;flex-direction:column;gap:24px">
+  <h2 style="margin:0;font-size:24px;font-weight:600">4 · Settings, one frame per page <span style="font-family:'Geist Mono',monospace;font-size:13px;color:#989aa4;font-weight:400">Dark · 1440 × 900</span></h2>
+  <div style="display:flex;flex-wrap:wrap;gap:48px">
+    <sc-for list="{{ settingsFrames }}" as="f" hint-placeholder-count="9">
+      <div id="{{ f.id }}" data-frame="{{ f.id }}" style="display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;gap:10px;align-items:center;white-space:nowrap"><span style="font-family:'Geist Mono',monospace;font-size:12px;padding:2px 8px;border-radius:4px;background:#1d1e24">{{ f.id }}</span><span style="font-size:14px;font-weight:500">{{ f.label }}</span><span style="font-size:13px;color:#989aa4">{{ f.note }}</span></div>
+        <div style="width:1440px;height:900px;position:relative;overflow:hidden;border-radius:10px;box-shadow:0 0 0 1px #2a2b32">
+          <sc-if value="{{ f.on }}" hint-placeholder-val="{{ false }}"><dc-import name="Blotter" embedded="{{ true }}" keys="{{ false }}" view="settings" settings-page="{{ f.page }}" style="position:absolute;inset:0" hint-size="1440px,900px"></dc-import></sc-if>
+        </div>
+      </div>
+    </sc-for>
+    <div id="S10" data-frame="S10" style="display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;gap:10px;align-items:center;white-space:nowrap"><span style="font-family:'Geist Mono',monospace;font-size:12px;padding:2px 8px;border-radius:4px;background:#1d1e24">S10</span><span style="font-size:14px;font-weight:500">Keybindings · press-new-keys capture</span></div>
+      <div style="width:880px;height:900px;position:relative;overflow:hidden;border-radius:10px;box-shadow:0 0 0 1px #2a2b32;background:var(--color-bg)">
+        <sc-if value="{{ seen.S10 }}" hint-placeholder-val="{{ false }}"><dc-import name="Settings Keybindings" state="capture" keys="{{ false }}" hint-size="880px,900px"></dc-import></sc-if>
+      </div>
+    </div>
+    <div id="S11" data-frame="S11" style="display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;gap:10px;align-items:center;white-space:nowrap"><span style="font-family:'Geist Mono',monospace;font-size:12px;padding:2px 8px;border-radius:4px;background:#1d1e24">S11</span><span style="font-size:14px;font-weight:500">Backups · restore confirmation</span></div>
+      <div style="width:1208px;height:852px;position:relative;overflow:hidden;border-radius:10px;box-shadow:0 0 0 1px #2a2b32;background:var(--color-bg)">
+        <sc-if value="{{ seen.S11 }}" hint-placeholder-val="{{ false }}"><dc-import name="Settings" page="backups" show-restore="{{ true }}" keys="{{ false }}" style="position:absolute;inset:0" hint-size="1208px,852px"></dc-import></sc-if>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="windows" style="padding:40px 64px;display:flex;flex-direction:column;gap:24px">
+  <h2 style="margin:0;font-size:24px;font-weight:600">5 · Small windows</h2>
+  <p style="margin:0;color:#b8bac3;max-width:760px;line-height:1.6">The chat pop-out is a separate always-on-top window, about 360 × 560, with no maximise. Quick capture is an undecorated popup centred on screen; it writes to the Inbox and closes.</p>
+  <div style="display:flex;flex-wrap:wrap;gap:40px;align-items:flex-start">
+    <sc-for list="{{ chatFrames }}" as="f" hint-placeholder-count="5">
+      <div id="{{ f.id }}" data-frame="{{ f.id }}" style="display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;gap:10px;align-items:center;white-space:nowrap"><span style="font-family:'Geist Mono',monospace;font-size:12px;padding:2px 8px;border-radius:4px;background:#1d1e24">{{ f.id }}</span><span style="font-size:14px;font-weight:500">{{ f.label }}</span></div>
+        <div style="width:360px;height:560px;position:relative;overflow:hidden;border-radius:10px;box-shadow:0 0 0 1px #3a3b44,0 16px 40px rgba(0,0,0,.5)">
+          <sc-if value="{{ f.on }}" hint-placeholder-val="{{ false }}"><dc-import name="Chat Panel" mode="popout" scenario="{{ f.scenario }}" style="position:absolute;inset:0" hint-size="360px,560px"></dc-import></sc-if>
+        </div>
+      </div>
+    </sc-for>
+    <div id="W6" data-frame="W6" style="display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;gap:10px;align-items:center;white-space:nowrap"><span style="font-family:'Geist Mono',monospace;font-size:12px;padding:2px 8px;border-radius:4px;background:#1d1e24">W6</span><span style="font-size:14px;font-weight:500">Quick capture popup · 600 wide</span></div>
+      <div style="width:760px;height:340px;border-radius:10px;background:#1a1b20;display:grid;place-items:center;box-shadow:0 0 0 1px #2a2b32">
+        <div style="width:600px"><dc-import name="Quick Add" mode="capture" initial-text="weekend shopping for presents sat ~1h30 #shopping !2" hint-size="600px,240px"></dc-import></div>
+      </div>
+    </div>
+    <div id="W7" data-frame="W7" style="display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;gap:10px;align-items:center;white-space:nowrap"><span style="font-family:'Geist Mono',monospace;font-size:12px;padding:2px 8px;border-radius:4px;background:#1d1e24">W7</span><span style="font-size:14px;font-weight:500">Reminder toasts</span><span style="font-size:13px;color:#989aa4">snooze, custom snooze, missed while closed</span></div>
+      <div style="width:900px;padding:28px;border-radius:10px;background:var(--color-bg);display:flex;gap:24px;align-items:flex-start;flex-wrap:wrap;box-shadow:0 0 0 1px #2a2b32">
+        <div style="width:380px;display:flex;flex-direction:column;gap:20px"><dc-import name="Reminder Toast" kind="reminder" hint-size="380px,150px"></dc-import><dc-import name="Reminder Toast" kind="reminder" show-custom="{{ true }}" hint-size="380px,190px"></dc-import></div>
+        <div style="width:380px"><dc-import name="Reminder Toast" kind="missed" hint-size="380px,240px"></dc-import></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="states" style="padding:40px 64px;display:flex;flex-direction:column;gap:24px">
+  <h2 style="margin:0;font-size:24px;font-weight:600">6 · Empty, loading and error states</h2>
+  <div style="display:flex;flex-wrap:wrap;gap:32px;align-items:flex-start;color:var(--color-text);font-size:13px">
+    <div id="E1" style="display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;gap:10px;align-items:center;white-space:nowrap"><span style="font-family:'Geist Mono',monospace;font-size:12px;padding:2px 8px;border-radius:4px;background:#1d1e24">E1</span><span style="font-size:14px;font-weight:500">Diary · empty day</span></div>
+      <div style="width:352px;height:460px;border-radius:10px;background:var(--color-bg);box-shadow:0 0 0 1px #2a2b32;display:flex;flex-direction:column">
+        <div style="padding:18px 16px 12px;display:flex;flex-direction:column;gap:10px"><div style="display:flex;align-items:flex-end;gap:10px"><span style="font-size:44px;line-height:.9;font-weight:600;color:var(--color-accent-text)">13</span><span style="display:flex;flex-direction:column"><span style="font-weight:600;font-size:14px">Tuesday</span><span style="color:var(--color-text-muted);font-size:12px">October 2026</span></span></div><div style="height:4px;border-radius:2px;background:var(--color-border)"></div><div style="display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:11px;color:var(--color-text-muted)"><span>0m planned</span><span>6h 30m free</span></div></div>
+        <div style="margin:0 12px;flex:1;border:1px dashed var(--color-border-strong);border-radius:var(--radius-md);display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:10px;padding:20px">
+          <i class="ph ph-sun-horizon" style="font-size:22px;color:var(--color-text-muted)"></i><span style="font-weight:600">Nothing planned yet</span><span style="color:var(--color-text-muted);line-height:1.5">Drag tasks here from the Inbox, or let Blotter fill the free time outside Work.</span>
+          <div style="display:flex;gap:6px"><span style="height:28px;padding:0 10px;border-radius:var(--radius-md);border:1px solid var(--color-border-strong);display:flex;align-items:center;gap:6px;font-size:12px"><i class="ph ph-magic-wand"></i>Auto-slot Inbox<span style="font-family:var(--font-mono);font-size:10px;color:var(--color-text-muted)">s</span></span><span style="height:28px;padding:0 10px;border-radius:var(--radius-md);display:flex;align-items:center;gap:6px;font-size:12px;color:var(--color-text-muted)">Add task<span style="font-family:var(--font-mono);font-size:10px">n</span></span></div>
+        </div><div style="height:12px"></div>
+      </div>
+    </div>
+    <div id="E2" style="display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;gap:10px;align-items:center;white-space:nowrap"><span style="font-family:'Geist Mono',monospace;font-size:12px;padding:2px 8px;border-radius:4px;background:#1d1e24">E2</span><span style="font-size:14px;font-weight:500">Diary · loading</span></div>
+      <div style="width:352px;height:460px;border-radius:10px;background:var(--color-bg);box-shadow:0 0 0 1px #2a2b32;padding:18px 12px;display:flex;flex-direction:column;gap:10px">
+        <div style="width:120px;height:40px;border-radius:6px;background:var(--color-hover)"></div><div style="height:4px;border-radius:2px;background:var(--color-hover)"></div>
+        <div style="height:62px;border-radius:var(--radius-md);background:var(--color-surface);border:1px solid var(--color-border)"></div><div style="height:62px;border-radius:var(--radius-md);background:var(--color-surface);border:1px solid var(--color-border);opacity:.7"></div><div style="height:62px;border-radius:var(--radius-md);background:var(--color-surface);border:1px solid var(--color-border);opacity:.45"></div>
+        <span style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-muted)">Loading agenda…</span>
+      </div>
+    </div>
+    <div id="E3" style="display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;gap:10px;align-items:center;white-space:nowrap"><span style="font-family:'Geist Mono',monospace;font-size:12px;padding:2px 8px;border-radius:4px;background:#1d1e24">E3</span><span style="font-size:14px;font-weight:500">Diary · error</span></div>
+      <div style="width:352px;height:460px;border-radius:10px;background:var(--color-bg);box-shadow:0 0 0 1px #2a2b32;padding:18px 12px;display:flex;flex-direction:column;gap:12px;justify-content:center">
+        <div style="padding:14px;border-radius:var(--radius-md);border:1px solid var(--color-danger);background:color-mix(in srgb,var(--color-danger) 6%,var(--color-bg));display:flex;flex-direction:column;gap:8px">
+          <span style="display:flex;align-items:center;gap:6px;color:var(--color-danger);font-weight:600"><i class="ph-fill ph-x-circle"></i>Couldn't load today</span>
+          <span style="line-height:1.5">The database is locked by another process. Your data is safe.</span>
+          <code style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-muted)">SQLITE_BUSY · list_agenda(2026-10-13)</code>
+          <div style="display:flex;gap:6px"><span style="height:28px;padding:0 10px;border-radius:var(--radius-md);border:1px solid var(--color-border-strong);display:flex;align-items:center;gap:6px;font-size:12px"><i class="ph ph-arrow-clockwise"></i>Retry</span><span style="height:28px;padding:0 10px;display:flex;align-items:center;font-size:12px;color:var(--color-accent-text)">Open logs</span></div>
+        </div>
+      </div>
+    </div>
+    <div id="E4" style="display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;gap:10px;align-items:center;white-space:nowrap"><span style="font-family:'Geist Mono',monospace;font-size:12px;padding:2px 8px;border-radius:4px;background:#1d1e24">E4</span><span style="font-size:14px;font-weight:500">Inbox · empty, loading, error</span></div>
+      <div style="width:640px;height:460px;border-radius:10px;background:var(--color-bg);box-shadow:0 0 0 1px #2a2b32;padding:24px;display:grid;grid-template-columns:1fr 1fr;gap:20px">
+        <div style="grid-row:span 2;border:1px dashed var(--color-border-strong);border-radius:var(--radius-md);display:flex;flex-direction:column;justify-content:center;gap:10px;padding:22px">
+          <i class="ph ph-tray" style="font-size:22px;color:var(--color-text-muted)"></i><span style="font-weight:600">Inbox zero</span><span style="color:var(--color-text-muted);line-height:1.5">Everything has a time. Brain-dump new tasks with <span style="font-family:var(--font-mono);font-size:11px;padding:0 4px;border:1px solid var(--color-border-strong);border-bottom-width:2px;border-radius:3px">n</span> or quick capture from anywhere.</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px"><span style="font-size:11px;color:var(--color-text-muted)">Loading</span><div style="height:34px;border-radius:var(--radius-md);background:var(--color-surface)"></div><div style="height:34px;border-radius:var(--radius-md);background:var(--color-surface);opacity:.7"></div><div style="height:34px;border-radius:var(--radius-md);background:var(--color-surface);opacity:.45"></div></div>
+        <div style="display:flex;flex-direction:column;gap:6px"><span style="font-size:11px;color:var(--color-text-muted)">Error (toast)</span><div style="padding:10px 12px;border-radius:var(--radius-md);background:var(--color-surface-raised);box-shadow:var(--shadow-overlay);display:flex;gap:8px;align-items:flex-start"><i class="ph-fill ph-x-circle" style="color:var(--color-danger);margin-top:2px"></i><span style="flex:1;line-height:1.45;font-size:12px">Couldn't save "Call plumber". Kept in the input so nothing is lost.</span><span style="font-size:12px;color:var(--color-accent-text)">Retry</span></div></div>
+      </div>
+    </div>
+    <div id="E5" style="display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;gap:10px;align-items:center;white-space:nowrap"><span style="font-family:'Geist Mono',monospace;font-size:12px;padding:2px 8px;border-radius:4px;background:#1d1e24">E5</span><span style="font-size:14px;font-weight:500">Chat · no provider</span><span style="font-size:13px;color:#989aa4">empty / loading are W4, W5</span></div>
+      <div style="width:360px;height:460px;border-radius:10px;background:var(--color-surface);box-shadow:0 0 0 1px #2a2b32;padding:24px;display:flex;flex-direction:column;justify-content:center;gap:10px">
+        <i class="ph ph-plugs" style="font-size:22px;color:var(--color-text-muted)"></i><span style="font-weight:600">Connect an AI to chat</span><span style="color:var(--color-text-muted);line-height:1.5">Use Anthropic, OpenAI, or a local model such as Ollama. Everything else in Blotter works without one.</span>
+        <span style="align-self:flex-start;height:30px;padding:0 12px;border-radius:var(--radius-md);background:var(--color-accent);color:var(--color-on-accent);display:flex;align-items:center;font-weight:500">Open AI settings</span>
+        <span style="margin-top:12px;padding:10px 12px;border-radius:var(--radius-md);border:1px solid var(--color-danger);font-size:12px;line-height:1.45;display:flex;gap:8px"><i class="ph-fill ph-wifi-x" style="color:var(--color-danger);margin-top:2px"></i>Provider unreachable: http://localhost:11434 refused the connection. Is Ollama running?</span>
+      </div>
+    </div>
+    <div id="E6" style="display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;gap:10px;align-items:center;white-space:nowrap"><span style="font-family:'Geist Mono',monospace;font-size:12px;padding:2px 8px;border-radius:4px;background:#1d1e24">E6</span><span style="font-size:14px;font-weight:500">ICS subscriptions · empty, fetching, failed</span></div>
+      <div style="width:560px;height:460px;border-radius:10px;background:var(--color-bg);box-shadow:0 0 0 1px #2a2b32;padding:24px;display:flex;flex-direction:column;gap:14px">
+        <div style="border:1px dashed var(--color-border-strong);border-radius:var(--radius-md);padding:18px;display:flex;flex-direction:column;gap:6px"><span style="font-weight:600">No subscriptions</span><span style="color:var(--color-text-muted);line-height:1.5;font-size:12px">Paste a published calendar URL. Subscribed events are read-only and can act as block-outs.</span></div>
+        <div style="border:1px solid var(--color-border);border-radius:var(--radius-md);padding:12px 14px;display:flex;align-items:center;gap:10px"><span style="width:10px;height:10px;border-radius:3px;background:var(--tag-ics)"></span><span style="flex:1;font-weight:500">Work (Outlook)</span><span style="font-size:12px;color:var(--color-text-muted);display:flex;align-items:center;gap:6px"><i class="ph ph-circle-notch"></i>Fetching… 214 events</span></div>
+        <div style="border:1px solid var(--color-danger);border-radius:var(--radius-md);padding:12px 14px;display:flex;flex-direction:column;gap:8px;background:color-mix(in srgb,var(--color-danger) 5%,var(--color-bg))"><div style="display:flex;align-items:center;gap:10px"><span style="width:10px;height:10px;border-radius:3px;background:var(--tag-shopping)"></span><span style="flex:1;font-weight:500">AFL fixtures</span><span style="font-size:12px;color:var(--color-danger);display:flex;align-items:center;gap:5px"><i class="ph-fill ph-x-circle"></i>HTTP 404</span></div><span style="font-size:12px;color:var(--color-text-muted);line-height:1.5">Last successful fetch 3 days ago. Cached events stay visible and keep blocking time until this is fixed or removed.</span><div style="display:flex;gap:6px"><span style="height:26px;padding:0 10px;border-radius:var(--radius-md);border:1px solid var(--color-border-strong);display:flex;align-items:center;gap:6px;font-size:12px"><i class="ph ph-arrow-clockwise"></i>Retry</span><span style="height:26px;padding:0 10px;display:flex;align-items:center;font-size:12px;color:var(--color-accent-text)">Edit URL</span></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="components" style="padding:40px 64px;display:flex;flex-direction:column;gap:24px">
+  <h2 style="margin:0;font-size:24px;font-weight:600">7 · Component sheet <span style="font-family:'Geist Mono',monospace;font-size:13px;color:#989aa4;font-weight:400">Dark · maps to shadcn/Radix</span></h2>
+  <div style="width:1440px;padding:32px;border-radius:12px;background:var(--color-bg);box-shadow:0 0 0 1px #2a2b32;color:var(--color-text);font-size:13px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:36px 40px">
+
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <span style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--color-text-muted)">Button · primary / secondary / ghost</span>
+      <div style="display:grid;grid-template-columns:70px repeat(3,1fr);gap:8px;align-items:center;font-size:11px;color:var(--color-text-muted)">
+        <span>Default</span><span style="height:30px;border-radius:6px;background:var(--color-accent);color:var(--color-on-accent);display:grid;place-items:center;font-size:13px;font-weight:500">Save</span><span style="height:30px;border-radius:6px;border:1px solid var(--color-border-strong);background:var(--color-surface-raised);color:var(--color-text);display:grid;place-items:center;font-size:13px">Cancel</span><span style="height:30px;border-radius:6px;color:var(--color-text);display:grid;place-items:center;font-size:13px">Skip</span>
+        <span>Hover</span><span style="height:30px;border-radius:6px;background:color-mix(in srgb,var(--color-accent) 88%,var(--color-text));color:var(--color-on-accent);display:grid;place-items:center;font-size:13px;font-weight:500">Save</span><span style="height:30px;border-radius:6px;border:1px solid var(--color-border-strong);background:var(--color-hover);color:var(--color-text);display:grid;place-items:center;font-size:13px">Cancel</span><span style="height:30px;border-radius:6px;background:var(--color-hover);color:var(--color-text);display:grid;place-items:center;font-size:13px">Skip</span>
+        <span>Active</span><span style="height:30px;border-radius:6px;background:color-mix(in srgb,var(--color-accent) 80%,var(--color-bg));color:var(--color-on-accent);display:grid;place-items:center;font-size:13px;font-weight:500">Save</span><span style="height:30px;border-radius:6px;border:1px solid var(--color-border-strong);background:var(--color-border-strong);color:var(--color-text);display:grid;place-items:center;font-size:13px">Cancel</span><span style="height:30px;border-radius:6px;background:var(--color-border);color:var(--color-text);display:grid;place-items:center;font-size:13px">Skip</span>
+        <span>Focus</span><span style="height:30px;border-radius:6px;background:var(--color-accent);color:var(--color-on-accent);display:grid;place-items:center;font-size:13px;font-weight:500;outline:2px solid var(--color-focus-ring);outline-offset:2px">Save</span><span style="height:30px;border-radius:6px;border:1px solid var(--color-border-strong);background:var(--color-surface-raised);color:var(--color-text);display:grid;place-items:center;font-size:13px;outline:2px solid var(--color-focus-ring);outline-offset:2px">Cancel</span><span style="height:30px;border-radius:6px;color:var(--color-text);display:grid;place-items:center;font-size:13px;outline:2px solid var(--color-focus-ring);outline-offset:2px">Skip</span>
+        <span>Disabled</span><span style="height:30px;border-radius:6px;background:var(--color-accent);color:var(--color-on-accent);display:grid;place-items:center;font-size:13px;font-weight:500;opacity:.4">Save</span><span style="height:30px;border-radius:6px;border:1px solid var(--color-border-strong);color:var(--color-text);display:grid;place-items:center;font-size:13px;opacity:.4">Cancel</span><span style="height:30px;border-radius:6px;color:var(--color-text);display:grid;place-items:center;font-size:13px;opacity:.4">Skip</span>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center"><span style="height:30px;padding:0 10px;border-radius:6px;background:var(--color-danger);color:var(--color-on-accent);display:flex;align-items:center;font-weight:500">Delete</span><span style="width:30px;height:30px;border-radius:6px;border:1px solid var(--color-border);display:grid;place-items:center;color:var(--color-text-muted)"><i class="ph ph-sparkle"></i></span><span style="width:30px;height:30px;border-radius:6px;border:1px solid var(--color-accent);background:var(--color-accent-tint);display:grid;place-items:center;color:var(--color-accent-text)"><i class="ph ph-sparkle"></i></span><span style="font-size:11px;color:var(--color-text-muted)">icon button · off / on (Toggle)</span></div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <span style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--color-text-muted)">Input · Select · Switch · Checkbox</span>
+      <span style="height:32px;padding:0 10px;border-radius:6px;border:1px solid var(--color-border-strong);background:var(--color-surface);display:flex;align-items:center;color:var(--color-text-muted)">Placeholder</span>
+      <span style="height:32px;padding:0 10px;border-radius:6px;border:1px solid var(--color-accent);background:var(--color-surface);display:flex;align-items:center;box-shadow:0 0 0 3px color-mix(in srgb,var(--color-accent) 22%,transparent)">Focused<span style="width:1px;height:14px;background:var(--color-accent);margin-left:2px"></span></span>
+      <div style="display:flex;flex-direction:column;gap:4px"><span style="height:32px;padding:0 10px;border-radius:6px;border:1px solid var(--color-danger);background:var(--color-surface);display:flex;align-items:center;font-family:var(--font-mono)">25:00</span><span style="font-size:11px;color:var(--color-danger)">Enter a time between 00:00 and 23:59</span></div>
+      <div style="display:flex;gap:16px;align-items:center">
+        <span style="height:30px;padding:0 10px;border-radius:6px;border:1px solid var(--color-border-strong);background:var(--color-surface);display:flex;align-items:center;gap:20px">Monday<i class="ph ph-caret-up-down" style="color:var(--color-text-muted)"></i></span>
+        <span style="width:30px;height:18px;border-radius:9px;background:var(--color-accent);padding:2px;display:flex;justify-content:flex-end"><span style="width:14px;height:14px;border-radius:50%;background:var(--color-on-accent)"></span></span>
+        <span style="width:30px;height:18px;border-radius:9px;background:var(--color-border-strong);padding:2px;display:flex"><span style="width:14px;height:14px;border-radius:50%;background:var(--color-text)"></span></span>
+        <span style="width:16px;height:16px;border-radius:4px;background:var(--color-accent);color:var(--color-on-accent);display:grid;place-items:center"><i class="ph-bold ph-check" style="font-size:10px"></i></span>
+        <span style="width:16px;height:16px;border-radius:4px;border:1.5px solid var(--color-border-strong)"></span>
+        <span style="width:16px;height:16px;border-radius:4px;border:1px dashed var(--color-pencil)"></span>
+      </div>
+      <div style="display:flex;padding:2px;border:1px solid var(--color-border);border-radius:6px;background:var(--color-surface);align-self:flex-start"><span style="height:24px;padding:0 10px;border-radius:4px;background:var(--color-surface-raised);box-shadow:0 0 0 1px var(--color-border-strong);display:flex;align-items:center;font-size:12px;font-weight:500">Diary</span><span style="height:24px;padding:0 10px;display:flex;align-items:center;font-size:12px;color:var(--color-text-muted)">Calendar</span></div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <span style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--color-text-muted)">kbd chips · Tooltip · Badge</span>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+        <span style="font-family:var(--font-mono);font-size:10px;padding:0 4px;border:1px solid var(--color-border-strong);border-bottom-width:2px;border-radius:3px;color:var(--color-text-muted)">n</span>
+        <span style="font-family:var(--font-mono);font-size:11px;line-height:18px;padding:0 6px;border:1px solid var(--color-border-strong);border-bottom-width:2px;border-radius:4px;background:var(--color-surface)">Ctrl</span><span style="font-family:var(--font-mono);font-size:11px;line-height:18px;padding:0 6px;border:1px solid var(--color-border-strong);border-bottom-width:2px;border-radius:4px;background:var(--color-surface)">K</span>
+        <span style="font-family:var(--font-mono);font-size:11px;line-height:18px;padding:0 6px;border:1px solid var(--color-border-strong);border-bottom-width:2px;border-radius:4px;background:var(--color-surface)">g</span><span style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-muted)">then</span><span style="font-family:var(--font-mono);font-size:11px;line-height:18px;padding:0 6px;border:1px solid var(--color-border-strong);border-bottom-width:2px;border-radius:4px;background:var(--color-surface)">w</span>
+        <span style="font-family:var(--font-mono);font-size:10px;padding:0 4px;border-radius:3px;background:color-mix(in srgb,var(--color-on-accent) 18%,var(--color-accent));color:var(--color-on-accent)">Ctrl ↵</span>
+      </div>
+      <span style="font-size:11px;color:var(--color-text-muted)">10px in menus and fields, 11px in palettes and sheets; on accent fills the chip inverts.</span>
+      <div style="position:relative;height:72px;display:flex;align-items:flex-end">
+        <span style="width:30px;height:30px;border-radius:6px;border:1px solid var(--color-border-strong);display:grid;place-items:center;outline:2px solid var(--color-focus-ring);outline-offset:2px"><i class="ph ph-sparkle"></i></span>
+        <span style="position:absolute;left:0;top:0;white-space:nowrap;padding:5px 9px;border-radius:4px;background:var(--color-text);color:var(--color-bg);font-size:12px;display:flex;gap:8px">Toggle AI chat<span style="font-family:var(--font-mono);opacity:.75">Ctrl /</span></span>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center"><span style="font-size:11px;padding:2px 8px;border-radius:99px;background:var(--color-accent-tint);color:var(--color-accent-text);font-weight:500">Today</span><span style="font-family:var(--font-mono);font-size:11px;padding:0 6px;border-radius:99px;background:var(--color-hover);color:var(--color-text-muted)">6</span><span style="font-size:11px;padding:2px 8px;border-radius:99px;border:1px dashed var(--color-pencil);color:var(--color-pencil);font-family:var(--font-mono)">✎ proposed</span><span style="font-size:11px;padding:2px 8px;border-radius:99px;background:color-mix(in srgb,var(--color-warning) 14%,transparent);color:var(--color-warning);font-weight:500">Auto</span></div>
+    </div>
+
+    <div style="grid-column:span 2;display:flex;flex-direction:column;gap:12px">
+      <span style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--color-text-muted)">Diary card states</span>
+      <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px">
+        <sc-for list="{{ cardStates }}" as="c" hint-placeholder-count="8">
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <div style="{{ c.style }}">
+              <div style="display:flex;gap:10px;align-items:flex-start">
+                <span style="{{ c.box }}"><i class="ph-bold ph-check" style="font-size:10px;opacity:{{ c.checkOp }}"></i></span>
+                <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:5px">
+                  <span style="{{ c.titleStyle }}">{{ c.title }}</span>
+                  <span style="font-family:var(--font-mono);font-size:11px;color:{{ c.metaColor }}">{{ c.meta }}</span>
+                  <sc-if value="{{ c.extra }}" hint-placeholder-val="{{ false }}"><span style="font-size:11px;color:{{ c.extraColor }};font-family:var(--font-mono)">{{ c.extra }}</span></sc-if>
+                </div>
+                <sc-if value="{{ c.grip }}" hint-placeholder-val="{{ false }}"><i class="ph ph-dots-six-vertical" style="color:var(--color-text-muted)"></i></sc-if>
+              </div>
+            </div>
+            <span style="font-size:11px;color:var(--color-text-muted)">{{ c.label }}</span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <span style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--color-text-muted)">Block-out hatching</span>
+      <div style="height:120px;border-radius:6px;position:relative;background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--color-blockout) 30%,transparent) 0 1.5px,transparent 1.5px 8px);border-top:1px solid color-mix(in srgb,var(--color-blockout) 50%,transparent);border-bottom:1px solid color-mix(in srgb,var(--color-blockout) 50%,transparent)">
+        <span style="position:absolute;left:6px;top:4px;font-size:10px;font-family:var(--font-mono);color:var(--color-text-muted);background:var(--color-bg);padding:0 4px;border-radius:3px;display:flex;gap:4px;align-items:center"><i class="ph ph-briefcase"></i>Work</span>
+        <div style="position:absolute;left:40px;right:12px;top:38px;height:44px;border-radius:4px;background:color-mix(in srgb,var(--tag-health) 17%,var(--color-bg));border-left:3px solid var(--tag-health);padding:3px 6px;font-size:11px;display:flex;flex-direction:column"><span style="display:flex;font-weight:500">Telehealth consult<i class="ph-fill ph-push-pin" style="margin-left:auto;font-size:10px;color:var(--color-text-muted)"></i></span><span style="font-family:var(--font-mono);font-size:10px;color:var(--color-text-muted)">11:30–12:15</span></div>
+      </div>
+      <span style="font-size:11px;color:var(--color-text-muted);line-height:1.5">135°, 1.5px lines every 8px at 30% of <span style="font-family:var(--font-mono)">--color-blockout</span>, with 50% hairlines at the edges. Label sits on a bg-coloured chip so it stays legible. A pin marks a fixed item inside a block-out. Month uses a 4px hatched strip.</span>
+    </div>
+
+    <div style="grid-column:span 2;display:flex;flex-direction:column;gap:12px">
+      <span style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--color-text-muted)">Calendar event states</span>
+      <div style="display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:10px;align-items:end">
+        <sc-for list="{{ eventStates }}" as="e" hint-placeholder-count="8">
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <div style="{{ e.style }}"><span style="display:flex;align-items:center;gap:4px;font-weight:500;white-space:nowrap;overflow:hidden"><sc-if value="{{ e.warn }}" hint-placeholder-val="{{ false }}"><i class="ph-fill ph-warning" style="color:var(--color-conflict)"></i></sc-if><span style="{{ e.titleStyle }}">{{ e.title }}</span><sc-if value="{{ e.pin }}" hint-placeholder-val="{{ false }}"><i class="ph-fill ph-push-pin" style="font-size:10px;margin-left:auto;color:var(--color-text-muted)"></i></sc-if></span><span style="font-family:var(--font-mono);font-size:10px;color:{{ e.metaColor }}">{{ e.meta }}</span></div>
+            <span style="font-size:11px;color:var(--color-text-muted)">{{ e.label }}</span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <span style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--color-text-muted)">Drag affordances &amp; drop targets</span>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div style="display:flex;flex-direction:column;gap:6px;padding:8px;border-radius:6px;background:var(--color-surface)">
+          <div style="height:34px;border-radius:6px;background:var(--color-bg);border:1px solid var(--color-border)"></div>
+          <div style="height:2px;border-radius:1px;background:var(--color-accent);position:relative"><span style="position:absolute;left:-3px;top:-3px;width:8px;height:8px;border-radius:50%;border:2px solid var(--color-accent);background:var(--color-bg)"></span></div>
+          <div style="height:34px;border-radius:6px;background:var(--color-bg);border:1px solid var(--color-border)"></div>
+          <span style="font-size:11px;color:var(--color-text-muted)">Insert line between cards, in any day column</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px;padding:8px;border-radius:6px;background:var(--color-surface)">
+          <div style="height:34px;border-radius:4px;border:1.5px dashed var(--color-accent);background:var(--color-accent-tint);font-family:var(--font-mono);font-size:10px;color:var(--color-accent-text);display:flex;align-items:center;padding:0 6px">17:00–17:15</div>
+          <div style="height:34px;border-radius:4px;border:1.5px dashed var(--color-danger);background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--color-blockout) 30%,transparent) 0 1.5px,transparent 1.5px 8px);font-size:10px;color:var(--color-danger);display:flex;align-items:center;gap:4px;padding:0 6px"><i class="ph ph-prohibit"></i>Work — flexible</div>
+          <span style="font-size:11px;color:var(--color-text-muted)">Timeline slot · valid / refused</span>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <span style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--color-text-muted)">Toast</span>
+      <div style="padding:10px 12px;border-radius:10px;background:var(--color-surface-raised);box-shadow:var(--shadow-overlay);display:flex;align-items:center;gap:10px"><i class="ph-fill ph-check-circle" style="color:var(--tag-health)"></i><span style="flex:1">"Call Mum" completed · <span style="font-family:var(--font-mono);font-size:12px;color:var(--color-text-muted)">18:52</span></span><span style="font-size:12px;color:var(--color-accent-text)">Undo</span><span style="font-family:var(--font-mono);font-size:10px;padding:0 4px;border:1px solid var(--color-border-strong);border-bottom-width:2px;border-radius:3px;color:var(--color-text-muted)">Ctrl Z</span></div>
+      <div style="padding:10px 12px;border-radius:10px;background:var(--color-surface-raised);box-shadow:var(--shadow-overlay);display:flex;align-items:center;gap:10px"><i class="ph-fill ph-warning" style="color:var(--color-warning)"></i><span style="flex:1;line-height:1.45">"Dentist" is fixed inside Sleep. Kept where you put it.</span></div>
+      <div style="padding:10px 12px;border-radius:10px;background:var(--color-surface-raised);box-shadow:var(--shadow-overlay);display:flex;align-items:center;gap:10px"><i class="ph-fill ph-x-circle" style="color:var(--color-danger)"></i><span style="flex:1">Snapshot failed: disk full</span><span style="font-size:12px;color:var(--color-accent-text)">Details</span></div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <span style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--color-text-muted)">Chat bubbles</span>
+      <div style="padding:14px;border-radius:10px;background:var(--color-surface);display:flex;flex-direction:column;gap:10px">
+        <span style="align-self:flex-end;max-width:85%;padding:8px 11px;border-radius:10px 10px 3px 10px;background:var(--color-accent-tint);line-height:1.5">Move the insurance review to today.</span>
+        <span style="font-family:var(--font-mono);font-size:10.5px;color:var(--color-text-muted);display:flex;gap:6px;align-items:center"><i class="ph ph-wrench"></i>find_free_slots(45m, today)</span>
+        <span style="line-height:1.55">There's room at 19:00 after Gym. I've pencilled it in.<span style="display:inline-block;width:7px;height:14px;margin-left:2px;vertical-align:-2px;background:var(--color-accent)"></span></span>
+        <span style="font-family:var(--font-mono);font-size:10.5px;color:var(--color-danger);display:flex;gap:6px;align-items:center"><i class="ph ph-warning-circle"></i>auto_slot · invalid arguments, retrying</span>
+      </div>
+      <span style="font-size:11px;color:var(--color-text-muted)">User · tool call · assistant (streaming caret) · tool error. Proposal and changed cards: frames W1–W3.</span>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <span style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--color-text-muted)">Proposal card · one change, three states</span>
+      <div style="border:1px dashed var(--color-pencil);border-radius:10px;background:var(--color-bg)">
+        <div style="display:flex;gap:10px;padding:10px 12px;border-bottom:1px dashed var(--color-border)"><span style="font-family:var(--font-mono);color:var(--color-accent-text)">~</span><span style="flex:1;display:flex;flex-direction:column;gap:3px"><span style="font-weight:500">Review insurance renewal</span><span style="font-family:var(--font-mono);font-size:10.5px;color:var(--color-text-muted)"><s>Wed 14 19:00</s> → <span style="color:var(--color-text)">Tue 13 19:00–19:45</span></span></span><span style="width:26px;height:26px;border-radius:6px;border:1px solid var(--color-border-strong);display:grid;place-items:center"><i class="ph-bold ph-check"></i></span><span style="width:26px;height:26px;display:grid;place-items:center;color:var(--color-text-muted)"><i class="ph-bold ph-x"></i></span></div>
+        <div style="display:flex;gap:10px;padding:10px 12px;border-bottom:1px dashed var(--color-border);background:color-mix(in srgb,var(--color-accent) 6%,transparent)"><span style="font-family:var(--font-mono);color:var(--color-accent-text)">+</span><span style="flex:1;display:flex;flex-direction:column;gap:3px"><span style="font-weight:500">Call Mum</span><span style="font-size:11px;color:var(--color-accent-text);display:flex;gap:4px;align-items:center"><i class="ph-bold ph-check"></i>Accepted — now in ink</span></span></div>
+        <div style="display:flex;gap:10px;padding:10px 12px"><span style="font-family:var(--font-mono);color:var(--color-text-muted)">~</span><span style="flex:1;display:flex;flex-direction:column;gap:3px"><span style="font-weight:500;text-decoration:line-through;color:var(--color-text-muted)">Fix the leaking tap</span><span style="font-size:11px;color:var(--color-text-muted)">Rejected</span></span></div>
+      </div>
+    </div>
+
+    <div style="grid-column:span 3;display:flex;flex-direction:column;gap:12px">
+      <span style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--color-text-muted)">Pencil → ink, focus ring and hatching in every preset</span>
+      <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px">
+        <sc-for list="{{ presetStrips }}" as="p" hint-placeholder-count="4">
+          <div style="{{ p.style }}">
+            <span style="font-family:var(--font-heading);font-weight:var(--heading-weight);font-size:15px">{{ p.label }}</span>
+            <div style="padding:9px 11px;border-radius:var(--radius-md);border:1px dashed var(--color-pencil);display:flex;flex-direction:column;gap:3px;background:color-mix(in srgb,var(--color-surface) 45%,transparent)"><span style="font-weight:500">Call Mum</span><span style="font-family:var(--font-mono);font-size:11px;color:var(--color-pencil)">✎ proposed · 18:30</span></div>
+            <div style="padding:9px 11px;border-radius:var(--radius-md);border:1px solid var(--color-border);background:var(--color-surface);display:flex;flex-direction:column;gap:3px;outline:2px solid var(--color-focus-ring);outline-offset:2px"><span style="font-weight:500">Call Mum</span><span style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-muted)">18:30 · 20m · ink, focused</span></div>
+            <div style="height:30px;border-radius:4px;background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--color-blockout) 30%,transparent) 0 1.5px,transparent 1.5px 8px);font-family:var(--font-mono);font-size:10px;color:var(--color-text-muted);padding:3px 6px">Work</div>
+            <div style="height:26px;border-radius:4px;background:color-mix(in srgb,var(--tag-health) 17%,var(--color-bg));border:1px solid var(--color-conflict);border-left:3px solid var(--color-conflict);font-size:11px;display:flex;align-items:center;gap:4px;padding:0 6px"><i class="ph-fill ph-warning" style="color:var(--color-conflict)"></i>Dentist · conflict</div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="tokens" style="padding:40px 64px;display:flex;flex-direction:column;gap:24px">
+  <h2 style="margin:0;font-size:24px;font-weight:600">8 · Token set</h2>
+  <p style="margin:0;color:#b8bac3;max-width:820px;line-height:1.6">Each key is a CSS custom property, written once on the app root. Tailwind/shadcn map onto these (e.g. <code style="font-family:'Geist Mono',monospace">--background → --color-bg</code>, <code style="font-family:'Geist Mono',monospace">--ring → --color-focus-ring</code>). Source: <a href="blotter-themes.js">blotter-themes.js</a>.</p>
+  <div style="width:1440px;display:grid;grid-template-columns:260px repeat(4,minmax(0,1fr));border-radius:12px;overflow:hidden;box-shadow:0 0 0 1px #2a2b32;background:#121317">
+    <div style="padding:12px 16px;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#989aa4;border-bottom:1px solid #2a2b32">Token</div>
+    <sc-for list="{{ themeHeads }}" as="h" hint-placeholder-count="4"><div style="padding:12px 16px;border-bottom:1px solid #2a2b32;border-left:1px solid #2a2b32;display:flex;flex-direction:column;gap:2px"><span style="font-weight:600">{{ h.label }}</span><span style="font-size:11px;color:#989aa4">{{ h.note }}</span></div></sc-for>
+    <sc-for list="{{ tokenRows }}" as="r" hint-placeholder-count="30">
+      <sc-if value="{{ r.group }}" hint-placeholder-val="{{ false }}"><div style="grid-column:1 / -1;padding:14px 16px 6px;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#b2a8fb;border-bottom:1px solid #2a2b32">{{ r.groupName }}</div></sc-if>
+      <sc-if value="{{ r.token }}" hint-placeholder-val="{{ true }}">
+        <div style="padding:7px 16px;font-family:'Geist Mono',monospace;font-size:12px;border-bottom:1px solid #1f2026">{{ r.name }}</div>
+        <sc-for list="{{ r.cells }}" as="c" hint-placeholder-count="4"><div style="padding:7px 16px;border-bottom:1px solid #1f2026;border-left:1px solid #2a2b32;display:flex;align-items:center;gap:10px"><span style="width:20px;height:20px;border-radius:4px;background:{{ c.v }};box-shadow:0 0 0 1px rgba(255,255,255,.12)"></span><span style="font-family:'Geist Mono',monospace;font-size:12px;color:#cfd0d6">{{ c.v }}</span></div></sc-for>
+      </sc-if>
+    </sc-for>
+  </div>
+  <div style="width:1440px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:20px">
+    <sc-for list="{{ scales }}" as="g" hint-placeholder-count="4">
+      <div style="padding:16px;border-radius:12px;box-shadow:0 0 0 1px #2a2b32;background:#121317;display:flex;flex-direction:column;gap:6px">
+        <span style="font-weight:600;padding-bottom:4px">{{ g.name }}</span>
+        <sc-for list="{{ g.rows }}" as="r" hint-placeholder-count="5"><div style="display:flex;justify-content:space-between;font-family:'Geist Mono',monospace;font-size:12px;color:#cfd0d6;padding:3px 0;border-bottom:1px solid #1f2026"><span>{{ r.k }}</span><span style="color:#989aa4">{{ r.v }}</span></div></sc-for>
+      </div>
+    </sc-for>
+  </div>
+</section>
+
+<section id="notes" style="padding:40px 64px 120px;display:flex;flex-direction:column;gap:24px">
+  <h2 style="margin:0;font-size:24px;font-weight:600">9 · Annotations</h2>
+  <div style="width:1440px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px">
+    <sc-for list="{{ notes }}" as="n" hint-placeholder-count="3">
+      <div style="padding:22px;border-radius:12px;box-shadow:0 0 0 1px #2a2b32;background:#121317;display:flex;flex-direction:column;gap:12px">
+        <span style="display:flex;align-items:center;gap:8px;font-size:16px;font-weight:600"><i class="ph {{ n.icon }}" style="color:#b2a8fb"></i>{{ n.title }}</span>
+        <ol style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:8px;line-height:1.55;color:#cfd0d6">
+          <sc-for list="{{ n.items }}" as="i" hint-placeholder-count="5"><li>{{ i }}</li></sc-for>
+        </ol>
+      </div>
+    </sc-for>
+  </div>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { seen: {} };
+  order = ['P1','P5','P2','P6','P3','P7','P4','P8','M1','M2','V1','V2','V3','V4','V5','V6','V7','V8','V9','V10','V11','V12','V13','S1','S2','S3','S4','S5','S6','S7','S8','S9','S10','S11','W1','W2','W3','W4','W5'];
+  componentDidMount() { let i = 0; this.obsT = setInterval(() => { const add = {}; this.order.slice(i, i + 2).forEach(id => add[id] = 1); i += 2; this.setState(s => ({ seen: { ...s.seen, ...add } })); if (i >= this.order.length) clearInterval(this.obsT); }, 900); if (!window.BLOTTER_THEMES) this.poll = setInterval(() => { if (window.BLOTTER_THEMES) { clearInterval(this.poll); this.forceUpdate(); } }, 50); }
+  componentWillUnmount() { clearInterval(this.poll); clearInterval(this.obsT); }
+  renderVals() {
+    const T = window.BLOTTER_THEMES || {}, G = window.BLOTTER_TOKEN_GROUPS || [], keys = ['dark', 'light', 'paper', 'gruvbox'];
+    const L = { dark: 'Dark', light: 'Light', paper: 'Paper', gruvbox: 'Gruvbox' };
+    const presetFrames = [];
+    keys.forEach((t, i) => presetFrames.push({ id: 'P' + (i + 1), label: `Diary · ${L[t]}`, theme: t, view: 'diary' }));
+    keys.forEach((t, i) => presetFrames.push({ id: 'P' + (i + 5), label: `Week · ${L[t]}`, theme: t, view: 'week' }));
+    const minFrames = [{ id: 'M1', label: 'Diary · sidebar collapsed', view: 'diary', collapsed: true, rail: true }, { id: 'M2', label: 'Week · sidebar collapsed', view: 'week', collapsed: true, rail: true }];
+    const F = (id, label, view, o = {}) => ({ id, label, view, overlay: o.overlay || 'none', chat: !!o.chat, scenario: o.scenario || 'propose', note: o.note || '' });
+    const screenFrames = [
+      F('V1', 'Month', 'month', { note: '+N more popover open on Thu 15' }), F('V2', 'Year', 'year', { note: 'focused day Fri 20 Nov' }),
+      F('V3', 'Inbox · full view', 'inbox', { note: 'multi-select, bulk bar, auto-slot result' }), F('V4', 'History', 'history'),
+      F('V5', 'Diary + docked chat', 'diary', { chat: true, note: 'proposal card, streaming reply' }), F('V6', 'Week + docked chat · auto mode', 'week', { chat: true, scenario: 'auto' }),
+      F('V7', 'Item dialog', 'week', { overlay: 'item', note: 'recurring item, this / following / all' }), F('V8', 'Quick add', 'diary', { overlay: 'quickadd', note: 'live parse preview' }),
+      F('V9', 'Command palette', 'diary', { overlay: 'palette' }), F('V10', 'Shortcut cheat-sheet', 'week', { overlay: 'cheatsheet', note: 'opened with ?' }),
+      F('V11', 'Reminder toast', 'diary', { overlay: 'reminder' }), F('V12', 'Missed while closed', 'diary', { overlay: 'missed', note: 'shown at next start' }),
+      F('V13', 'First-run setup', 'diary', { overlay: 'firstrun', note: '5 skippable steps (step 1 shown; Continue to page through)' })];
+    const pages = [['general', 'General'], ['blockouts', 'Block-outs'], ['calendars', 'Calendars (ICS)'], ['ai', 'AI providers', 'propose / auto, test connection'], ['notifications', 'Notifications'], ['keybindings', 'Keybindings', 'conflict prompt'], ['theme', 'Theme engine', 'token editor + live preview, AA warning'], ['backups', 'Backups'], ['about', 'About']];
+    const settingsFrames = pages.map(([page, label, note], i) => ({ id: 'S' + (i + 1), page, label, note: note || '' }));
+    const chatFrames = [['W1', 'Pop-out · proposal + streaming', 'propose'], ['W2', 'Pop-out · auto mode, Undo batch', 'auto'], ['W3', 'Pop-out · tool error', 'error'], ['W4', 'Pop-out · empty thread', 'empty'], ['W5', 'Pop-out · loading', 'loading']].map(([id, label, scenario]) => ({ id, label, scenario }));
+    const base = { padding: '10px 12px', borderRadius: 'var(--radius-md)', background: 'var(--color-surface)', border: '1px solid var(--color-border)' };
+    const box = (k) => ({ width: 16, height: 16, flex: 'none', marginTop: 1, borderRadius: 4, display: 'grid', placeItems: 'center', color: 'var(--color-on-accent)', border: k === 'done' ? '1px solid var(--color-accent)' : k === 'pencil' ? '1px dashed var(--color-pencil)' : '1.5px solid var(--color-border-strong)', background: k === 'done' ? 'var(--color-accent)' : 'transparent' });
+    const C = (label, title, meta, style, o = {}) => ({ label, title, meta, style: { ...base, ...style }, box: box(o.box), checkOp: o.box === 'done' ? 1 : 0, metaColor: o.metaColor || 'var(--color-text-muted)', extra: o.extra || '', extraColor: o.extraColor || 'var(--color-text-muted)', grip: !!o.grip,
+      titleStyle: { fontWeight: 500, color: o.box === 'done' ? 'var(--color-text-muted)' : 'var(--color-text)', textDecoration: o.box === 'done' ? 'line-through' : 'none' } });
+    const cardStates = [
+      C('Default', 'Gym', '17:30 · 45m · health', {}), C('Hover · grip appears', 'Gym', '17:30 · 45m · health', { borderColor: 'var(--color-border-strong)', background: 'var(--color-hover)' }, { grip: true }),
+      C('Keyboard focus', 'Gym', '17:30 · 45m · health', { outline: '2px solid var(--color-focus-ring)', outlineOffset: 2 }), C('Proposed (pencil)', 'Call Mum', '18:30 · 20m', { borderStyle: 'dashed', borderColor: 'var(--color-pencil)', background: 'color-mix(in srgb, var(--color-surface) 45%, transparent)' }, { box: 'pencil', extra: '✎ proposed · Accept a / Reject r', extraColor: 'var(--color-pencil)' }),
+      C('Completed', 'Morning run', '07:15 · 30m', { background: 'transparent' }, { box: 'done', extra: '✓ 07:48' }), C('Overdue', 'Renew car registration', 'due Mon 12 · 20m', {}, { metaColor: 'var(--color-danger)' }),
+      C('Conflict', 'Dentist', '15:00–15:45 · fixed', { borderColor: 'var(--color-conflict)' }, { extra: '⚠ Overlaps Parent–teacher interview', extraColor: 'var(--color-conflict)' }),
+      C('Dragging', 'Book flu shot', '~15m · health', { background: 'var(--color-surface-raised)', borderColor: 'var(--color-accent)', boxShadow: 'var(--shadow-overlay)', transform: 'rotate(-2deg)' }, { grip: true })];
+    const E = (label, title, meta, tag, o = {}) => ({ label, title, meta, pin: !!o.pin, warn: !!o.warn, metaColor: 'var(--color-text-muted)',
+      titleStyle: { overflow: 'hidden', textOverflow: 'ellipsis', textDecoration: o.done ? 'line-through' : 'none', color: o.done ? 'var(--color-text-muted)' : 'var(--color-text)' },
+      style: { height: 52, borderRadius: 4, padding: '4px 6px', fontSize: 11, display: 'flex', flexDirection: 'column', gap: 1, overflow: 'hidden',
+        background: o.pencil ? 'transparent' : `color-mix(in srgb, var(--tag-${tag}) ${o.done ? 7 : 17}%, var(--color-bg))`,
+        border: o.pencil ? '1px dashed var(--color-pencil)' : o.warn ? '1px solid var(--color-conflict)' : 'none',
+        borderLeft: o.pencil ? '2px dashed var(--color-pencil)' : `3px solid ${o.warn ? 'var(--color-conflict)' : `var(--tag-${tag})`}`,
+        outline: o.focus ? '2px solid var(--color-focus-ring)' : 'none', outlineOffset: 1, boxShadow: o.drag ? 'var(--shadow-overlay)' : 'none', opacity: o.ghost ? 0.4 : 1 } });
+    const eventStates = [E('Default', 'Meal prep', '19:00–20:00', 'home'), E('Fixed in block-out', 'Telehealth', '11:30–12:15', 'health', { pin: 1 }), E('Proposed', 'Call Mum', '✎ proposed', 'personal', { pencil: 1 }),
+      E('Completed', 'Groceries', '✓ 18:21', 'shopping', { done: 1 }), E('Conflict', 'Dentist', '15:00–15:45', 'health', { warn: 1, pin: 1 }), E('ICS (read-only)', 'Standup', '09:00 · Work cal', 'ics'),
+      E('Focused', 'Gym', '17:30–18:15', 'health', { focus: 1 }), E('Drag origin', 'Gym', 'moving…', 'health', { ghost: 1 })];
+    const presetStrips = keys.filter(k => T[k]).map(k => ({ label: T[k].label, style: { ...T[k].vars, padding: 16, borderRadius: 10, background: 'var(--color-bg)', color: 'var(--color-text)', border: '1px solid var(--color-border)', display: 'flex', flexDirection: 'column', gap: 10, fontFamily: 'var(--font-ui)', fontSize: 13 } }));
+    const themeHeads = keys.filter(k => T[k]).map(k => ({ label: T[k].label, note: T[k].note }));
+    const tokenRows = [];
+    G.forEach(([name, ks]) => { tokenRows.push({ group: true, token: false, groupName: name }); ks.forEach(k => tokenRows.push({ group: false, token: true, name: k, cells: keys.filter(t => T[t]).map(t => ({ v: T[t].vars[k] })) })); });
+    const sv = T.dark ? T.dark.vars : {};
+    const scales = [
+      { name: 'Radius', rows: ['--radius-sm', '--radius-md', '--radius-lg'].map(k => ({ k, v: sv[k] })) },
+      { name: 'Spacing (4px base)', rows: ['--space-1', '--space-2', '--space-3', '--space-4', '--space-5', '--space-6'].map(k => ({ k, v: sv[k] })) },
+      { name: 'Type scale', rows: ['--text-xs', '--text-sm', '--text-base', '--text-md', '--text-lg', '--text-xl', '--text-display'].map(k => ({ k, v: sv[k] })) },
+      { name: 'Fonts & density', rows: [{ k: '--font-ui', v: 'Geist' }, { k: '--font-mono', v: 'Geist Mono' }, { k: '--font-heading', v: 'Geist · Paper: Newsreader' }, { k: '--heading-weight', v: '600 · Paper 500' }, { k: '--density-row', v: sv['--density-row'] }] }];
+    const notes = [
+      { icon: 'ph-keyboard', title: 'Keyboard focus order', items: [
+        'Tab order: sidebar → top bar (period nav, Diary/Calendar, quick add, chat) → main view → chat panel. F6 cycles these regions.',
+        'Inside a view, arrow keys or h j k l move focus (roving tabindex): Diary moves card-to-card and column-to-column; Week alternates item focus and grid cursor with Tab.',
+        'Focus is always the 2px --color-focus-ring outline with 2px offset, tuned for AA against every preset ground. It never relies on colour fill alone.',
+        'Overlays (palette, dialog, quick add, first run) trap focus and return it to the invoking element on Esc. Toasts never steal focus; their actions are reachable via the shortcut shown.',
+        'Chords: after g the top bar shows a hint chip until the second key or a 1.2s timeout.'] },
+      { icon: 'ph-hand-grabbing', title: 'Drag behaviour', items: [
+        'Cards show a grip on hover; the whole card is draggable. The source leaves a dashed placeholder at 45% opacity.',
+        'Between cards and across day columns: a 2px accent insert line with an end dot marks the drop index.',
+        'Onto the timeline or Week grid: a dashed accent slot snaps to 15 minutes and shows its mono time range. Releasing schedules the item.',
+        'A flexible item over a block-out shows a refused slot (danger dashed edge, prohibit icon) and snaps back on release. Fixed items may drop inside and gain a pin.',
+        'Week: drag the bottom handle to resize. Keyboard equivalents are Shift+arrows (move 15m / 1 day) and Alt+arrows (resize).'] },
+      { icon: 'ph-pencil-simple', title: 'Pencil vs ink', items: [
+        'Pencil marks anything proposed by the AI or MCP that hasn\'t been accepted: 1px dashed --color-pencil outline, fill dropped to 45% surface, dashed checkbox, and a mono "✎ proposed" marker.',
+        'In calendar grids the coloured left edge becomes a dashed pencil edge, so the tag colour isn\'t asserted until the change is real.',
+        'Ink is the normal solid item. Accepting (a, the ✓ in the proposal card, or Accept all) swaps outline, fill and edge in place, with no movement.',
+        'Rejecting removes the pencil item, or restores the original position for a move. Both actions are logged and undoable.',
+        'Auto mode never draws pencil: changes land in ink, and the chat shows a "Changed" card with Undo batch.'] }];
+    const seen = this.state.seen, on = (a) => a.map(f => ({ ...f, on: !!seen[f.id] }));
+    return { seen, presetFrames: on(presetFrames), minFrames: on(minFrames), screenFrames: on(screenFrames), settingsFrames: on(settingsFrames), chatFrames: on(chatFrames), cardStates, eventStates, presetStrips, themeHeads, tokenRows, scales, notes };
+  }
+}
+</script>
+</body>
+</html>

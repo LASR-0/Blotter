@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<title>Blotter</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&amp;family=Geist+Mono:wght@400;500&amp;family=Newsreader:opsz,wght@6..72,500&amp;display=swap">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/bold/style.css">
+<script src="blotter-themes.js"></script>
+<style>html,body{margin:0;height:100%;background:var(--color-bg);color:var(--color-text);font-family:var(--font-ui);font-size:13px}*{box-sizing:border-box}a{color:var(--color-accent-text)}a:hover{color:var(--color-text)}:focus-visible{outline:2px solid var(--color-focus-ring);outline-offset:2px}input::placeholder,textarea::placeholder{color:var(--color-text-muted)}::selection{background:color-mix(in srgb,var(--color-accent) 30%,transparent)}</style>
+</helmet>
+<div style="{{ rootStyle }}">
+<div style="position:relative;display:flex;width:100%;height:100%;min-width:1024px;min-height:0;overflow:hidden;background:var(--color-bg);color:var(--color-text);font-family:var(--font-ui);font-size:var(--text-base)">
+
+  <!-- Sidebar -->
+  <aside style="{{ sideStyle }}">
+    <div style="display:flex;align-items:center;gap:8px;height:48px;padding:0 10px 0 12px;flex:none">
+      <span style="width:24px;height:24px;border-radius:6px;background:var(--color-accent);color:var(--color-on-accent);display:grid;place-items:center;font-weight:600;font-size:13px;flex:none">B</span>
+      <sc-if value="{{ sideOpen }}" hint-placeholder-val="{{ true }}"><span style="font-weight:600;flex:1;font-family:var(--font-heading)">Blotter</span></sc-if>
+      <button onClick="{{ toggleSide }}" title="Collapse sidebar (Ctrl+B)" style="width:24px;height:24px;display:grid;place-items:center;border:0;border-radius:4px;background:transparent;color:var(--color-text-muted);cursor:pointer;flex:none" style-hover="background:var(--color-hover);color:var(--color-text)"><i class="ph ph-sidebar-simple"></i></button>
+    </div>
+    <div style="padding:0 8px 8px;flex:none">
+      <button onClick="{{ openPalette }}" title="Command palette (Ctrl+K)" style="{{ searchStyle }}" style-hover="border-color:var(--color-border-strong)"><i class="ph ph-magnifying-glass"></i><sc-if value="{{ sideOpen }}" hint-placeholder-val="{{ true }}"><span style="flex:1;text-align:left">Search or command</span><span style="font-family:var(--font-mono);font-size:10px;padding:0 4px;border:1px solid var(--color-border-strong);border-bottom-width:2px;border-radius:3px">Ctrl K</span></sc-if></button>
+    </div>
+    <nav style="display:flex;flex-direction:column;gap:1px;padding:0 8px;flex:none">
+      <sc-for list="{{ navItems }}" as="n" hint-placeholder-count="7">
+        <button onClick="{{ n.onClick }}" title="{{ n.tip }}" style="{{ n.style }}" style-hover="background:var(--color-hover)">
+          <i class="ph {{ n.icon }}" style="font-size:15px;color:{{ n.iconColor }}"></i>
+          <sc-if value="{{ sideOpen }}" hint-placeholder-val="{{ true }}"><span style="flex:1;text-align:left">{{ n.label }}</span>
+            <sc-if value="{{ n.count }}" hint-placeholder-val="{{ false }}"><span style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-muted);padding:0 6px;border-radius:99px;background:var(--color-hover)">{{ n.count }}</span></sc-if>
+            <span style="font-family:var(--font-mono);font-size:10px;color:var(--color-text-muted);opacity:.8">{{ n.key }}</span></sc-if>
+        </button>
+      </sc-for>
+    </nav>
+    <sc-if value="{{ sideOpen }}" hint-placeholder-val="{{ true }}">
+      <div style="flex:1;min-height:0;overflow:auto;padding:14px 8px 8px;display:flex;flex-direction:column;gap:14px">
+        <div style="display:flex;flex-direction:column;gap:1px">
+          <span style="font-size:11px;color:var(--color-text-muted);padding:0 8px 4px;display:flex;align-items:center">Calendars &amp; tags<span style="flex:1"></span><i class="ph ph-plus"></i></span>
+          <sc-for list="{{ cals }}" as="c" hint-placeholder-count="6">
+            <button onClick="{{ c.onClick }}" title="Toggle visibility" style="display:flex;align-items:center;gap:9px;height:28px;padding:0 8px;border:0;border-radius:var(--radius-md);background:transparent;color:var(--color-text);font:inherit;cursor:pointer;opacity:{{ c.op }}" style-hover="background:var(--color-hover)">
+              <span style="{{ c.box }}"><i class="ph-bold ph-check" style="font-size:8px;opacity:{{ c.checkOp }}"></i></span>
+              <span style="flex:1;text-align:left">{{ c.name }}</span>
+              <sc-if value="{{ c.ics }}" hint-placeholder-val="{{ false }}"><i class="ph ph-link-simple" style="color:var(--color-text-muted)" title="ICS subscription"></i></sc-if>
+            </button>
+          </sc-for>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:1px">
+          <span style="font-size:11px;color:var(--color-text-muted);padding:0 8px 4px">Block-outs</span>
+          <sc-for list="{{ blocks }}" as="b" hint-placeholder-count="2">
+            <button onClick="{{ openBlockouts }}" style="display:flex;align-items:center;gap:9px;height:28px;padding:0 8px;border:0;border-radius:var(--radius-md);background:transparent;color:var(--color-text);font:inherit;cursor:pointer" style-hover="background:var(--color-hover)">
+              <span style="width:12px;height:12px;border-radius:3px;background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--color-blockout) 70%,transparent) 0 1.5px,transparent 1.5px 4px);border:1px solid color-mix(in srgb,var(--color-blockout) 50%,transparent)"></span>
+              <span style="flex:1;text-align:left">{{ b.name }}</span><span style="font-family:var(--font-mono);font-size:10px;color:var(--color-text-muted)">{{ b.when }}</span>
+            </button>
+          </sc-for>
+        </div>
+      </div>
+    </sc-if>
+    <sc-if value="{{ sideCollapsed }}" hint-placeholder-val="{{ false }}"><span style="flex:1"></span></sc-if>
+    <div style="padding:8px;border-top:1px solid var(--color-border);flex:none">
+      <button onClick="{{ openSettings }}" title="Settings (Ctrl+,)" style="{{ settingsStyle }}" style-hover="background:var(--color-hover)"><i class="ph ph-gear" style="font-size:15px;color:var(--color-text-muted)"></i><sc-if value="{{ sideOpen }}" hint-placeholder-val="{{ true }}"><span style="flex:1;text-align:left">Settings</span><span style="font-family:var(--font-mono);font-size:10px;color:var(--color-text-muted)">Ctrl ,</span></sc-if></button>
+    </div>
+  </aside>
+
+  <!-- Main column -->
+  <div style="flex:1;min-width:0;display:flex;flex-direction:column">
+    <header style="height:48px;flex:none;display:flex;align-items:center;gap:8px;padding:0 12px 0 14px;border-bottom:1px solid var(--color-border)">
+      <sc-if value="{{ hasPeriod }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex;align-items:center;gap:2px">
+          <button title="Previous ( [ )" style="width:28px;height:28px;display:grid;place-items:center;border:0;border-radius:var(--radius-md);background:transparent;color:var(--color-text-muted);cursor:pointer" style-hover="background:var(--color-hover);color:var(--color-text)"><i class="ph ph-caret-left"></i></button>
+          <button title="Today ( . )" style="height:26px;padding:0 10px;border:1px solid var(--color-border-strong);border-radius:var(--radius-md);background:transparent;color:var(--color-text);font:inherit;font-size:12px;cursor:pointer" style-hover="background:var(--color-hover)">Today</button>
+          <button title="Next ( ] )" style="width:28px;height:28px;display:grid;place-items:center;border:0;border-radius:var(--radius-md);background:transparent;color:var(--color-text-muted);cursor:pointer" style-hover="background:var(--color-hover);color:var(--color-text)"><i class="ph ph-caret-right"></i></button>
+        </div>
+      </sc-if>
+      <span style="font-family:var(--font-heading);font-weight:var(--heading-weight);font-size:var(--text-lg);white-space:nowrap;margin-left:4px">{{ periodTitle }}</span>
+      <span style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-muted);white-space:nowrap">{{ periodSub }}</span>
+      <span style="flex:1"></span>
+      <sc-if value="{{ chordHint }}" hint-placeholder-val="{{ false }}"><span style="font-family:var(--font-mono);font-size:11px;padding:2px 8px;border-radius:4px;background:var(--color-accent-tint);color:var(--color-accent-text)">g …  d w m y h</span></sc-if>
+      <div title="Toggle Diary ↔ Calendar (v)" style="display:flex;padding:2px;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-surface)">
+        <button onClick="{{ goDiary }}" style="{{ segDiary }}"><i class="ph ph-notebook"></i>Diary</button>
+        <button onClick="{{ goCalendar }}" style="{{ segCal }}"><i class="ph ph-calendar"></i>Calendar</button>
+      </div>
+      <sc-if value="{{ isCal }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;padding:2px;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-surface)">
+          <sc-for list="{{ calSegs }}" as="c" hint-placeholder-count="3"><button onClick="{{ c.onClick }}" title="{{ c.tip }}" style="{{ c.style }}">{{ c.label }}</button></sc-for>
+        </div>
+      </sc-if>
+      <button onClick="{{ openQuick }}" title="Quick add (n)" style="display:flex;align-items:center;gap:8px;height:30px;width:{{ quickW }};padding:0 8px 0 10px;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-surface);color:var(--color-text-muted);font:inherit;cursor:text" style-hover="border-color:var(--color-border-strong)"><i class="ph ph-plus"></i><span style="flex:1;text-align:left;white-space:nowrap;overflow:hidden">Quick add…</span><span style="font-family:var(--font-mono);font-size:10px;padding:0 4px;border:1px solid var(--color-border-strong);border-bottom-width:2px;border-radius:3px">n</span></button>
+      <button onClick="{{ toggleChat }}" title="Toggle AI chat (Ctrl+/)" style="{{ chatBtn }}" style-hover="border-color:var(--color-accent)"><i class="ph ph-sparkle"></i></button>
+    </header>
+    <div style="flex:1;min-height:0;display:flex">
+      <main style="flex:1;min-width:0;min-height:0;position:relative">
+        <sc-if value="{{ v.diary }}" hint-placeholder-val="{{ true }}"><dc-import name="Diary View" keys="{{ childKeys }}" on-open-item="{{ openItem }}" show-inbox="{{ showInboxRail }}" style="position:absolute;inset:0" hint-size="100%,100%"></dc-import></sc-if>
+        <sc-if value="{{ v.week }}" hint-placeholder-val="{{ false }}"><dc-import name="Week View" keys="{{ childKeys }}" on-open-item="{{ openItem }}" style="position:absolute;inset:0" hint-size="100%,100%"></dc-import></sc-if>
+        <sc-if value="{{ v.month }}" hint-placeholder-val="{{ false }}"><dc-import name="Month View" style="position:absolute;inset:0" hint-size="100%,100%"></dc-import></sc-if>
+        <sc-if value="{{ v.year }}" hint-placeholder-val="{{ false }}"><dc-import name="Year View" keys="{{ childKeys }}" on-open-week="{{ goWeek }}" style="position:absolute;inset:0" hint-size="100%,100%"></dc-import></sc-if>
+        <sc-if value="{{ v.inbox }}" hint-placeholder-val="{{ false }}"><dc-import name="Inbox View" style="position:absolute;inset:0" hint-size="100%,100%"></dc-import></sc-if>
+        <sc-if value="{{ v.history }}" hint-placeholder-val="{{ false }}"><dc-import name="History View" style="position:absolute;inset:0" hint-size="100%,100%"></dc-import></sc-if>
+        <sc-if value="{{ v.settings }}" hint-placeholder-val="{{ false }}"><dc-import name="Settings" page="{{ settingsPage }}" keys="{{ childKeys }}" on-apply-theme="{{ applyCustom }}" style="position:absolute;inset:0" hint-size="100%,100%"></dc-import></sc-if>
+      </main>
+      <sc-if value="{{ chatDocked }}" hint-placeholder-val="{{ false }}">
+        <aside style="width:360px;flex:none;border-left:1px solid var(--color-border);min-height:0;position:relative">
+          <dc-import name="Chat Panel" scenario="{{ chatScenario }}" mode="docked" on-close="{{ toggleChat }}" on-popout="{{ popout }}" style="position:absolute;inset:0" hint-size="100%,100%"></dc-import>
+        </aside>
+      </sc-if>
+    </div>
+  </div>
+
+  <sc-if value="{{ chatPopped }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;right:28px;top:72px;width:360px;height:560px;border-radius:var(--radius-lg);overflow:hidden;box-shadow:var(--shadow-overlay);z-index:30">
+      <dc-import name="Chat Panel" scenario="{{ chatScenario }}" mode="popout" style="position:absolute;inset:0" hint-size="100%,100%"></dc-import>
+      <button onClick="{{ dock }}" title="Dock" style="position:absolute;right:30px;top:4px;width:24px;height:22px;border:0;background:transparent;cursor:pointer"></button>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ hasBackdrop }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeOverlay }}" style="position:absolute;inset:0;z-index:40;background:color-mix(in srgb,var(--color-bg) 62%,transparent)"></div>
+  </sc-if>
+  <sc-if value="{{ o.palette }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;z-index:41;left:50%;top:96px;width:620px;margin-left:-310px"><dc-import name="Command Palette" kind="palette" on-run="{{ runCmd }}" on-close="{{ closeOverlay }}" hint-size="620px,460px"></dc-import></div></sc-if>
+  <sc-if value="{{ o.cheatsheet }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;z-index:41;left:50%;top:110px;width:880px;margin-left:-440px"><dc-import name="Command Palette" kind="cheatsheet" hint-size="880px,420px"></dc-import></div></sc-if>
+  <sc-if value="{{ o.quickadd }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;z-index:41;left:50%;top:110px;width:600px;margin-left:-300px"><dc-import name="Quick Add" on-close="{{ closeOverlay }}" on-create="{{ closeOverlay }}" hint-size="600px,220px"></dc-import></div></sc-if>
+  <sc-if value="{{ o.item }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;z-index:41;left:50%;top:60px;width:580px;margin-left:-290px"><dc-import name="Item Dialog" on-close="{{ closeOverlay }}" hint-size="580px,700px"></dc-import></div></sc-if>
+  <sc-if value="{{ o.firstrun }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;z-index:41;left:50%;top:120px;width:620px;margin-left:-310px"><dc-import name="First Run" on-theme="{{ setThemeFn }}" on-done="{{ closeOverlay }}" hint-size="620px,440px"></dc-import></div></sc-if>
+  <sc-if value="{{ o.reminder }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;z-index:42;right:20px;bottom:20px;width:380px"><dc-import name="Reminder Toast" kind="reminder" on-close="{{ closeOverlay }}" hint-size="380px,150px"></dc-import></div></sc-if>
+  <sc-if value="{{ o.missed }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;z-index:42;right:20px;bottom:20px;width:380px"><dc-import name="Reminder Toast" kind="missed" on-close="{{ closeOverlay }}" hint-size="380px,220px"></dc-import></div></sc-if>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;dark&quot;,&quot;light&quot;,&quot;paper&quot;,&quot;gruvbox&quot;],&quot;default&quot;:&quot;dark&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Prototype&quot;},&quot;view&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;diary&quot;,&quot;week&quot;,&quot;month&quot;,&quot;year&quot;,&quot;inbox&quot;,&quot;history&quot;,&quot;settings&quot;],&quot;default&quot;:&quot;diary&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Prototype&quot;},&quot;overlay&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;palette&quot;,&quot;cheatsheet&quot;,&quot;quickadd&quot;,&quot;item&quot;,&quot;firstrun&quot;,&quot;reminder&quot;,&quot;missed&quot;],&quot;default&quot;:&quot;none&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Prototype&quot;},&quot;chat&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Prototype&quot;},&quot;chatScenario&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;propose&quot;,&quot;auto&quot;,&quot;error&quot;,&quot;empty&quot;,&quot;loading&quot;],&quot;default&quot;:&quot;propose&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Prototype&quot;},&quot;sidebarCollapsed&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Prototype&quot;},&quot;settingsPage&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;general&quot;,&quot;blockouts&quot;,&quot;calendars&quot;,&quot;ai&quot;,&quot;notifications&quot;,&quot;keybindings&quot;,&quot;theme&quot;,&quot;backups&quot;,&quot;about&quot;],&quot;default&quot;:&quot;general&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Prototype&quot;},&quot;inboxRail&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;},&quot;keys&quot;:{&quot;editor&quot;:null,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;},&quot;embedded&quot;:{&quot;editor&quot;:null,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;}}">
+class Component extends DCLogic {
+  constructor(p) {
+    super(p);
+    this.state = { theme: p.theme || 'dark', custom: null, view: p.view || 'diary', calView: 'week', chat: p.chat ?? false, popped: false, side: !(p.sidebarCollapsed), overlay: p.overlay && p.overlay !== 'none' ? p.overlay : null, hidden: {}, g: false, settingsPage: p.settingsPage || 'general' };
+  }
+  componentDidMount() {
+    if (!window.BLOTTER_THEMES) this.poll = setInterval(() => { if (window.BLOTTER_THEMES) { clearInterval(this.poll); this.forceUpdate(); } }, 50);
+    this.onKey = (e) => {
+      if (this.props.keys === false) return;
+      const t = (e.target.tagName || '').toLowerCase(), typing = t === 'input' || t === 'textarea';
+      const s = this.state, k = e.key;
+      if (k === 'Escape' && s.overlay) { e.preventDefault(); return this.setState({ overlay: null }); }
+      if ((e.ctrlKey || e.metaKey) && k.toLowerCase() === 'k') { e.preventDefault(); return this.setState({ overlay: s.overlay === 'palette' ? null : 'palette' }); }
+      if ((e.ctrlKey || e.metaKey) && k === '/') { e.preventDefault(); return this.setState({ chat: !s.chat, popped: false }); }
+      if ((e.ctrlKey || e.metaKey) && k === ',') { e.preventDefault(); return this.go('settings'); }
+      if ((e.ctrlKey || e.metaKey) && k.toLowerCase() === 'b') { e.preventDefault(); return this.setState({ side: !s.side }); }
+      if (typing || s.overlay || e.ctrlKey || e.metaKey || e.altKey) return;
+      if (s.g) { clearTimeout(this.gt); this.setState({ g: false }); const m = { d: 'diary', w: 'week', m: 'month', y: 'year', h: 'history' }[k]; if (m) { e.preventDefault(); this.go(m); } return; }
+      if (k === 'g') { this.setState({ g: true }); this.gt = setTimeout(() => this.setState({ g: false }), 1200); return; }
+      if (k === '?') return this.setState({ overlay: 'cheatsheet' });
+      if (k === 'n') { e.preventDefault(); return this.setState({ overlay: 'quickadd' }); }
+      if (k === 'i') return this.go(s.view === 'inbox' ? 'diary' : 'inbox');
+      if (k === 'v') return this.go(s.view === 'diary' ? s.calView : 'diary');
+    };
+    window.addEventListener('keydown', this.onKey);
+  }
+  componentDidUpdate(pp) {
+    const p = this.props, ch = {};
+    if (pp.theme !== p.theme && p.theme) { ch.theme = p.theme; ch.custom = null; }
+    if (pp.view !== p.view && p.view) ch.view = p.view;
+    if (pp.overlay !== p.overlay) ch.overlay = p.overlay && p.overlay !== 'none' ? p.overlay : null;
+    if (pp.chat !== p.chat) ch.chat = !!p.chat;
+    if (pp.sidebarCollapsed !== p.sidebarCollapsed) ch.side = !p.sidebarCollapsed;
+    if (pp.settingsPage !== p.settingsPage && p.settingsPage) ch.settingsPage = p.settingsPage;
+    if (Object.keys(ch).length) this.setState(ch);
+  }
+  componentWillUnmount() { window.removeEventListener('keydown', this.onKey); clearInterval(this.poll); }
+  go(view) { this.setState(s => ({ view, calView: ['week', 'month', 'year'].includes(view) ? view : s.calView, overlay: null })); }
+  renderVals() {
+    const s = this.state, T = window.BLOTTER_THEMES, p = this.props;
+    const vars = s.custom || (T ? T[s.theme].vars : {});
+    const rootStyle = { ...vars, width: '100%', height: p.embedded ? '100%' : '100vh', position: 'relative' };
+    const open = s.side;
+    const navBtn = (on) => ({ display: 'flex', alignItems: 'center', gap: 10, height: 30, padding: open ? '0 8px' : 0, justifyContent: open ? 'flex-start' : 'center', border: 0, borderRadius: 'var(--radius-md)', font: 'inherit', cursor: 'pointer', color: 'var(--color-text)', background: on ? 'var(--color-hover)' : 'transparent', fontWeight: on ? 500 : 400, width: '100%' });
+    const N = (id, label, icon, key, o = {}) => ({ label, icon, key, count: o.count || 0, tip: `${label} (${key})`, iconColor: s.view === id ? 'var(--color-accent-text)' : 'var(--color-text-muted)', style: navBtn(s.view === id), onClick: () => this.go(id) });
+    const navItems = [N('diary', 'Diary', 'ph-notebook', 'g d'), N('week', 'Week', 'ph-calendar', 'g w'), N('month', 'Month', 'ph-calendar-dots', 'g m'), N('year', 'Year', 'ph-squares-four', 'g y'), N('history', 'History', 'ph-check-circle', 'g h'), N('inbox', 'Inbox', 'ph-tray', 'i', { count: 6 })];
+    const cals = [['personal', 'Personal'], ['health', 'Health'], ['home', 'Home'], ['shopping', 'Shopping'], ['work', 'Work'], ['ics', 'Work calendar', true], ['holiday', 'Public holidays', true]].map(([id, name, ics]) => {
+      const on = !s.hidden[id], col = id === 'holiday' ? 'var(--tag-work)' : `var(--tag-${id})`;
+      return { name, ics: !!ics, op: on ? 1 : 0.6, checkOp: on ? 1 : 0, onClick: () => this.setState(st => ({ hidden: { ...st.hidden, [id]: !st.hidden[id] } })),
+        box: { width: 13, height: 13, borderRadius: 4, display: 'grid', placeItems: 'center', background: on ? col : 'transparent', border: `1.5px solid ${col}`, color: 'var(--color-bg)', flex: 'none' } };
+    });
+    const isCal = ['week', 'month', 'year'].includes(s.view);
+    const seg = (on) => ({ display: 'flex', alignItems: 'center', gap: 6, height: 24, padding: '0 10px', border: 0, borderRadius: 4, font: 'inherit', fontSize: 12, cursor: 'pointer', background: on ? 'var(--color-surface-raised)' : 'transparent', color: on ? 'var(--color-text)' : 'var(--color-text-muted)', boxShadow: on ? '0 0 0 1px var(--color-border-strong)' : 'none', fontWeight: on ? 500 : 400 });
+    const titles = { diary: ['Tuesday 13 October', 'week 42'], week: ['12 – 18 October 2026', 'W42'], month: ['October 2026', ''], year: ['2026', ''], inbox: ['Inbox', '6 unscheduled'], history: ['History', ''], settings: ['Settings', ''] };
+    const ov = s.overlay, o = {}; ['palette', 'cheatsheet', 'quickadd', 'item', 'firstrun', 'reminder', 'missed'].forEach(k => o[k] = ov === k);
+    const v = {}; ['diary', 'week', 'month', 'year', 'inbox', 'history', 'settings'].forEach(k => v[k] = s.view === k);
+    const run = (id) => {
+      if (id.startsWith('theme:')) return this.setState({ theme: id.slice(6), custom: null, overlay: null });
+      const views = ['diary', 'week', 'month', 'year', 'inbox', 'history', 'settings'];
+      if (views.includes(id)) return this.go(id);
+      const m = { quick: 'quickadd', help: 'cheatsheet', reminder: 'reminder', missed: 'missed', firstrun: 'firstrun' };
+      if (m[id]) return this.setState({ overlay: m[id] });
+      if (id === 'chat' || id === 'brief') return this.setState({ chat: true, overlay: null });
+      if (id === 'autoslot') return this.go('inbox');
+      this.setState({ overlay: null });
+    };
+    return { rootStyle, sideOpen: open, sideCollapsed: !open,
+      sideStyle: { width: open ? 232 : 52, flex: 'none', display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--color-border)', background: 'var(--color-surface)', minHeight: 0 },
+      searchStyle: { display: 'flex', alignItems: 'center', justifyContent: open ? 'flex-start' : 'center', gap: 8, width: '100%', height: 30, padding: open ? '0 8px' : 0, border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', background: 'var(--color-bg)', color: 'var(--color-text-muted)', font: 'inherit', cursor: 'pointer' },
+      settingsStyle: navBtn(s.view === 'settings'),
+      navItems, cals, blocks: [{ name: 'Work', when: 'M–F 08:30–17' }, { name: 'Sleep', when: '23:00–06:30' }],
+      toggleSide: () => this.setState({ side: !s.side }), openPalette: () => this.setState({ overlay: 'palette' }), openSettings: () => this.go('settings'),
+      openBlockouts: () => this.setState({ view: 'settings', settingsPage: 'blockouts' }),
+      hasPeriod: ['diary', 'week', 'month', 'year'].includes(s.view), periodTitle: titles[s.view][0], periodSub: titles[s.view][1], chordHint: s.g,
+      isCal, segDiary: seg(s.view === 'diary'), segCal: seg(isCal), goDiary: () => this.go('diary'), goCalendar: () => this.go(s.calView),
+      calSegs: [['week', 'W', 'Week (g w)'], ['month', 'M', 'Month (g m)'], ['year', 'Y', 'Year (g y)']].map(([id, label, tip]) => ({ label, tip, style: { ...seg(s.view === id), padding: '0 9px', fontFamily: 'var(--font-mono)' }, onClick: () => this.go(id) })),
+      quickW: s.chat && !s.popped ? '150px' : '220px', openQuick: () => this.setState({ overlay: 'quickadd' }),
+      chatBtn: { width: 30, height: 30, display: 'grid', placeItems: 'center', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontSize: 15, border: '1px solid ' + (s.chat ? 'var(--color-accent)' : 'var(--color-border)'), background: s.chat ? 'var(--color-accent-tint)' : 'transparent', color: s.chat ? 'var(--color-accent-text)' : 'var(--color-text-muted)' },
+      toggleChat: () => this.setState({ chat: !s.chat, popped: false }), popout: () => this.setState({ popped: true }), dock: () => this.setState({ popped: false }),
+      chatDocked: s.chat && !s.popped, chatPopped: s.chat && s.popped, chatScenario: p.chatScenario || 'propose',
+      v, o, hasBackdrop: !!ov && ov !== 'reminder' && ov !== 'missed',
+      childKeys: p.keys !== false && !ov, showInboxRail: p.inboxRail !== false,
+      settingsPage: s.settingsPage, closeOverlay: () => this.setState({ overlay: null }),
+      openItem: () => this.setState({ overlay: 'item' }), goWeek: () => this.go('week'), runCmd: run,
+      setThemeFn: (t) => this.setState({ theme: t, custom: null }), applyCustom: (vars) => this.setState({ custom: { ...(T ? T.dark.vars : {}), ...vars } }) };
+  }
+}
+</script>
+</body>
+</html>

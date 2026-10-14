@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&amp;family=Geist+Mono:wght@400;500&amp;family=Newsreader:opsz,wght@6..72,500&amp;display=swap">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/bold/style.css">
+<script src="blotter-themes.js"></script>
+<style>body{margin:0;background:var(--color-bg);color:var(--color-text);font-family:var(--font-ui);font-size:13px}*{box-sizing:border-box}a{color:var(--color-accent-text)}a:hover{color:var(--color-text)}:focus-visible{outline:2px solid var(--color-focus-ring);outline-offset:2px}textarea::placeholder,input::placeholder{color:var(--color-text-muted)}</style>
+</helmet>
+<div style="display:flex;height:100%;min-height:0;background:var(--color-bg);color:var(--color-text);font-family:var(--font-ui);font-size:var(--text-base)">
+  <div style="flex:1;min-width:0;display:flex;flex-direction:column;position:relative">
+    <div style="padding:20px 28px 0;display:flex;flex-direction:column;gap:14px;max-width:860px;width:100%">
+      <div style="display:flex;align-items:baseline;gap:10px">
+        <h1 style="margin:0;font-family:var(--font-heading);font-weight:var(--heading-weight);font-size:var(--text-xl)">Inbox</h1>
+        <span style="font-family:var(--font-mono);font-size:12px;color:var(--color-text-muted)">{{ count }} unscheduled</span>
+      </div>
+      <div style="border:1px solid var(--color-border-strong);border-radius:var(--radius-md);background:var(--color-surface);display:flex;flex-direction:column" style-focus-within="border-color:var(--color-accent)">
+        <textarea value="{{ draft }}" onChange="{{ onDraft }}" onKeyDown="{{ onDraftKey }}" placeholder="Brain-dump, one task per line…  e.g. call plumber ~20m #home !2 due fri" rows="2" style="font:inherit;font-size:var(--text-md);background:transparent;border:0;outline:none;resize:none;padding:10px 12px;color:var(--color-text)"></textarea>
+        <div style="display:flex;align-items:center;gap:12px;padding:6px 10px;border-top:1px solid var(--color-border);font-size:11px;color:var(--color-text-muted)">
+          <span style="font-family:var(--font-mono)">~45m</span><span style="font-family:var(--font-mono)">#tag</span><span style="font-family:var(--font-mono)">!1–!3</span><span style="font-family:var(--font-mono)">due fri</span>
+          <span style="flex:1"></span>
+          <span style="display:flex;align-items:center;gap:5px"><span style="font-family:var(--font-mono);font-size:10px;padding:0 4px;border:1px solid var(--color-border-strong);border-bottom-width:2px;border-radius:3px">↵</span>add line</span>
+          <span style="display:flex;align-items:center;gap:5px"><span style="font-family:var(--font-mono);font-size:10px;padding:0 4px;border:1px solid var(--color-border-strong);border-bottom-width:2px;border-radius:3px">Shift ↵</span>new line</span>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:28px minmax(180px,1fr) 64px 40px 72px 76px;align-items:center;gap:10px;padding:0 10px;font-size:11px;color:var(--color-text-muted);text-transform:uppercase;letter-spacing:.05em">
+        <span></span><span>Task</span><span>Duration</span><span>Pri</span><span>Due</span><span>Added</span>
+      </div>
+    </div>
+    <div style="flex:1;overflow:auto;padding:4px 28px 90px;max-width:860px;width:100%;display:flex;flex-direction:column;gap:2px">
+      <sc-for list="{{ rows }}" as="r" hint-placeholder-count="6">
+        <div tabindex="0" onClick="{{ r.onToggle }}" style="{{ r.style }}" style-hover="background:var(--color-hover)">
+          <span style="{{ r.box }}"><i class="ph-bold ph-check" style="font-size:10px;opacity:{{ r.checkOp }}"></i></span>
+          <span style="display:flex;align-items:center;gap:10px;min-width:0"><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500">{{ r.title }}</span><sc-for list="{{ r.tags }}" as="t" hint-placeholder-count="1"><span style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--color-text-muted)"><span style="width:6px;height:6px;border-radius:50%;background:{{ t.color }}"></span>{{ t.name }}</span></sc-for></span>
+          <span style="font-family:var(--font-mono);font-size:12px;color:var(--color-text-muted)">{{ r.dur }}</span>
+          <span style="font-family:var(--font-mono);font-size:12px;color:{{ r.priColor }}">{{ r.pri }}</span>
+          <span style="font-family:var(--font-mono);font-size:12px;color:{{ r.dueColor }}">{{ r.due }}</span>
+          <span style="font-family:var(--font-mono);font-size:12px;color:var(--color-text-muted)">{{ r.added }}</span>
+        </div>
+      </sc-for>
+    </div>
+    <sc-if value="{{ hasSel }}" hint-placeholder-val="{{ true }}">
+      <div style="position:absolute;left:28px;bottom:20px;display:flex;align-items:center;gap:4px;padding:6px;border-radius:var(--radius-lg);background:var(--color-surface-raised);box-shadow:var(--shadow-overlay)">
+        <span style="padding:0 10px;font-weight:500">{{ selCount }} selected</span>
+        <span style="width:1px;height:20px;background:var(--color-border)"></span>
+        <sc-for list="{{ bulk }}" as="b" hint-placeholder-count="6">
+          <button onClick="{{ b.onClick }}" title="{{ b.tip }}" style="display:flex;align-items:center;gap:6px;height:30px;padding:0 10px;border-radius:var(--radius-md);border:1px solid {{ b.border }};background:transparent;color:{{ b.color }};font:inherit;cursor:pointer" style-hover="background:var(--color-hover)"><i class="ph {{ b.icon }}"></i>{{ b.label }}<span style="font-family:var(--font-mono);font-size:10px;padding:0 4px;border:1px solid var(--color-border-strong);border-bottom-width:2px;border-radius:3px;color:var(--color-text-muted)">{{ b.key }}</span></button>
+        </sc-for>
+        <button onClick="{{ clearSel }}" title="Clear selection (Esc)" style="width:30px;height:30px;display:grid;place-items:center;border:0;border-radius:var(--radius-md);background:transparent;color:var(--color-text-muted);cursor:pointer" style-hover="background:var(--color-hover)"><i class="ph ph-x"></i></button>
+      </div>
+    </sc-if>
+  </div>
+  <sc-if value="{{ showResult }}" hint-placeholder-val="{{ true }}">
+    <aside style="width:clamp(260px,28%,340px);flex:none;border-left:1px solid var(--color-border);background:var(--color-surface);display:flex;flex-direction:column;gap:14px;padding:20px">
+      <div style="display:flex;align-items:center;gap:8px"><i class="ph ph-magic-wand" style="color:var(--color-accent-text)"></i><span style="font-weight:600">Auto-slot result</span><span style="flex:1"></span><span style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-muted)">10:42</span></div>
+      <p style="margin:0;color:var(--color-text-muted);line-height:1.5">2 placed, 1 couldn't be placed. Ordered by due date, then priority, then longest first. Work hours were avoided.</p>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <span style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--color-text-muted)">Placed</span>
+        <div style="padding:10px 12px;border-radius:var(--radius-md);border:1px solid var(--color-border);background:var(--color-bg);display:flex;flex-direction:column;gap:4px">
+          <span style="font-weight:500">Weekend shopping for presents</span>
+          <span style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-muted)">Inbox → Sat 17 Oct 11:30–13:00</span>
+        </div>
+        <div style="padding:10px 12px;border-radius:var(--radius-md);border:1px solid var(--color-border);background:var(--color-bg);display:flex;flex-direction:column;gap:4px">
+          <span style="font-weight:500">Email landlord re: lease</span>
+          <span style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-muted)">Inbox → Tue 13 Oct 17:15–17:25</span>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <span style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--color-warning)">Couldn't place</span>
+        <div style="padding:10px 12px;border-radius:var(--radius-md);border:1px solid var(--color-warning);background:color-mix(in srgb,var(--color-warning) 8%,var(--color-bg));display:flex;flex-direction:column;gap:6px">
+          <div style="display:flex;align-items:center;gap:6px"><i class="ph-fill ph-warning-circle" style="color:var(--color-warning)"></i><span style="font-weight:500">Sort tax receipts</span><span style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-muted);margin-left:auto">~2h · due Fri</span></div>
+          <span style="line-height:1.5;color:var(--color-text)">No free 2h slot before the due date (Fri 16 Oct 17:00). The longest gap outside Work is 1h 15m, Thu 19:15–20:30. It stays in the Inbox.</span>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;padding-top:2px">
+            <button style="height:26px;padding:0 10px;border-radius:var(--radius-md);border:1px solid var(--color-border-strong);background:var(--color-surface-raised);color:var(--color-text);font:inherit;font-size:12px;cursor:pointer" style-hover="background:var(--color-hover)">Move due date</button>
+            <button style="height:26px;padding:0 10px;border-radius:var(--radius-md);border:1px solid var(--color-border-strong);background:var(--color-surface-raised);color:var(--color-text);font:inherit;font-size:12px;cursor:pointer" style-hover="background:var(--color-hover)">Shorten to 1h 15m</button>
+            <button style="height:26px;padding:0 10px;border-radius:var(--radius-md);border:1px solid transparent;background:transparent;color:var(--color-accent-text);font:inherit;font-size:12px;cursor:pointer" style-hover="background:var(--color-hover)">Ask AI</button>
+          </div>
+        </div>
+      </div>
+      <span style="flex:1"></span>
+      <div style="display:flex;gap:8px">
+        <button onClick="{{ hideResult }}" style="flex:1;height:30px;border-radius:var(--radius-md);border:1px solid var(--color-border-strong);background:transparent;color:var(--color-text);font:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px" style-hover="background:var(--color-hover)"><i class="ph ph-arrow-counter-clockwise"></i>Undo batch<span style="font-family:var(--font-mono);font-size:10px;padding:0 4px;border:1px solid var(--color-border-strong);border-bottom-width:2px;border-radius:3px;color:var(--color-text-muted)">Ctrl Z</span></button>
+        <button onClick="{{ hideResult }}" style="flex:1;height:30px;border-radius:var(--radius-md);border:1px solid var(--color-accent);background:var(--color-accent);color:var(--color-on-accent);font:inherit;font-weight:500;cursor:pointer" style-hover="opacity:.9">Done</button>
+      </div>
+    </aside>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { sel: { 0: 1, 3: 1, 5: 1 }, showResult: true, draft: '', extra: [] };
+  renderVals() {
+    const s = this.state;
+    const base = [
+      ['Weekend shopping for presents', '1h 30m', '—', '—', '2d ago', ['shopping']],
+      ['Book flu shot', '15m', '—', '—', '2d ago', ['health']],
+      ['Fix the leaking tap', '45m', '!2', '—', 'yesterday', ['home']],
+      ['Email landlord re: lease', '10m', '—', 'Thu 15', 'yesterday', ['home']],
+      ["Plan Mia's birthday", '1h', '!3', 'Sat 17', 'today', ['personal']],
+      ['Sort tax receipts', '2h', '!2', 'Fri 16', 'today', ['home']]
+    ].concat(s.extra);
+    const rows = base.map(([title, dur, pri, due, added, tags], i) => {
+      const on = !!s.sel[i];
+      return { title, dur, pri, due, added, tags: tags.map(n => ({ name: n, color: `var(--tag-${n})` })),
+        priColor: pri === '!3' ? 'var(--color-danger)' : pri === '!2' ? 'var(--color-warning)' : 'var(--color-text-muted)',
+        dueColor: due === '—' ? 'var(--color-text-muted)' : 'var(--color-text)', checkOp: on ? 1 : 0,
+        box: { width: 16, height: 16, borderRadius: 4, display: 'grid', placeItems: 'center', border: on ? '1px solid var(--color-accent)' : '1.5px solid var(--color-border-strong)', background: on ? 'var(--color-accent)' : 'transparent', color: 'var(--color-on-accent)' },
+        style: { display: 'grid', gridTemplateColumns: '28px minmax(180px,1fr) 64px 40px 72px 76px', alignItems: 'center', gap: 10, height: 38, padding: '0 10px', borderRadius: 'var(--radius-md)', cursor: 'default',
+          background: on ? 'var(--color-accent-tint)' : 'transparent', outline: i === 2 ? '2px solid var(--color-focus-ring)' : 'none', outlineOffset: -2 },
+        onToggle: () => this.setState(st => { const sel = { ...st.sel }; if (sel[i]) delete sel[i]; else sel[i] = 1; return { sel }; }) };
+    });
+    const n = Object.keys(s.sel).length;
+    const B = (icon, label, key, tip, o = {}) => ({ icon, label, key, tip, border: o.primary ? 'var(--color-accent)' : 'transparent', color: o.danger ? 'var(--color-danger)' : o.primary ? 'var(--color-accent-text)' : 'var(--color-text)', onClick: o.onClick || (() => {}) });
+    return { rows, count: rows.length, hasSel: n > 0, selCount: n, showResult: s.showResult,
+      bulk: [B('ph-magic-wand', 'Auto-slot', 's', 'Auto-slot selected (s)', { primary: 1, onClick: () => this.setState({ showResult: true }) }), B('ph-calendar-plus', 'Schedule…', 'd', 'Schedule to a slot (d)'),
+        B('ph-timer', 'Duration', 't', 'Set duration (t)'), B('ph-flag', 'Priority', 'p', 'Set priority (p)'), B('ph-calendar-check', 'Due', 'u', 'Set due date (u)'), B('ph-sparkle', 'Ask AI', 'Ctrl /', 'Ask AI to sort (Ctrl+/)'), B('ph-trash', '', 'Del', 'Delete (Del)', { danger: 1 })],
+      clearSel: () => this.setState({ sel: {} }), hideResult: () => this.setState({ showResult: false }),
+      draft: s.draft, onDraft: (e) => this.setState({ draft: e.target.value }),
+      onDraftKey: (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); const lines = s.draft.split('\n').map(x => x.trim()).filter(Boolean); if (!lines.length) return;
+        this.setState(st => ({ draft: '', extra: st.extra.concat(lines.map(l => { const d = (l.match(/~(\d+[mh]\d*)/) || [])[1]; const t = (l.match(/#(\w+)/) || [])[1]; const p = (l.match(/!([1-3])/) || [])[1];
+          return [l.replace(/~\S+|#\w+|![1-3]/g, '').trim(), d || '30m', p ? '!' + p : '—', '—', 'now', t ? [t] : []]; })) })); } } };
+  }
+}
+</script>
+</body>
+</html>

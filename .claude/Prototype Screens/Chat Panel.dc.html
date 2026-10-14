@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&amp;family=Geist+Mono:wght@400;500&amp;family=Newsreader:opsz,wght@6..72,500&amp;display=swap">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/bold/style.css">
+<script src="blotter-themes.js"></script>
+<style>body{margin:0;background:var(--color-bg);color:var(--color-text);font-family:var(--font-ui);font-size:13px}*{box-sizing:border-box}a{color:var(--color-accent-text)}a:hover{color:var(--color-text)}:focus-visible{outline:2px solid var(--color-focus-ring);outline-offset:2px}textarea::placeholder{color:var(--color-text-muted)}@keyframes bl-blink{50%{opacity:0}}@keyframes bl-pulse{0%,100%{opacity:.45}50%{opacity:.9}}</style>
+</helmet>
+<div style="display:flex;flex-direction:column;height:100%;min-height:0;background:var(--color-surface);color:var(--color-text);font-family:var(--font-ui);font-size:var(--text-base)">
+  <sc-if value="{{ popout }}" hint-placeholder-val="{{ false }}">
+    <div style="display:flex;align-items:center;gap:8px;height:30px;padding:0 6px 0 10px;background:var(--color-surface-raised);border-bottom:1px solid var(--color-border);font-size:11px;color:var(--color-text-muted)">
+      <i class="ph-fill ph-note-blank" style="color:var(--color-accent-text)"></i><span>Blotter chat</span><span style="flex:1"></span>
+      <span title="Always on top" style="width:24px;height:22px;display:grid;place-items:center;border-radius:4px;color:var(--color-accent-text);background:var(--color-accent-tint)"><i class="ph-fill ph-push-pin"></i></span>
+      <span title="Dock into main window" style="width:24px;height:22px;display:grid;place-items:center;border-radius:4px"><i class="ph ph-arrow-square-in"></i></span>
+      <span title="Close (Esc)" style="width:24px;height:22px;display:grid;place-items:center;border-radius:4px"><i class="ph ph-x"></i></span>
+    </div>
+  </sc-if>
+  <div style="display:flex;flex-direction:column;gap:8px;padding:10px 12px;border-bottom:1px solid var(--color-border)">
+    <div style="display:flex;align-items:center;gap:6px">
+      <span style="font-weight:600;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ threadTitle }}</span>
+      <button title="New thread (Ctrl+N)" style="width:26px;height:26px;display:grid;place-items:center;border:0;border-radius:var(--radius-md);background:transparent;color:var(--color-text-muted);cursor:pointer" style-hover="background:var(--color-hover);color:var(--color-text)"><i class="ph ph-note-pencil"></i></button>
+      <button title="Threads (Ctrl+Shift+H)" style="width:26px;height:26px;display:grid;place-items:center;border:0;border-radius:var(--radius-md);background:transparent;color:var(--color-text-muted);cursor:pointer" style-hover="background:var(--color-hover);color:var(--color-text)"><i class="ph ph-clock-counter-clockwise"></i></button>
+      <sc-if value="{{ docked }}" hint-placeholder-val="{{ true }}">
+        <button title="Pop out (Ctrl+Shift+/)" onClick="{{ onPopout }}" style="width:26px;height:26px;display:grid;place-items:center;border:0;border-radius:var(--radius-md);background:transparent;color:var(--color-text-muted);cursor:pointer" style-hover="background:var(--color-hover);color:var(--color-text)"><i class="ph ph-arrow-square-out"></i></button>
+        <button title="Close chat (Ctrl+/)" onClick="{{ onClose }}" style="width:26px;height:26px;display:grid;place-items:center;border:0;border-radius:var(--radius-md);background:transparent;color:var(--color-text-muted);cursor:pointer" style-hover="background:var(--color-hover);color:var(--color-text)"><i class="ph ph-x"></i></button>
+      </sc-if>
+    </div>
+    <div style="display:flex;align-items:center;gap:6px;font-size:11px">
+      <span title="Provider and model" style="display:flex;align-items:center;gap:6px;height:22px;padding:0 8px;border:1px solid var(--color-border);border-radius:99px;color:var(--color-text-muted);min-width:0"><span style="width:6px;height:6px;border-radius:50%;background:{{ providerDot }};flex:none"></span><span style="font-family:var(--font-mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ provider }}</span></span>
+      <span title="Changes need your approval" style="display:flex;align-items:center;gap:4px;height:22px;padding:0 8px;border-radius:99px;background:{{ modeBg }};color:{{ modeColor }};font-weight:500;white-space:nowrap"><i class="ph {{ modeIcon }}"></i>{{ modeLabel }}</span>
+    </div>
+  </div>
+
+  <div style="flex:1;min-height:0;overflow:auto;padding:14px 12px;display:flex;flex-direction:column;gap:12px">
+    <sc-if value="{{ isEmpty }}" hint-placeholder-val="{{ false }}">
+      <div style="margin:auto 0;display:flex;flex-direction:column;gap:12px;padding:8px">
+        <i class="ph ph-chat-circle-text" style="font-size:24px;color:var(--color-text-muted)"></i>
+        <span style="font-weight:600;font-size:var(--text-md)">New thread</span>
+        <span style="color:var(--color-text-muted);line-height:1.5">Ask about your plans or tell Blotter what to schedule. Changes arrive as proposals you accept or reject.</span>
+        <div style="display:flex;flex-direction:column;gap:4px">
+          <sc-for list="{{ suggestions }}" as="sg" hint-placeholder-count="3">
+            <button style="text-align:left;display:flex;align-items:center;gap:8px;height:32px;padding:0 10px;border-radius:var(--radius-md);border:1px solid var(--color-border);background:var(--color-bg);color:var(--color-text);font:inherit;cursor:pointer" style-hover="border-color:var(--color-border-strong);background:var(--color-hover)"><i class="ph {{ sg.icon }}" style="color:var(--color-text-muted)"></i>{{ sg.text }}</button>
+          </sc-for>
+        </div>
+      </div>
+    </sc-if>
+    <sc-if value="{{ isLoading }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div style="align-self:flex-end;width:70%;height:40px;border-radius:10px;background:var(--color-hover);animation:bl-pulse 1.4s ease-in-out infinite"></div>
+        <div style="width:90%;height:14px;border-radius:4px;background:var(--color-hover);animation:bl-pulse 1.4s ease-in-out infinite"></div>
+        <div style="width:75%;height:14px;border-radius:4px;background:var(--color-hover);animation:bl-pulse 1.4s ease-in-out infinite"></div>
+        <div style="width:100%;height:120px;border-radius:var(--radius-lg);background:var(--color-hover);animation:bl-pulse 1.4s ease-in-out infinite"></div>
+        <span style="font-size:11px;color:var(--color-text-muted);font-family:var(--font-mono)">Loading thread…</span>
+      </div>
+    </sc-if>
+
+    <sc-for list="{{ msgs }}" as="m" hint-placeholder-count="3">
+      <sc-if value="{{ m.user }}" hint-placeholder-val="{{ false }}">
+        <div style="align-self:flex-end;max-width:85%;padding:8px 11px;border-radius:10px 10px 3px 10px;background:var(--color-accent-tint);color:var(--color-text);line-height:1.5">{{ m.text }}</div>
+      </sc-if>
+      <sc-if value="{{ m.tool }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:10.5px;color:{{ m.toolColor }}"><i class="ph {{ m.toolIcon }}"></i><span>{{ m.text }}</span></div>
+      </sc-if>
+      <sc-if value="{{ m.ai }}" hint-placeholder-val="{{ false }}">
+        <div style="line-height:1.55;color:var(--color-text);padding-right:8px">{{ m.text }}<sc-if value="{{ m.streaming }}" hint-placeholder-val="{{ false }}"><span style="display:inline-block;width:7px;height:14px;margin-left:2px;vertical-align:-2px;background:var(--color-accent);animation:bl-blink 1s steps(1) infinite"></span></sc-if></div>
+      </sc-if>
+      <sc-if value="{{ m.error }}" hint-placeholder-val="{{ false }}">
+        <div style="border:1px solid var(--color-danger);border-radius:var(--radius-md);background:color-mix(in srgb,var(--color-danger) 7%,var(--color-surface));padding:10px 12px;display:flex;flex-direction:column;gap:6px">
+          <div style="display:flex;align-items:center;gap:6px;color:var(--color-danger);font-weight:500"><i class="ph-fill ph-x-circle"></i>Tool call failed</div>
+          <code style="font-family:var(--font-mono);font-size:11px;line-height:1.5;color:var(--color-text);white-space:pre-wrap">auto_slot({ ids: ["01JA…Q7"] })
+→ duration_min: required for "Sort tax receipts"</code>
+          <span style="font-size:11px;color:var(--color-text-muted)">Sent back to the model to retry · attempt 2 of 8</span>
+        </div>
+      </sc-if>
+      <sc-if value="{{ m.proposal }}" hint-placeholder-val="{{ false }}">
+        <div style="border:1px dashed var(--color-pencil);border-radius:var(--radius-lg);background:var(--color-bg);display:flex;flex-direction:column">
+          <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px dashed var(--color-border-strong)">
+            <i class="ph ph-pencil-simple" style="color:var(--color-pencil)"></i><span style="font-weight:600">Proposal</span><span style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-muted)">{{ propSummary }}</span>
+          </div>
+          <sc-for list="{{ changes }}" as="c" hint-placeholder-count="3">
+            <div style="{{ c.rowStyle }}">
+              <span style="{{ c.opStyle }}">{{ c.op }}</span>
+              <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px">
+                <span style="{{ c.titleStyle }}">{{ c.title }}</span>
+                <span style="font-family:var(--font-mono);font-size:10.5px;color:var(--color-text-muted);line-height:1.5"><span style="text-decoration:line-through;opacity:{{ c.fromOp }}">{{ c.from }}</span>{{ c.arrow }}<span style="color:{{ c.toColor }}">{{ c.to }}</span></span>
+                <sc-if value="{{ c.decided }}" hint-placeholder-val="{{ false }}"><span style="font-size:11px;color:{{ c.decidedColor }};display:flex;align-items:center;gap:4px"><i class="ph-bold {{ c.decidedIcon }}"></i>{{ c.decidedText }}</span></sc-if>
+              </div>
+              <sc-if value="{{ c.pending }}" hint-placeholder-val="{{ true }}">
+                <div style="display:flex;gap:2px">
+                  <button onClick="{{ c.onAccept }}" title="Accept change" style="width:26px;height:26px;display:grid;place-items:center;border-radius:var(--radius-md);border:1px solid var(--color-border-strong);background:var(--color-surface-raised);color:var(--color-text);cursor:pointer" style-hover="border-color:var(--color-accent);color:var(--color-accent-text)"><i class="ph-bold ph-check"></i></button>
+                  <button onClick="{{ c.onReject }}" title="Reject change" style="width:26px;height:26px;display:grid;place-items:center;border-radius:var(--radius-md);border:1px solid transparent;background:transparent;color:var(--color-text-muted);cursor:pointer" style-hover="background:var(--color-hover);color:var(--color-danger)"><i class="ph-bold ph-x"></i></button>
+                </div>
+              </sc-if>
+            </div>
+          </sc-for>
+          <div style="display:flex;align-items:center;gap:6px;padding:8px 10px;border-top:1px dashed var(--color-border-strong)">
+            <button onClick="{{ rejectAll }}" style="height:28px;padding:0 10px;border-radius:var(--radius-md);border:1px solid var(--color-border-strong);background:transparent;color:var(--color-text);font:inherit;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:6px" style-hover="background:var(--color-hover)">Reject all</button>
+            <span style="flex:1"></span>
+            <button onClick="{{ acceptAll }}" style="height:28px;padding:0 10px;border-radius:var(--radius-md);border:1px solid var(--color-accent);background:var(--color-accent);color:var(--color-on-accent);font:inherit;font-size:12px;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:6px" style-hover="opacity:.9">Accept all<span style="font-family:var(--font-mono);font-size:10px;padding:0 4px;border-radius:3px;background:color-mix(in srgb,var(--color-on-accent) 18%,transparent)">Ctrl ↵</span></button>
+          </div>
+        </div>
+      </sc-if>
+      <sc-if value="{{ m.changed }}" hint-placeholder-val="{{ false }}">
+        <div style="border:1px solid var(--color-border-strong);border-radius:var(--radius-lg);background:var(--color-bg);display:flex;flex-direction:column">
+          <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--color-border)">
+            <i class="ph-fill {{ undoneIcon }}" style="color:{{ undoneColor }}"></i><span style="font-weight:600">{{ changedTitle }}</span><span style="flex:1"></span><span style="font-family:var(--font-mono);font-size:10.5px;color:var(--color-text-muted)">10:41</span>
+          </div>
+          <div style="padding:8px 12px;display:flex;flex-direction:column;gap:6px;opacity:{{ undoneOp }}">
+            <div style="display:flex;gap:8px;font-size:12px"><span style="font-family:var(--font-mono);color:var(--color-accent-text)">+</span><span style="flex:1"><span style="font-weight:500">Book flu shot</span><br><span style="font-family:var(--font-mono);font-size:10.5px;color:var(--color-text-muted)">Inbox → Tue 13 Oct 17:00–17:15</span></span></div>
+            <div style="display:flex;gap:8px;font-size:12px"><span style="font-family:var(--font-mono);color:var(--color-accent-text)">~</span><span style="flex:1"><span style="font-weight:500">Weekend shopping for presents</span><br><span style="font-family:var(--font-mono);font-size:10.5px;color:var(--color-text-muted)">Inbox → Sat 17 Oct 11:30–13:00</span></span></div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;padding:8px 10px 8px 12px;border-top:1px solid var(--color-border);font-size:11px;color:var(--color-text-muted)">
+            <i class="ph ph-database"></i><span style="flex:1">Snapshot saved before applying</span>
+            <button onClick="{{ toggleUndo }}" style="height:28px;padding:0 10px;border-radius:var(--radius-md);border:1px solid var(--color-border-strong);background:var(--color-surface-raised);color:var(--color-text);font:inherit;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:6px" style-hover="background:var(--color-hover)"><i class="ph ph-arrow-counter-clockwise"></i>{{ undoLabel }}</button>
+          </div>
+        </div>
+      </sc-if>
+    </sc-for>
+  </div>
+
+  <div style="padding:10px 12px 12px;border-top:1px solid var(--color-border)">
+    <div style="border:1px solid var(--color-border-strong);border-radius:var(--radius-md);background:var(--color-bg);display:flex;flex-direction:column" style-focus-within="border-color:var(--color-accent)">
+      <textarea rows="2" placeholder="Ask Blotter, or tell it what to plan…" style="font:inherit;background:transparent;border:0;outline:none;resize:none;padding:9px 10px;color:var(--color-text)"></textarea>
+      <div style="display:flex;align-items:center;gap:6px;padding:4px 6px 6px 10px;font-size:11px;color:var(--color-text-muted)">
+        <span style="display:flex;align-items:center;gap:4px"><i class="ph ph-at"></i>context: today + inbox</span>
+        <span style="flex:1"></span>
+        <span style="font-family:var(--font-mono);font-size:10px;padding:0 4px;border:1px solid var(--color-border-strong);border-bottom-width:2px;border-radius:3px">↵</span>
+        <button title="Send (Enter)" style="width:26px;height:26px;display:grid;place-items:center;border-radius:var(--radius-md);border:1px solid var(--color-accent);background:var(--color-accent);color:var(--color-on-accent);cursor:pointer"><i class="ph-bold ph-arrow-up"></i></button>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:360,&quot;height&quot;:800},&quot;scenario&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;propose&quot;,&quot;auto&quot;,&quot;error&quot;,&quot;empty&quot;,&quot;loading&quot;],&quot;default&quot;:&quot;propose&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;mode&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;docked&quot;,&quot;popout&quot;],&quot;default&quot;:&quot;docked&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;provider&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Anthropic · claude-sonnet-4-5&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;onClose&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;()=&gt;void&quot;},&quot;onPopout&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;()=&gt;void&quot;}}">
+class Component extends DCLogic {
+  state = { dec: { a: 'a' }, n: 0, undone: false };
+  full = 'Thursday has Standup at 09:00, then the Dentist at 15:00, which overlaps the Parent–teacher interview at 15:30. Both are fixed, so I won’t move either. Want me to propose a new time for one of them?';
+  componentDidMount() { this.t = setInterval(() => this.setState(s => s.n >= this.full.length ? null : { n: s.n + 2 }), 45); }
+  componentWillUnmount() { clearInterval(this.t); }
+  renderVals() {
+    const sc = this.props.scenario || 'propose', mode = this.props.mode || 'docked', s = this.state;
+    const U = (text) => ({ user: true, text }), A = (text, streaming) => ({ ai: true, text, streaming }), Tl = (text, err) => ({ tool: true, text, toolIcon: err ? 'ph-warning-circle' : 'ph-wrench', toolColor: err ? 'var(--color-danger)' : 'var(--color-text-muted)' });
+    let msgs = [], title = 'Plan my evening';
+    if (sc === 'propose') msgs = [U('Fit in a call with Mum tonight, and move the insurance review to today if there’s room.'), Tl('list_agenda(Tue 13 Oct) · find_free_slots(20m, 17:00–22:00)'), A('You’re free after Gym. Here’s what I’d pencil in:'), { proposal: true }, U('What’s on Thursday?'), A(this.full.slice(0, s.n), s.n < this.full.length)];
+    if (sc === 'auto') { title = 'Sort my inbox'; msgs = [U('Slot the flu shot and the present shopping wherever they fit.'), Tl('find_free_slots(15m) · find_free_slots(1h30)'), A('Done. Both fit outside Work.'), { changed: true }]; }
+    if (sc === 'error') { title = 'Sort my inbox'; msgs = [U('Auto-slot the tax receipts before Friday.'), Tl('auto_slot', true), { error: true }, Tl('update_item(duration_min: 120) · auto_slot'), A('The task had no duration, so I set it to 2h and tried again. There’s no 2h slot before Friday 17:00 outside Work. The longest gap is 1h 15m on Thursday evening.')]; }
+    if (sc === 'empty') title = 'New thread';
+    if (sc === 'loading') title = 'Loading…';
+    const defs = [
+      { id: 'a', op: '+', title: 'Call Mum', from: '', arrow: 'new · ', to: 'Tue 13 Oct 18:30–18:50 · #personal' },
+      { id: 'b', op: '~', title: 'Review insurance renewal', from: 'Wed 14 19:00', arrow: ' → ', to: 'Tue 13 19:00–19:45' },
+      { id: 'c', op: '~', title: 'Fix the leaking tap', from: 'Inbox', arrow: ' → ', to: 'Sat 17 10:30–11:15' }];
+    const changes = defs.map(c => {
+      const d = s.dec[c.id], pending = !d;
+      return { ...c, pending, decided: !!d, fromOp: c.from ? 1 : 0, toColor: d === 'r' ? 'var(--color-text-muted)' : 'var(--color-text)',
+        decidedText: d === 'a' ? 'Accepted — now in ink' : 'Rejected', decidedIcon: d === 'a' ? 'ph-check' : 'ph-x', decidedColor: d === 'a' ? 'var(--color-accent-text)' : 'var(--color-text-muted)',
+        rowStyle: { display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 12px', borderBottom: '1px dashed var(--color-border)', background: d === 'a' ? 'color-mix(in srgb, var(--color-accent) 6%, transparent)' : 'transparent' },
+        opStyle: { fontFamily: 'var(--font-mono)', fontSize: 12, width: 14, color: d === 'r' ? 'var(--color-text-muted)' : 'var(--color-accent-text)', fontWeight: 500 },
+        titleStyle: { fontWeight: 500, textDecoration: d === 'r' ? 'line-through' : 'none', color: d === 'r' ? 'var(--color-text-muted)' : 'var(--color-text)' },
+        onAccept: () => this.setState(st => ({ dec: { ...st.dec, [c.id]: 'a' } })), onReject: () => this.setState(st => ({ dec: { ...st.dec, [c.id]: 'r' } })) };
+    });
+    const pend = changes.filter(c => c.pending).length;
+    const auto = sc === 'auto';
+    return { msgs, changes, threadTitle: title, popout: mode === 'popout', docked: mode !== 'popout',
+      isEmpty: sc === 'empty', isLoading: sc === 'loading',
+      provider: this.props.provider || 'Anthropic · claude-sonnet-4-5', providerDot: 'var(--tag-health)',
+      modeLabel: auto ? 'Auto' : 'Propose', modeIcon: auto ? 'ph-lightning' : 'ph-pencil-simple', modeBg: auto ? 'color-mix(in srgb, var(--color-warning) 14%, transparent)' : 'var(--color-accent-tint)', modeColor: auto ? 'var(--color-warning)' : 'var(--color-accent-text)',
+      propSummary: pend ? `${pend} of 3 pending` : 'all decided',
+      acceptAll: () => this.setState({ dec: { a: 'a', b: 'a', c: 'a' } }), rejectAll: () => this.setState({ dec: { a: 'r', b: 'r', c: 'r' } }),
+      changedTitle: s.undone ? 'Batch undone' : 'Changed · 2 items', undoneIcon: s.undone ? 'ph-arrow-counter-clockwise' : 'ph-lightning', undoneColor: s.undone ? 'var(--color-text-muted)' : 'var(--color-warning)', undoneOp: s.undone ? 0.5 : 1,
+      undoLabel: s.undone ? 'Redo' : 'Undo batch', toggleUndo: () => this.setState(st => ({ undone: !st.undone })),
+      suggestions: [{ icon: 'ph-sun-horizon', text: 'Brief me on today' }, { icon: 'ph-tray', text: 'Sort my inbox into this week' }, { icon: 'ph-warning', text: 'Any conflicts this week?' }],
+      onClose: () => this.props.onClose && this.props.onClose(), onPopout: () => this.props.onPopout && this.props.onPopout() };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,38 @@
+:root {
+  color-scheme: dark;
+  background: #121317;
+  color: #e6e7ea;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  font-size: 13px;
+}
+
+body {
+  margin: 0;
+}
+
+.scaffold {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 0 64px;
+  gap: 8px;
+}
+
+.scaffold h1 {
+  margin: 0;
+  font-size: 40px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.scaffold p {
+  margin: 0;
+  color: #989aa4;
+}
+
+.scaffold code {
+  font-family: ui-monospace, monospace;
+  font-size: 11px;
+  color: #989aa4;
+}

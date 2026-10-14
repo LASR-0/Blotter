@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&amp;family=Geist+Mono:wght@400;500&amp;family=Newsreader:opsz,wght@6..72,500&amp;display=swap">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
+<script src="blotter-themes.js"></script>
+<style>body{margin:0;background:var(--color-bg);color:var(--color-text);font-family:var(--font-ui);font-size:13px}*{box-sizing:border-box}:focus-visible{outline:2px solid var(--color-focus-ring);outline-offset:2px}input::placeholder{color:var(--color-text-muted)}</style>
+</helmet>
+<div role="dialog" style="width:100%;max-width:620px;border-radius:var(--radius-lg);background:var(--color-surface-raised);box-shadow:var(--shadow-overlay);color:var(--color-text);font-family:var(--font-ui);font-size:var(--text-base);display:flex;flex-direction:column">
+  <div style="display:flex;align-items:center;gap:10px;padding:16px 22px 0">
+    <span style="width:24px;height:24px;border-radius:6px;background:var(--color-accent);color:var(--color-on-accent);display:grid;place-items:center;font-weight:600;font-size:13px">B</span>
+    <span style="font-weight:500">Set up Blotter</span>
+    <span style="flex:1"></span>
+    <div style="display:flex;gap:4px"><sc-for list="{{ dots }}" as="d" hint-placeholder-count="5"><span style="{{ d.style }}"></span></sc-for></div>
+    <span style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-muted)">{{ stepLabel }}</span>
+  </div>
+  <div style="padding:22px 22px 8px;display:flex;flex-direction:column;gap:6px">
+    <span style="font-family:var(--font-heading);font-weight:var(--heading-weight);font-size:24px;letter-spacing:-.01em">{{ title }}</span>
+    <span style="color:var(--color-text-muted);line-height:1.5;max-width:480px">{{ sub }}</span>
+  </div>
+  <div style="padding:14px 22px 22px;min-height:210px">
+    <sc-if value="{{ s1 }}" hint-placeholder-val="{{ true }}">
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px"><sc-for list="{{ themes }}" as="t" hint-placeholder-count="4">
+        <button onClick="{{ t.onClick }}" style="{{ t.style }}">
+          <span style="display:flex;flex-direction:column;gap:4px;height:84px;border-radius:6px;padding:8px;background:{{ t.bg }};border:1px solid {{ t.border }}"><span style="height:6px;width:60%;border-radius:2px;background:{{ t.text }}"></span><span style="height:14px;border-radius:3px;background:{{ t.surface }};border-left:3px solid {{ t.accent }}"></span><span style="height:14px;border-radius:3px;border:1px dashed {{ t.text }};opacity:.5"></span></span>
+          <span style="font-weight:500">{{ t.label }}</span>
+        </button>
+      </sc-for></div>
+    </sc-if>
+    <sc-if value="{{ s2 }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;flex-direction:column;gap:16px">
+        <div style="display:flex;flex-direction:column;gap:8px"><span style="font-size:12px;color:var(--color-text-muted)">Week starts on</span><div style="display:flex;gap:6px"><span style="height:32px;padding:0 14px;border-radius:var(--radius-md);border:1px solid var(--color-accent);background:var(--color-accent-tint);display:flex;align-items:center;outline:2px solid var(--color-focus-ring);outline-offset:2px">Monday</span><span style="height:32px;padding:0 14px;border-radius:var(--radius-md);border:1px solid var(--color-border-strong);display:flex;align-items:center">Sunday</span><span style="height:32px;padding:0 14px;border-radius:var(--radius-md);border:1px solid var(--color-border-strong);display:flex;align-items:center">Saturday</span></div></div>
+        <div style="display:flex;flex-direction:column;gap:8px"><span style="font-size:12px;color:var(--color-text-muted)">Planning hours — flexible tasks are only placed in this window</span>
+          <div style="display:flex;align-items:center;gap:10px"><span style="height:32px;padding:0 12px;border-radius:var(--radius-md);border:1px solid var(--color-border-strong);display:flex;align-items:center;font-family:var(--font-mono)">07:00</span><span style="color:var(--color-text-muted)">to</span><span style="height:32px;padding:0 12px;border-radius:var(--radius-md);border:1px solid var(--color-border-strong);display:flex;align-items:center;font-family:var(--font-mono)">22:00</span></div>
+          <div style="position:relative;height:18px;border-radius:4px;background:var(--color-surface);border:1px solid var(--color-border)"><span style="position:absolute;left:29%;right:8%;top:0;bottom:0;background:var(--color-accent-tint);border-left:2px solid var(--color-accent);border-right:2px solid var(--color-accent)"></span><span style="position:absolute;left:4px;top:1px;font-family:var(--font-mono);font-size:10px;color:var(--color-text-muted)">00</span><span style="position:absolute;right:4px;top:1px;font-family:var(--font-mono);font-size:10px;color:var(--color-text-muted)">24</span></div>
+        </div>
+      </div>
+    </sc-if>
+    <sc-if value="{{ s3 }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;flex-direction:column;gap:14px;padding:14px;border-radius:var(--radius-md);border:1px solid var(--color-border);background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--color-blockout) 14%,transparent) 0 1.5px,transparent 1.5px 8px)">
+        <div style="display:flex;gap:10px;align-items:center"><span style="width:60px;font-size:12px;color:var(--color-text-muted)">Label</span><span style="height:30px;padding:0 10px;border-radius:var(--radius-md);border:1px solid var(--color-border-strong);background:var(--color-surface-raised);display:flex;align-items:center;min-width:160px">Work</span></div>
+        <div style="display:flex;gap:10px;align-items:center"><span style="width:60px;font-size:12px;color:var(--color-text-muted)">Days</span><div style="display:flex;gap:4px"><sc-for list="{{ days }}" as="d" hint-placeholder-count="7"><span style="{{ d.style }}">{{ d.l }}</span></sc-for></div></div>
+        <div style="display:flex;gap:10px;align-items:center"><span style="width:60px;font-size:12px;color:var(--color-text-muted)">Hours</span><span style="height:30px;padding:0 10px;border-radius:var(--radius-md);border:1px solid var(--color-border-strong);background:var(--color-surface-raised);display:flex;align-items:center;font-family:var(--font-mono)">08:30</span><span style="color:var(--color-text-muted)">–</span><span style="height:30px;padding:0 10px;border-radius:var(--radius-md);border:1px solid var(--color-border-strong);background:var(--color-surface-raised);display:flex;align-items:center;font-family:var(--font-mono)">17:00</span></div>
+        <span style="font-size:12px;color:var(--color-text);display:flex;gap:6px;align-items:center;background:var(--color-surface-raised);padding:6px 8px;border-radius:var(--radius-md);align-self:flex-start"><i class="ph-fill ph-push-pin" style="color:var(--color-text-muted)"></i>Fixed appointments, like a telehealth consult, can still go here.</span>
+      </div>
+    </sc-if>
+    <sc-if value="{{ s4 }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px"><sc-for list="{{ provs }}" as="p" hint-placeholder-count="3"><button onClick="{{ p.onClick }}" style="{{ p.style }}"><span style="font-weight:500">{{ p.name }}</span><span style="font-size:11px;color:var(--color-text-muted)">{{ p.desc }}</span></button></sc-for></div>
+        <div style="display:flex;gap:8px"><input placeholder="{{ keyPh }}" style="flex:1;height:32px;padding:0 10px;border:1px solid var(--color-border-strong);border-radius:var(--radius-md);background:var(--color-bg);color:var(--color-text);font-family:var(--font-mono);font-size:12px"><button style="height:32px;padding:0 12px;border:1px solid var(--color-border-strong);border-radius:var(--radius-md);background:transparent;color:var(--color-text);font:inherit;cursor:pointer">Test</button></div>
+        <span style="font-size:11px;color:var(--color-text-muted);display:flex;gap:6px;align-items:center"><i class="ph ph-lock-key"></i>Keys go to your OS keychain. AI changes start in Propose mode.</span>
+      </div>
+    </sc-if>
+    <sc-if value="{{ s5 }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;align-items:center;gap:16px;padding:16px;border-radius:var(--radius-md);border:1px solid var(--color-border)">
+        <i class="ph ph-power" style="font-size:22px;color:var(--color-text-muted)"></i>
+        <span style="flex:1;display:flex;flex-direction:column;gap:3px"><span style="font-weight:500">Launch Blotter at login</span><span style="font-size:12px;color:var(--color-text-muted);line-height:1.45">Blotter starts in the tray, so reminders fire even if you never open the window.</span></span>
+        <button role="switch" onClick="{{ toggleAuto }}" style="{{ autoTrack }}"><span style="{{ autoKnob }}"></span></button>
+      </div>
+    </sc-if>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px;padding:12px 22px;border-top:1px solid var(--color-border)">
+    <button onClick="{{ back }}" style="height:30px;padding:0 12px;border:1px solid transparent;border-radius:var(--radius-md);background:transparent;color:var(--color-text-muted);font:inherit;cursor:pointer;opacity:{{ backOp }}">Back</button>
+    <span style="flex:1"></span>
+    <button onClick="{{ next }}" style="height:30px;padding:0 12px;border:1px solid var(--color-border-strong);border-radius:var(--radius-md);background:transparent;color:var(--color-text);font:inherit;cursor:pointer">Skip<span style="font-family:var(--font-mono);font-size:10px;margin-left:8px;color:var(--color-text-muted)">Esc</span></button>
+    <button onClick="{{ next }}" style="height:30px;padding:0 14px;border:1px solid var(--color-accent);border-radius:var(--radius-md);background:var(--color-accent);color:var(--color-on-accent);font:inherit;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:8px">{{ nextLabel }}<span style="font-family:var(--font-mono);font-size:10px;padding:0 4px;border-radius:3px;background:color-mix(in srgb,var(--color-on-accent) 18%,transparent)">↵</span></button>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:620,&quot;height&quot;:440},&quot;step&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:1,&quot;min&quot;:1,&quot;max&quot;:5,&quot;tsType&quot;:&quot;number&quot;},&quot;onTheme&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;(t:string)=&gt;void&quot;},&quot;onDone&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;()=&gt;void&quot;}}">
+class Component extends DCLogic {
+  constructor(p) { super(p); this.state = { step: p.step || 1, theme: 'dark', prov: 'anthropic', auto: true }; }
+  componentDidMount() { if (!window.BLOTTER_THEMES) this.poll = setInterval(() => { if (window.BLOTTER_THEMES) { clearInterval(this.poll); this.forceUpdate(); } }, 50); }
+  componentWillUnmount() { clearInterval(this.poll); }
+  renderVals() {
+    const s = this.state, T = window.BLOTTER_THEMES || {};
+    const meta = [
+      ['Pick a theme', 'You can edit every colour later in Settings → Theme.'],
+      ['Your week', 'When does your week start, and when are you willing to do things?'],
+      ['Block out your work hours', 'Flexible tasks will never be scheduled inside a block-out. Add more later.'],
+      ['Connect an AI', 'Optional. Bring your own provider, or a local model through any OpenAI-compatible endpoint.'],
+      ['Keep reminders running', 'Closing the window hides Blotter to the tray. Quit from the tray menu.']][s.step - 1];
+    const go = (d) => { const n = s.step + d; if (n > 5) return this.props.onDone && this.props.onDone(); if (n >= 1) this.setState({ step: n }); };
+    const themes = Object.keys(T).map(k => { const v = T[k].vars, on = s.theme === k; return { label: T[k].label, bg: v['--color-bg'], surface: v['--color-surface'], text: v['--color-text'], accent: v['--color-accent'], border: v['--color-border'],
+      onClick: () => { this.setState({ theme: k }); this.props.onTheme && this.props.onTheme(k); },
+      style: { display: 'flex', flexDirection: 'column', gap: 8, padding: 8, borderRadius: 'var(--radius-md)', font: 'inherit', color: 'var(--color-text)', textAlign: 'left', cursor: 'pointer', background: 'transparent', border: '1px solid ' + (on ? 'var(--color-accent)' : 'var(--color-border)'), outline: on ? '2px solid var(--color-focus-ring)' : 'none', outlineOffset: 2 } }; });
+    const provs = [['anthropic', 'Anthropic', 'Claude models'], ['openai', 'OpenAI', 'GPT models'], ['compat', 'OpenAI-compatible', 'Ollama, LM Studio…']].map(([id, name, desc]) => ({ name, desc, onClick: () => this.setState({ prov: id }),
+      style: { display: 'flex', flexDirection: 'column', gap: 3, padding: 12, textAlign: 'left', borderRadius: 'var(--radius-md)', font: 'inherit', color: 'var(--color-text)', cursor: 'pointer', border: '1px solid ' + (s.prov === id ? 'var(--color-accent)' : 'var(--color-border)'), background: s.prov === id ? 'var(--color-accent-tint)' : 'transparent' } }));
+    return { title: meta[0], sub: meta[1], stepLabel: `${s.step} / 5`, s1: s.step === 1, s2: s.step === 2, s3: s.step === 3, s4: s.step === 4, s5: s.step === 5,
+      dots: [1, 2, 3, 4, 5].map(i => ({ style: { width: i === s.step ? 18 : 6, height: 6, borderRadius: 3, background: i <= s.step ? 'var(--color-accent)' : 'var(--color-border-strong)' } })),
+      themes, provs, keyPh: s.prov === 'compat' ? 'http://localhost:11434/v1' : 'Paste API key',
+      days: ['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((l, i) => ({ l, style: { width: 30, height: 30, borderRadius: 'var(--radius-md)', display: 'grid', placeItems: 'center', fontSize: 12, fontWeight: 500, border: '1px solid ' + (i < 5 ? 'var(--color-accent)' : 'var(--color-border-strong)'), background: i < 5 ? 'var(--color-accent-tint)' : 'var(--color-surface-raised)', color: i < 5 ? 'var(--color-accent-text)' : 'var(--color-text-muted)' } })),
+      autoTrack: { width: 34, height: 20, borderRadius: 10, border: 0, padding: 2, background: s.auto ? 'var(--color-accent)' : 'var(--color-border-strong)', display: 'flex', justifyContent: s.auto ? 'flex-end' : 'flex-start', cursor: 'pointer' },
+      autoKnob: { width: 16, height: 16, borderRadius: '50%', background: s.auto ? 'var(--color-on-accent)' : 'var(--color-text)' }, toggleAuto: () => this.setState({ auto: !s.auto }),
+      nextLabel: s.step === 5 ? 'Finish' : 'Continue', backOp: s.step === 1 ? 0.4 : 1, next: () => go(1), back: () => go(-1) };
+  }
+}
+</script>
+</body>
+</html>

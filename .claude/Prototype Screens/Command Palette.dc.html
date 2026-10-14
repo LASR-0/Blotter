@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&amp;family=Geist+Mono:wght@400;500&amp;display=swap">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
+<script src="blotter-themes.js"></script>
+<style>body{margin:0;background:var(--color-bg);color:var(--color-text);font-family:var(--font-ui);font-size:13px}*{box-sizing:border-box}:focus-visible{outline:2px solid var(--color-focus-ring);outline-offset:2px}input::placeholder{color:var(--color-text-muted)}</style>
+</helmet>
+<div style="width:100%;color:var(--color-text);font-family:var(--font-ui);font-size:var(--text-base)">
+  <sc-if value="{{ isPalette }}" hint-placeholder-val="{{ true }}">
+    <div role="dialog" style="max-width:620px;border-radius:var(--radius-lg);background:var(--color-surface-raised);box-shadow:var(--shadow-overlay);overflow:hidden;display:flex;flex-direction:column">
+      <div style="display:flex;align-items:center;gap:10px;padding:0 14px;height:48px;border-bottom:1px solid var(--color-border)">
+        <i class="ph ph-magnifying-glass" style="font-size:16px;color:var(--color-text-muted)"></i>
+        <input autofocus="{{ true }}" value="{{ q }}" onChange="{{ onQ }}" onKeyDown="{{ onKey }}" placeholder="Type a command or search items…" style="flex:1;background:transparent;border:0;outline:none;font:inherit;font-size:var(--text-lg);color:var(--color-text)">
+        <span style="font-family:var(--font-mono);font-size:10px;padding:0 5px;border:1px solid var(--color-border-strong);border-bottom-width:2px;border-radius:3px;color:var(--color-text-muted)">Esc</span>
+      </div>
+      <div style="max-height:420px;overflow:auto;padding:6px">
+        <sc-for list="{{ groups }}" as="g" hint-placeholder-count="3">
+          <div style="font-size:11px;color:var(--color-text-muted);padding:8px 10px 4px">{{ g.name }}</div>
+          <sc-for list="{{ g.items }}" as="it" hint-placeholder-count="4">
+            <div onClick="{{ it.onRun }}" onMouseEnter="{{ it.onHover }}" style="{{ it.style }}">
+              <i class="ph {{ it.icon }}" style="font-size:15px;color:var(--color-text-muted)"></i>
+              <span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ it.label }}<span style="color:var(--color-text-muted);margin-left:8px;font-size:12px">{{ it.hint }}</span></span>
+              <span style="display:flex;gap:3px"><sc-for list="{{ it.keys }}" as="k" hint-placeholder-count="1"><span style="font-family:var(--font-mono);font-size:10.5px;min-width:18px;text-align:center;padding:0 5px;border:1px solid var(--color-border-strong);border-bottom-width:2px;border-radius:3px;color:var(--color-text-muted);background:var(--color-surface)">{{ k }}</span></sc-for></span>
+            </div>
+          </sc-for>
+        </sc-for>
+        <sc-if value="{{ empty }}" hint-placeholder-val="{{ false }}"><div style="padding:24px 10px;color:var(--color-text-muted);text-align:center">No commands match “{{ q }}”. Press ↵ to search items.</div></sc-if>
+      </div>
+      <div style="display:flex;align-items:center;gap:14px;padding:8px 14px;border-top:1px solid var(--color-border);font-size:11px;color:var(--color-text-muted)">
+        <span style="display:flex;align-items:center;gap:5px"><span style="font-family:var(--font-mono);font-size:10px;padding:0 4px;border:1px solid var(--color-border-strong);border-bottom-width:2px;border-radius:3px">↑↓</span>navigate</span>
+        <span style="display:flex;align-items:center;gap:5px"><span style="font-family:var(--font-mono);font-size:10px;padding:0 4px;border:1px solid var(--color-border-strong);border-bottom-width:2px;border-radius:3px">↵</span>run</span>
+        <span style="flex:1"></span><span>{{ count }} actions</span>
+      </div>
+    </div>
+  </sc-if>
+  <sc-if value="{{ isSheet }}" hint-placeholder-val="{{ false }}">
+    <div role="dialog" style="max-width:880px;border-radius:var(--radius-lg);background:var(--color-surface-raised);box-shadow:var(--shadow-overlay);padding:20px 24px 22px;display:flex;flex-direction:column;gap:16px">
+      <div style="display:flex;align-items:center;gap:10px"><span style="font-family:var(--font-heading);font-weight:var(--heading-weight);font-size:var(--text-xl)">Keyboard shortcuts</span><span style="flex:1"></span><span style="font-size:12px;color:var(--color-text-muted)">Rebind in Settings → Keybindings</span><span style="font-family:var(--font-mono);font-size:10px;padding:0 5px;border:1px solid var(--color-border-strong);border-bottom-width:2px;border-radius:3px;color:var(--color-text-muted)">Esc</span></div>
+      <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px 28px">
+        <sc-for list="{{ sheet }}" as="g" hint-placeholder-count="3">
+          <div style="display:flex;flex-direction:column;gap:2px">
+            <span style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--color-text-muted);padding-bottom:6px">{{ g.name }}</span>
+            <sc-for list="{{ g.rows }}" as="r" hint-placeholder-count="6">
+              <div style="display:flex;align-items:center;gap:8px;height:28px;border-bottom:1px solid var(--color-border)"><span style="flex:1">{{ r.label }}</span><span style="display:flex;gap:3px"><sc-for list="{{ r.keys }}" as="k" hint-placeholder-count="1"><span style="font-family:var(--font-mono);font-size:10.5px;min-width:18px;text-align:center;padding:0 5px;border:1px solid var(--color-border-strong);border-bottom-width:2px;border-radius:3px;background:var(--color-surface)">{{ k }}</span></sc-for></span></div>
+            </sc-for>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:620,&quot;height&quot;:560},&quot;kind&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;palette&quot;,&quot;cheatsheet&quot;],&quot;default&quot;:&quot;palette&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;onRun&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;(id:string)=&gt;void&quot;},&quot;onClose&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;()=&gt;void&quot;}}">
+class Component extends DCLogic {
+  state = { q: '', sel: 0 };
+  cmds = [
+    ['Suggested', 'quick', 'Quick add', 'ph-plus', ['n']], ['Suggested', 'brief', 'Daily briefing', 'ph-sun-horizon', [], 'ask AI'], ['Suggested', 'autoslot', 'Auto-slot Inbox', 'ph-magic-wand', ['s'], '6 items'],
+    ['Go to', 'diary', 'Diary', 'ph-notebook', ['g', 'd']], ['Go to', 'week', 'Week', 'ph-calendar', ['g', 'w']], ['Go to', 'month', 'Month', 'ph-calendar-dots', ['g', 'm']], ['Go to', 'year', 'Year', 'ph-squares-four', ['g', 'y']],
+    ['Go to', 'inbox', 'Inbox', 'ph-tray', ['i']], ['Go to', 'history', 'History', 'ph-check-circle', ['g', 'h']], ['Go to', 'settings', 'Settings', 'ph-gear', ['Ctrl', ',']],
+    ['Actions', 'chat', 'Toggle chat', 'ph-sparkle', ['Ctrl', '/']], ['Actions', 'help', 'Keyboard shortcuts', 'ph-keyboard', ['?']], ['Actions', 'undo', 'Undo', 'ph-arrow-counter-clockwise', ['Ctrl', 'Z']],
+    ['Actions', 'snapshot', 'Take snapshot', 'ph-camera', []], ['Actions', 'reminder', 'Simulate reminder', 'ph-bell-ringing', [], 'prototype'], ['Actions', 'missed', 'Simulate missed reminders', 'ph-bell-simple-slash', [], 'prototype'],
+    ['Actions', 'firstrun', 'Run first-time setup', 'ph-flag', []],
+    ['Theme', 'theme:dark', 'Theme: Dark', 'ph-moon', []], ['Theme', 'theme:light', 'Theme: Light', 'ph-sun', []], ['Theme', 'theme:paper', 'Theme: Paper', 'ph-scroll', []], ['Theme', 'theme:gruvbox', 'Theme: Gruvbox', 'ph-palette', []],
+    ['Actions', 'quit', 'Quit Blotter', 'ph-power', ['Ctrl', 'Q']]
+  ];
+  renderVals() {
+    const s = this.state, q = s.q.toLowerCase().trim();
+    const list = this.cmds.filter(c => !q || c[2].toLowerCase().includes(q) || c[0].toLowerCase().includes(q));
+    const sel = Math.min(s.sel, Math.max(0, list.length - 1));
+    const run = (id) => this.props.onRun && this.props.onRun(id);
+    const names = [...new Set(list.map(c => c[0]))];
+    const groups = names.map(name => ({ name, items: list.filter(c => c[0] === name).map(c => { const idx = list.indexOf(c), on = idx === sel;
+      return { label: c[2], icon: c[3], keys: c[4], hint: c[5] || '', onRun: () => run(c[1]), onHover: () => this.setState({ sel: idx }),
+        style: { display: 'flex', alignItems: 'center', gap: 10, height: 34, padding: '0 10px', borderRadius: 'var(--radius-md)', cursor: 'pointer', background: on ? 'var(--color-accent-tint)' : 'transparent', boxShadow: on ? 'inset 2px 0 0 var(--color-accent)' : 'none' } }; }) }));
+    const S = (name, rows) => ({ name, rows: rows.map(([label, keys]) => ({ label, keys })) });
+    return { isPalette: this.props.kind !== 'cheatsheet', isSheet: this.props.kind === 'cheatsheet', groups, q: s.q, empty: list.length === 0, count: list.length,
+      onQ: (e) => this.setState({ q: e.target.value, sel: 0 }),
+      onKey: (e) => { if (e.key === 'ArrowDown') { e.preventDefault(); this.setState({ sel: Math.min(sel + 1, list.length - 1) }); } else if (e.key === 'ArrowUp') { e.preventDefault(); this.setState({ sel: Math.max(sel - 1, 0) }); } else if (e.key === 'Enter' && list[sel]) run(list[sel][1]); else if (e.key === 'Escape') this.props.onClose && this.props.onClose(); },
+      sheet: [
+        S('Global', [['Command palette', ['Ctrl', 'K']], ['Quick add', ['n']], ['Toggle chat', ['Ctrl', '/']], ['Shortcut sheet', ['?']], ['Undo', ['Ctrl', 'Z']], ['Redo', ['Ctrl', 'Shift', 'Z']], ['Quick capture (system)', ['Ctrl', 'Shift', 'Space']]]),
+        S('Navigate', [['Diary / Week / Month', ['g', 'd·w·m']], ['Year / History', ['g', 'y·h']], ['Inbox', ['i']], ['Diary ↔ Calendar', ['v']], ['Previous / next period', ['[', ']']], ['Today', ['.']], ['Move focus', ['h', 'j', 'k', 'l']]]),
+        S('Focused item', [['Open', ['↵']], ['Toggle complete', ['x']], ['Edit', ['e']], ['Delete', ['Del']], ['Move', ['Shift', '←↑↓→']], ['Resize', ['Alt', '↑↓']], ['Schedule / auto-slot', ['s']], ['Accept / reject proposal', ['a', 'r']]])
+      ] };
+  }
+}
+</script>
+</body>
+</html>

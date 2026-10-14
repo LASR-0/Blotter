@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&amp;family=Geist+Mono:wght@400;500&amp;display=swap">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
+<script src="blotter-themes.js"></script>
+<style>body{margin:0;background:var(--color-bg);color:var(--color-text);font-family:var(--font-ui);font-size:13px}*{box-sizing:border-box}:focus-visible{outline:2px solid var(--color-focus-ring);outline-offset:2px}input::placeholder{color:var(--color-text-muted)}</style>
+</helmet>
+<div role="status" style="width:100%;max-width:380px;border-radius:var(--radius-lg);background:var(--color-surface-raised);box-shadow:var(--shadow-overlay);color:var(--color-text);font-family:var(--font-ui);font-size:var(--text-base);display:flex;flex-direction:column">
+  <sc-if value="{{ isReminder }}" hint-placeholder-val="{{ true }}">
+    <div style="display:flex;gap:12px;padding:14px 14px 10px">
+      <span style="width:30px;height:30px;border-radius:var(--radius-md);background:var(--color-accent-tint);color:var(--color-accent-text);display:grid;place-items:center;flex:none"><i class="ph-fill ph-bell-ringing" style="font-size:16px"></i></span>
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px">
+        <span style="font-weight:600">Telehealth consult</span>
+        <span style="font-family:var(--font-mono);font-size:11.5px;color:var(--color-text-muted)">{{ status }}</span>
+      </div>
+      <button onClick="{{ onClose }}" title="Dismiss (Esc)" style="width:24px;height:24px;display:grid;place-items:center;border:0;border-radius:4px;background:transparent;color:var(--color-text-muted);cursor:pointer" style-hover="background:var(--color-hover)"><i class="ph ph-x"></i></button>
+    </div>
+    <div style="display:flex;align-items:center;gap:4px;padding:0 14px 12px 56px">
+      <span style="font-size:11px;color:var(--color-text-muted);margin-right:4px">Snooze</span>
+      <sc-for list="{{ snoozes }}" as="z" hint-placeholder-count="4">
+        <button onClick="{{ z.onClick }}" style="{{ z.style }}" style-hover="border-color:var(--color-accent)">{{ z.label }}<span style="font-size:9.5px;color:var(--color-text-muted)">{{ z.key }}</span></button>
+      </sc-for>
+    </div>
+    <sc-if value="{{ custom }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;gap:6px;padding:0 14px 12px 56px"><input autofocus="{{ true }}" placeholder="25m, 2h or 14:00" style="flex:1;height:28px;padding:0 8px;border:1px solid var(--color-accent);border-radius:var(--radius-md);background:var(--color-bg);color:var(--color-text);font-family:var(--font-mono);font-size:12px;outline:none"><button style="height:28px;padding:0 10px;border:1px solid var(--color-accent);border-radius:var(--radius-md);background:var(--color-accent);color:var(--color-on-accent);font:inherit;font-size:12px;font-weight:500;cursor:pointer">Snooze</button></div>
+    </sc-if>
+    <div style="display:flex;gap:6px;padding:10px 14px;border-top:1px solid var(--color-border)">
+      <button style="height:28px;padding:0 10px;border:1px solid var(--color-border-strong);border-radius:var(--radius-md);background:transparent;color:var(--color-text);font:inherit;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:6px"><i class="ph ph-arrow-square-out"></i>Open<span style="font-family:var(--font-mono);font-size:10px;color:var(--color-text-muted)">↵</span></button>
+      <button style="height:28px;padding:0 10px;border:1px solid var(--color-border-strong);border-radius:var(--radius-md);background:transparent;color:var(--color-text);font:inherit;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:6px"><i class="ph ph-check"></i>Mark done<span style="font-family:var(--font-mono);font-size:10px;color:var(--color-text-muted)">x</span></button>
+      <span style="flex:1"></span>
+      <span style="font-size:11px;color:var(--color-text-muted);align-self:center">via tray</span>
+    </div>
+  </sc-if>
+  <sc-if value="{{ isMissed }}" hint-placeholder-val="{{ false }}">
+    <div style="display:flex;gap:12px;padding:14px 14px 8px">
+      <span style="width:30px;height:30px;border-radius:var(--radius-md);background:color-mix(in srgb,var(--color-warning) 16%,transparent);color:var(--color-warning);display:grid;place-items:center;flex:none"><i class="ph-fill ph-bell-simple-slash" style="font-size:16px"></i></span>
+      <div style="flex:1;display:flex;flex-direction:column;gap:3px"><span style="font-weight:600">3 reminders missed while Blotter was closed</span><span style="font-size:12px;color:var(--color-text-muted)">Since you last quit, Mon 12 Oct 22:40</span></div>
+      <button onClick="{{ onClose }}" title="Dismiss (Esc)" style="width:24px;height:24px;display:grid;place-items:center;border:0;border-radius:4px;background:transparent;color:var(--color-text-muted);cursor:pointer"><i class="ph ph-x"></i></button>
+    </div>
+    <div style="display:flex;flex-direction:column;padding:0 14px 10px 56px">
+      <sc-for list="{{ missed }}" as="m" hint-placeholder-count="3">
+        <div style="display:flex;align-items:center;gap:8px;height:30px;border-bottom:1px solid var(--color-border)"><span style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-muted);width:84px">{{ m.at }}</span><span style="flex:1">{{ m.title }}</span><span style="font-family:var(--font-mono);font-size:10.5px;color:var(--color-text-muted)">{{ m.state }}</span></div>
+      </sc-for>
+    </div>
+    <div style="display:flex;gap:6px;padding:10px 14px;border-top:1px solid var(--color-border)">
+      <button style="height:28px;padding:0 10px;border:1px solid var(--color-border-strong);border-radius:var(--radius-md);background:transparent;color:var(--color-text);font:inherit;font-size:12px;cursor:pointer">Review in Diary</button>
+      <span style="flex:1"></span>
+      <button onClick="{{ onClose }}" style="height:28px;padding:0 10px;border:1px solid var(--color-accent);border-radius:var(--radius-md);background:var(--color-accent);color:var(--color-on-accent);font:inherit;font-size:12px;font-weight:500;cursor:pointer">Mark all seen</button>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:380,&quot;height&quot;:220},&quot;kind&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;reminder&quot;,&quot;missed&quot;],&quot;default&quot;:&quot;reminder&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;showCustom&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;},&quot;onClose&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;()=&gt;void&quot;}}">
+class Component extends DCLogic {
+  state = { snoozed: null };
+  renderVals() {
+    const s = this.state, kind = this.props.kind || 'reminder';
+    const snoozes = [['5m', '1'], ['15m', '2'], ['1h', '3'], ['Custom…', '4']].map(([label, key]) => ({ label, key, onClick: () => this.setState({ snoozed: label }),
+      style: { display: 'flex', alignItems: 'center', gap: 5, height: 26, padding: '0 9px', borderRadius: 'var(--radius-md)', font: 'inherit', fontFamily: 'var(--font-mono)', fontSize: 12, cursor: 'pointer', color: 'var(--color-text)',
+        border: '1px solid ' + (s.snoozed === label ? 'var(--color-accent)' : 'var(--color-border-strong)'), background: s.snoozed === label ? 'var(--color-accent-tint)' : 'var(--color-surface)' } }));
+    return { isReminder: kind === 'reminder', isMissed: kind === 'missed', snoozes, custom: s.snoozed === 'Custom…' || this.props.showCustom === true,
+      status: s.snoozed && s.snoozed !== 'Custom…' ? `Snoozed ${s.snoozed} · fires again ${s.snoozed === '5m' ? '11:25' : s.snoozed === '15m' ? '11:35' : '12:20'}` : 'in 10 min · 11:30–12:15 · fixed',
+      missed: [{ at: 'Mon 23:00', title: 'Take out bins', state: 'reminder' }, { at: 'Tue 06:50', title: 'Morning run', state: 'task · done 07:48' }, { at: 'Tue 08:45', title: 'Standup prep', state: 'reminder' }],
+      onClose: () => this.props.onClose && this.props.onClose() };
+  }
+}
+</script>
+</body>
+</html>

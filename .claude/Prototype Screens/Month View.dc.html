@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&amp;family=Geist+Mono:wght@400;500&amp;family=Newsreader:opsz,wght@6..72,500&amp;display=swap">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
+<script src="blotter-themes.js"></script>
+<style>body{margin:0;background:var(--color-bg);color:var(--color-text);font-family:var(--font-ui);font-size:13px}*{box-sizing:border-box}a{color:var(--color-accent-text)}a:hover{color:var(--color-text)}:focus-visible{outline:2px solid var(--color-focus-ring);outline-offset:2px}</style>
+</helmet>
+<div style="display:flex;flex-direction:column;height:100%;min-height:0;background:var(--color-bg);color:var(--color-text);font-family:var(--font-ui);font-size:var(--text-base)">
+  <div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));border-bottom:1px solid var(--color-border)">
+    <sc-for list="{{ wds }}" as="w" hint-placeholder-count="7">
+      <div style="padding:8px 10px;font-size:var(--text-sm);color:var(--color-text-muted);font-weight:500;display:flex;align-items:center;gap:6px">{{ w.name }}</div>
+    </sc-for>
+  </div>
+  <div style="flex:1;min-height:0;display:grid;grid-template-columns:repeat(7,minmax(0,1fr));grid-template-rows:repeat(6,minmax(0,1fr))">
+    <sc-for list="{{ cells }}" as="c" hint-placeholder-count="42">
+      <div tabindex="0" onClick="{{ c.onFocus }}" style="{{ c.style }}">
+        <div style="display:flex;align-items:center;gap:6px;padding:6px 8px 4px">
+          <span style="{{ c.numStyle }}">{{ c.label }}</span>
+          <span style="flex:1"></span>
+          <sc-if value="{{ c.block }}" hint-placeholder-val="{{ false }}"><span title="Work 08:30–17:00 (block-out)" style="height:4px;width:28px;border-radius:2px;background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--color-blockout) 70%,transparent) 0 1.5px,transparent 1.5px 4px)"></span></sc-if>
+          <sc-if value="{{ c.conflict }}" hint-placeholder-val="{{ false }}"><i class="ph-fill ph-warning" title="1 conflict" style="color:var(--color-conflict)"></i></sc-if>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:2px;padding:0 4px 4px;min-height:0;overflow:hidden">
+          <sc-for list="{{ c.chips }}" as="ch" hint-placeholder-count="2">
+            <div style="{{ ch.style }}"><span style="font-family:var(--font-mono);font-size:10px;color:var(--color-text-muted);flex:none">{{ ch.time }}</span><span style="{{ ch.titleStyle }}">{{ ch.title }}</span></div>
+          </sc-for>
+          <sc-if value="{{ c.more }}" hint-placeholder-val="{{ false }}">
+            <button onClick="{{ c.onMore }}" style="align-self:flex-start;font:inherit;font-size:11px;font-weight:500;color:var(--color-text-muted);background:transparent;border:0;padding:1px 6px;border-radius:4px;cursor:pointer" style-hover="background:var(--color-hover);color:var(--color-text)">+{{ c.more }} more</button>
+          </sc-if>
+        </div>
+        <sc-if value="{{ c.popover }}" hint-placeholder-val="{{ false }}">
+          <div onClick="{{ stop }}" style="position:absolute;z-index:10;left:-8px;top:-8px;width:280px;padding:12px;border-radius:var(--radius-lg);background:var(--color-surface-raised);box-shadow:var(--shadow-overlay);display:flex;flex-direction:column;gap:8px">
+            <div style="display:flex;align-items:baseline;gap:8px">
+              <span style="font-family:var(--font-heading);font-weight:var(--heading-weight);font-size:24px">15</span><span style="font-weight:500">Thursday</span><span style="color:var(--color-text-muted);font-size:12px">October</span>
+              <span style="flex:1"></span>
+              <button onClick="{{ closePop }}" title="Close (Esc)" style="width:22px;height:22px;display:grid;place-items:center;border:0;border-radius:4px;background:transparent;color:var(--color-text-muted);cursor:pointer" style-hover="background:var(--color-hover)"><i class="ph ph-x"></i></button>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--color-text-muted)"><span style="width:18px;height:8px;border-radius:2px;background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--color-blockout) 60%,transparent) 0 1.5px,transparent 1.5px 4px)"></span>Work 08:30–17:00</div>
+            <sc-for list="{{ popItems }}" as="p" hint-placeholder-count="5">
+              <div style="{{ p.style }}"><span style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-muted);width:84px;flex:none">{{ p.time }}</span><span style="flex:1;font-weight:500">{{ p.title }}</span><sc-if value="{{ p.conflict }}" hint-placeholder-val="{{ false }}"><i class="ph-fill ph-warning" style="color:var(--color-conflict)"></i></sc-if><sc-if value="{{ p.pin }}" hint-placeholder-val="{{ false }}"><i class="ph-fill ph-push-pin" style="color:var(--color-text-muted)"></i></sc-if></div>
+            </sc-for>
+            <div style="display:flex;gap:6px;padding-top:4px;border-top:1px solid var(--color-border);font-size:11px;color:var(--color-text-muted);align-items:center">
+              <span style="font-family:var(--font-mono);font-size:10px;padding:0 4px;border:1px solid var(--color-border-strong);border-bottom-width:2px;border-radius:3px">↵</span>Open in Week
+              <span style="font-family:var(--font-mono);font-size:10px;padding:0 4px;border:1px solid var(--color-border-strong);border-bottom-width:2px;border-radius:3px;margin-left:8px">n</span>Add to this day
+            </div>
+          </div>
+        </sc-if>
+      </div>
+    </sc-for>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { focus: 17, pop: 17 };
+  renderVals() {
+    const s = this.state;
+    const ch = (time, title, tag, o = {}) => ({ time, title, tag, ...o });
+    const special = {
+      1: [ch('18:00', 'Book club', 'personal')], 6: [ch('17:30', 'Groceries', 'shopping', { done: 1 })], 9: [ch('12:00', 'Team lunch', 'ics')],
+      10: [ch('10:00', 'Hardware store', 'home', { done: 1 })], 12: [ch('17:30', 'Groceries', 'shopping', { done: 1 }), ch('19:30', 'Renew car rego', 'home')],
+      13: [ch('11:30', 'Telehealth consult', 'health', { pin: 1 }), ch('17:30', 'Gym', 'health'), ch('18:30', 'Call Mum', 'personal', { proposed: 1 }), ch('19:00', 'Review insurance', 'home', { proposed: 1 })],
+      14: [ch('17:30', 'Yoga class', 'health')],
+      15: [ch('15:00', 'Dentist', 'health', { conflict: 1, pin: 1 }), ch('15:30', 'Parent–teacher', 'personal', { conflict: 1, pin: 1 }), ch('19:00', 'Pay credit card', 'home')],
+      16: [ch('12:00', 'Team lunch', 'ics'), ch('18:00', 'Dinner with Jess', 'personal')],
+      17: [ch('09:00', 'Farmers market', 'shopping'), ch('10:30', 'Fix leaking tap', 'home', { proposed: 1 }), ch('14:00', "Mia's party", 'personal')],
+      18: [ch('10:00', 'Long run', 'personal'), ch('16:00', 'Weekly review', 'work')],
+      21: [ch('17:30', 'Yoga class', 'health')], 23: [ch('12:00', 'Team lunch', 'ics')], 24: [ch('all day', 'Market day', 'shopping')],
+      27: [ch('08:00', 'Car service', 'home', { pin: 1 })], 28: [ch('17:30', 'Yoga class', 'health')], 30: [ch('12:00', 'Team lunch', 'ics'), ch('19:00', 'Halloween prep', 'personal')], 31: [ch('18:00', 'Halloween', 'personal')]
+    };
+    const cells = [];
+    for (let i = 0; i < 42; i++) {
+      const dn = i - 2; // Sep 28 = index 0, Oct 1 = index 3
+      let label, inMonth = true, day = dn + 0;
+      if (i < 3) { label = String(28 + i); inMonth = false; }
+      else if (i - 2 > 31) { label = String(i - 2 - 31); inMonth = false; }
+      else label = String(i - 2);
+      if (i === 3) label = 'Oct 1';
+      const dom = i - 2, wd = i % 7, weekday = wd < 5;
+      let items = [];
+      if (inMonth) {
+        if (weekday) items.push(ch('09:00', 'Standup', 'ics'));
+        if (weekday && dom <= 13) items[items.length] = ch('07:15', 'Morning run', 'personal', { done: dom < 13 || dom === 13 });
+        items = items.concat(special[dom] || []).sort((a, b) => a.time.localeCompare(b.time));
+      }
+      const max = 3, shown = items.slice(0, max), more = items.length - shown.length;
+      const today = dom === 13 && inMonth, focused = s.focus === i;
+      cells.push({ label, block: weekday, conflict: dom === 15 && inMonth, more: more > 0 ? more : 0, popover: s.pop === i,
+        chips: shown.map(c => ({ ...c,
+          style: { display: 'flex', alignItems: 'center', gap: 5, height: 19, padding: '0 5px', borderRadius: 3, fontSize: 11, minWidth: 0,
+            background: c.proposed ? 'transparent' : `color-mix(in srgb, var(--tag-${c.tag}) ${c.done ? 7 : 16}%, var(--color-bg))`,
+            border: c.proposed ? '1px dashed var(--color-pencil)' : c.conflict ? '1px solid var(--color-conflict)' : '1px solid transparent',
+            borderLeft: c.proposed ? '1px dashed var(--color-pencil)' : `3px solid var(--tag-${c.tag})` },
+          titleStyle: { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: 500, color: c.done ? 'var(--color-text-muted)' : 'var(--color-text)', textDecoration: c.done ? 'line-through' : 'none' } })),
+        numStyle: today ? { fontSize: 12, fontWeight: 600, minWidth: 22, height: 22, padding: '0 6px', borderRadius: 11, display: 'grid', placeItems: 'center', background: 'var(--color-accent)', color: 'var(--color-on-accent)' }
+          : { fontSize: 12, fontWeight: 500, color: inMonth ? 'var(--color-text)' : 'var(--color-text-muted)' },
+        style: { position: 'relative', display: 'flex', flexDirection: 'column', minHeight: 0, borderRight: '1px solid var(--color-border)', borderBottom: '1px solid var(--color-border)',
+          background: !inMonth ? 'var(--color-surface)' : wd > 4 ? 'color-mix(in srgb, var(--color-surface) 50%, var(--color-bg))' : 'var(--color-bg)',
+          outline: focused ? '2px solid var(--color-focus-ring)' : 'none', outlineOffset: -2, zIndex: s.pop === i ? 5 : 'auto' },
+        onFocus: () => this.setState({ focus: i }),
+        onMore: (e) => { e.stopPropagation(); this.setState({ pop: i, focus: i }); } });
+    }
+    const popSrc = s.pop != null ? (cells[s.pop] ? (() => { const dom = s.pop - 2, wd = s.pop % 7; let it = []; if (wd < 5) it.push(ch('09:00', 'Standup', 'ics')); if (wd < 5 && dom <= 13) it.push(ch('07:15', 'Morning run', 'personal')); return it.concat(special[dom] || []).sort((a, b) => a.time.localeCompare(b.time)); })() : []) : [];
+    const popItems = popSrc.map(p => ({ ...p, time: p.time, style: { display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', borderRadius: 4, fontSize: 12,
+      background: p.proposed ? 'transparent' : `color-mix(in srgb, var(--tag-${p.tag}) 14%, var(--color-surface-raised))`,
+      border: p.conflict ? '1px solid var(--color-conflict)' : p.proposed ? '1px dashed var(--color-pencil)' : '1px solid transparent', borderLeft: `3px solid ${p.conflict ? 'var(--color-conflict)' : `var(--tag-${p.tag})`}` } }));
+    return { cells, popItems, wds: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((name, i) => ({ name, block: i < 5 })),
+      stop: (e) => e.stopPropagation(), closePop: (e) => { e.stopPropagation(); this.setState({ pop: null }); } };
+  }
+}
+</script>
+</body>
+</html>
