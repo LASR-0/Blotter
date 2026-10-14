@@ -45,8 +45,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 04 | 1 | `feat(core): domain models, SQLite schema and migrations` | committed `bc79321` |
 | 05 | 1 | `feat(core): operation registry with JSON schemas and change log` | committed `f405964` (CI green) |
 | 06 | 2 | `feat(app): tray, close-to-tray and single-instance CLI handling` | committed `de724f7` |
-| 07 | 2 | `feat(ui): shadcn/ui setup, theme tokens and built-in presets` | ready |
-| 08 | 2 | `feat(ui): app layout, routing and action/keymap registry` | planned |
+| 07 | 2 | `feat(ui): shadcn/ui setup, theme tokens and built-in presets` | committed `7051ac3` (CI green) |
+| 08 | 2 | `feat(ui): app layout, routing and action/keymap registry` | ready |
 | 09 | 2 | `feat(ui): command palette` | planned |
 | 10 | 3 | `feat(ui): week view time grid` | planned |
 | 11 | 3 | `feat(ui): month and year views` | planned |
@@ -408,7 +408,7 @@ Notes:
       (StatusNotifier) is verified in Phase 13.
     - "Quit" in the command palette arrives with the palette in #09.
 
-### #07 — shadcn/ui setup, theme tokens and built-in presets            [status: ready]
+### #07 — shadcn/ui setup, theme tokens and built-in presets            [status: committed 7051ac3, CI green]
 Phase: 2
 Message:
     feat(ui): shadcn/ui setup, theme tokens and built-in presets
@@ -468,3 +468,78 @@ Notes:
     - Only Button, Kbd and Tooltip so far; further shadcn components (Dialog, Command,
       Switch, Select, Popover…) are added in the commits that first use them.
     - prettier-plugin-tailwindcss now sorts class names; `pnpm format` may reorder classes.
+
+### #08 — App layout, routing and action/keymap registry            [status: ready]
+Phase: 2
+Message:
+    feat(ui): app layout, routing and action/keymap registry
+
+    The real app shell from the design: a 232px sidebar (view nav with
+    shortcut hints and Inbox count, block-out list, Settings) that
+    collapses to a 52px icon rail below 1180px or with Ctrl+B, and a 48px
+    top bar with period navigation, the period title, a chord hint chip and
+    the Diary|Calendar and W|M|Y switches.
+
+    A single action registry (id, label, group, default binding, context)
+    drives a pure, tested keymap engine: modifier bindings, chords such as
+    "g w" with a 1.2s timeout, view contexts, and plain keys ignored while
+    typing. The same list will feed the command palette in #09.
+
+    Routing is a small persisted nav store (view, calendar view, period
+    anchor, sidebar). Backend reads go through TanStack Query and refetch on
+    every planner:changed event. Diary shows the day's items, Inbox has the
+    brain-dump input and list, Settings has Theme (preset cards rendered in
+    their own theme) and About. Week, Month, Year and History show a
+    placeholder until their commits land. Replaces the scaffold screen.
+Files:
+    D  src/App.tsx
+    M  src/main.tsx
+    M  package.json
+    M  pnpm-lock.yaml
+    A  src/app/AppShell.tsx
+    A  src/app/Sidebar.tsx
+    A  src/app/TopBar.tsx
+    A  src/app/nav.ts
+    A  src/actions/actions.ts
+    A  src/keymap/keymap.ts
+    A  src/keymap/keymap.test.ts
+    A  src/keymap/useKeymap.ts
+    A  src/lib/period.ts
+    A  src/lib/period.test.ts
+    A  src/lib/queries.ts
+    A  src/lib/types.ts
+    A  src/lib/format.ts
+    A  src/components/EmptyState.tsx
+    A  src/components/ItemCard.tsx
+    A  src/components/ui/segmented.tsx
+    A  src/views/DiaryView.tsx
+    A  src/views/InboxView.tsx
+    A  src/views/PendingView.tsx
+    A  src/views/SettingsView.tsx
+    M  .claude/COMMITS.md
+    Stage everything in one go:  git add -A   (picks up the src/App.tsx deletion too)
+Test steps:
+    - pnpm install               → completes
+    - pnpm check                 → clean; Vitest 31 passed (13 keymap, 4 period, 6 theme, 8 duration)
+    - cargo test --workspace     → unchanged, all pass
+    - pnpm tauri dev, keyboard only:
+        · g then d / w / m / y / h → Diary / Week / Month / Year / History; while waiting for
+          the second key a "g … d w m y h" chip shows in the top bar
+        · i → Inbox (i again → back to Diary); type a task, Enter → it appears; Diary sidebar
+          badge shows the open count
+        · v → toggles Diary ↔ the last calendar view
+        · [ and ] → previous/next day (Diary), week (Week)… title updates; . → back to today
+        · Ctrl+, → Settings; click Light/Paper/Gruvbox cards → app recolours; About shows the db path
+        · Ctrl+B → sidebar collapses to icons (hover shows label + shortcut); Ctrl+B again expands
+        · Narrow the window below ~1180px → sidebar collapses on its own
+        · Click in the Inbox input and type "g w" → it types; no navigation
+    - Close and relaunch → it reopens on the view you left (period resets to today)
+Notes:
+    - Verified here with real keystrokes and screenshots: g d, g w and Ctrl+, all navigate;
+      preset cards each render in their own theme (scoped tokens work).
+    - Week/Month/Year/History bodies are placeholders until #10, #11 and #39; their
+      navigation, titles and shortcuts are real now.
+    - Not yet in the shell (arrive with their features): search/palette button (#09),
+      Quick add (#17), chat toggle (#31), Calendars & tags list (#21/#35).
+    - Diary is a single day list for now; the multi-column Diary with the time meter
+      and timeline rail is #12.

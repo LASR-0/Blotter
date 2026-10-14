@@ -1,0 +1,70 @@
+// Mirrors the JSON the core returns (crates/blotter-core/src/model).
+// Instants are RFC 3339 UTC strings; dates are YYYY-MM-DD; times HH:MM.
+
+export type ItemKind = 'task' | 'event' | 'reminder';
+export type Anchoring = 'fixed' | 'flexible';
+export type ItemStatus = 'open' | 'done' | 'cancelled';
+export type Source = 'user' | 'ai' | 'import' | 'mcp';
+
+export interface Item {
+  id: string;
+  kind: ItemKind;
+  anchoring: Anchoring;
+  status: ItemStatus;
+  title: string;
+  notes: string;
+  all_day: boolean;
+  start_at: string | null;
+  end_at: string | null;
+  start_date: string | null;
+  end_date: string | null;
+  tz: string | null;
+  duration_min: number | null;
+  due_at: string | null;
+  priority: number;
+  tags: string[];
+  color: string | null;
+  sort_order: number;
+  rrule: string | null;
+  parent_id: string | null;
+  recurrence_id: string | null;
+  completed_at: string | null;
+  source: Source;
+  created_at: string;
+  updated_at: string;
+}
+
+export type Weekday = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun';
+
+export interface BlockoutException {
+  id: string;
+  blockout_id: string;
+  date: string;
+  note: string;
+  created_at: string;
+}
+
+export interface Blockout {
+  id: string;
+  label: string;
+  weekdays: Weekday[];
+  start_time: string;
+  end_time: string;
+  tz: string;
+  active_from: string | null;
+  active_until: string | null;
+  permits_fixed: boolean;
+  color: string | null;
+  icon: string | null;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+  exceptions: BlockoutException[];
+}
+
+export interface Agenda {
+  start: string;
+  end: string;
+  timezone: string;
+  items: Item[];
+}
