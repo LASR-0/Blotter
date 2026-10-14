@@ -87,6 +87,8 @@ pub fn run() {
             commands::db_status,
             commands::list_ops,
             commands::run_op,
+            commands::get_setting,
+            commands::set_setting,
         ])
         .run(tauri::generate_context!());
 

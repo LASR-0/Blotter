@@ -317,6 +317,7 @@ name = "blotter"
 version = "0.1.0"
 dependencies = [
  "blotter-core",
+ "chrono",
  "chrono-tz",
  "iana-time-zone",
  "serde",

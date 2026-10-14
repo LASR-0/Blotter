@@ -1,86 +1,160 @@
+@import 'tailwindcss';
+@import '@fontsource-variable/geist';
+@import '@fontsource-variable/geist-mono';
+@import '@fontsource-variable/newsreader';
+
+/*
+ * Design tokens. The names are the design reference's token names and also
+ * Tailwind's theme namespaces, so `bg-surface` is `var(--color-surface)`.
+ * Values here are the Dark preset; the theme engine overrides them on the
+ * document root (or on any subtree, e.g. the theme editor's preview).
+ */
+@theme {
+  --color-*: initial;
+  --color-bg: #121317;
+  --color-surface: #18191e;
+  --color-surface-raised: #202127;
+  --color-hover: #25262d;
+  --color-text: #e6e7ea;
+  --color-text-muted: #989aa4;
+  --color-border: #2a2b32;
+  --color-border-strong: #3a3b44;
+  --color-accent: #8b7cf6;
+  --color-accent-text: #b2a8fb;
+  --color-accent-tint: #221f37;
+  --color-on-accent: #121317;
+  --color-danger: #f07178;
+  --color-warning: #e9b45c;
+  --color-blockout: #7d808c;
+  --color-conflict: #f0a35e;
+  --color-pencil: #a5a8b3;
+  --color-focus-ring: #b2a8fb;
+  --color-transparent: transparent;
+  --color-current: currentColor;
+
+  --font-*: initial;
+  --font-ui: 'Geist Variable', 'Geist', 'Segoe UI', system-ui, sans-serif;
+  --font-heading: 'Geist Variable', 'Geist', 'Segoe UI', system-ui, sans-serif;
+  --font-mono: 'Geist Mono Variable', 'Geist Mono', 'JetBrains Mono', ui-monospace, monospace;
+
+  --radius-*: initial;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+
+  --text-*: initial;
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-base: 13px;
+  --text-md: 14px;
+  --text-lg: 16px;
+  --text-xl: 20px;
+  --text-display: 40px;
+
+  --spacing: 4px;
+}
+
+/*
+ * Aliases resolved per element: the heatmap ramp and tag palette keep their
+ * design names (--heat-N, --tag-X), and shadcn/ui component names map onto
+ * Blotter tokens. shadcn's "accent" (a hover fill) is deliberately not
+ * aliased: in Blotter `accent` is the brand colour.
+ */
+@theme inline {
+  --color-heat-0: var(--heat-0);
+  --color-heat-1: var(--heat-1);
+  --color-heat-2: var(--heat-2);
+  --color-heat-3: var(--heat-3);
+  --color-heat-4: var(--heat-4);
+  --color-tag-work: var(--tag-work);
+  --color-tag-health: var(--tag-health);
+  --color-tag-home: var(--tag-home);
+  --color-tag-shopping: var(--tag-shopping);
+  --color-tag-personal: var(--tag-personal);
+  --color-tag-ics: var(--tag-ics);
+
+  --color-background: var(--color-bg);
+  --color-foreground: var(--color-text);
+  --color-card: var(--color-surface);
+  --color-card-foreground: var(--color-text);
+  --color-popover: var(--color-surface-raised);
+  --color-popover-foreground: var(--color-text);
+  --color-primary: var(--color-accent);
+  --color-primary-foreground: var(--color-on-accent);
+  --color-secondary: var(--color-surface-raised);
+  --color-secondary-foreground: var(--color-text);
+  --color-muted: var(--color-hover);
+  --color-muted-foreground: var(--color-text-muted);
+  --color-destructive: var(--color-danger);
+  --color-input: var(--color-border-strong);
+  --color-ring: var(--color-focus-ring);
+}
+
+/* Dark defaults for tokens outside Tailwind's namespaces; themes override them. */
 :root {
+  --heat-0: #1b1c22;
+  --heat-1: #2a2648;
+  --heat-2: #3f3672;
+  --heat-3: #6153b3;
+  --heat-4: #9d90fa;
+  --tag-work: #6c9cf2;
+  --tag-health: #56c49b;
+  --tag-home: #e5995a;
+  --tag-shopping: #e77aa9;
+  --tag-personal: #a48ef2;
+  --tag-ics: #55bdca;
+  --heading-weight: 600;
+  --density-row: 30px;
+  --shadow-overlay: 0 0 0 1px #3a3b44, 0 12px 32px rgba(0, 0, 0, 0.5);
   color-scheme: dark;
-  background: #121317;
-  color: #e6e7ea;
-  font-family: 'Segoe UI', system-ui, sans-serif;
-  font-size: 13px;
 }
 
-body {
-  margin: 0;
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    margin: 0;
+    background: var(--color-bg);
+    color: var(--color-text);
+    font-family: var(--font-ui);
+    font-size: var(--text-base);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-focus-ring);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background: color-mix(in srgb, var(--color-accent) 30%, transparent);
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--color-text-muted);
+  }
 }
 
-.scaffold {
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  padding: 0 64px;
-  gap: 8px;
+/* Headings follow the theme (Paper uses a serif at weight 500). */
+@utility font-heading-weight {
+  font-weight: var(--heading-weight);
 }
 
-.scaffold h1 {
-  margin: 0;
-  font-size: 40px;
-  font-weight: 600;
-  letter-spacing: -0.02em;
+/* Block-out hatching: 135°, 1.5px lines every 8px at 30% of --color-blockout. */
+@utility bg-hatch {
+  background-image: repeating-linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--color-blockout) 30%, transparent) 0 1.5px,
+    transparent 1.5px 8px
+  );
 }
 
-.scaffold p {
-  margin: 0;
-  color: #989aa4;
-}
-
-.scaffold code {
-  font-family: ui-monospace, monospace;
-  font-size: 11px;
-  color: #989aa4;
-}
-
-.scaffold code.error {
-  color: #f07178;
-}
-
-.scaffold-inbox {
-  margin-top: 16px;
-  max-width: 420px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.scaffold-inbox input[type='text'],
-.scaffold-inbox input:not([type]) {
-  height: 32px;
-  padding: 0 10px;
-  border-radius: 6px;
-  border: 1px solid #3a3b44;
-  background: #18191e;
-  color: inherit;
-  font: inherit;
-}
-
-.scaffold-inbox input:focus-visible {
-  outline: 2px solid #b2a8fb;
-  outline-offset: 2px;
-}
-
-.scaffold-inbox ul {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.scaffold-inbox label {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-
-.scaffold-inbox .done {
-  color: #989aa4;
-  text-decoration: line-through;
+/* Overlay elevation; a plain utility so it follows the theme at runtime. */
+@utility shadow-overlay {
+  box-shadow: var(--shadow-overlay);
 }

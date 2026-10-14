@@ -85,6 +85,45 @@ pub fn list_ops(state: State<'_, AppState>) -> Result<Vec<OpInfo>, CommandError>
     Ok(planner.registry().infos())
 }
 
+/// Settings the UI may read and write directly. Planner data never goes
+/// through here; it uses `run_op` so it is validated and change-logged.
+const UI_SETTING_KEYS: &[&str] = &["theme"];
+
+fn check_setting_key(key: &str) -> Result<(), CommandError> {
+    if UI_SETTING_KEYS.contains(&key) {
+        Ok(())
+    } else {
+        Err(CommandError {
+            code: "invalid",
+            message: format!("'{key}' is not a UI setting"),
+            details: Vec::new(),
+        })
+    }
+}
+
+#[tauri::command]
+pub fn get_setting(state: State<'_, AppState>, key: String) -> Result<Option<Value>, CommandError> {
+    check_setting_key(&key)?;
+    let planner = state.planner.lock().map_err(|_| lock_error())?;
+    Ok(blotter_core::store::settings::get(
+        planner.db().conn(),
+        &key,
+    )?)
+}
+
+#[tauri::command]
+pub fn set_setting(
+    state: State<'_, AppState>,
+    key: String,
+    value: Value,
+) -> Result<(), CommandError> {
+    check_setting_key(&key)?;
+    let planner = state.planner.lock().map_err(|_| lock_error())?;
+    let now = blotter_core::time::truncate(chrono::Utc::now());
+    blotter_core::store::settings::set(planner.db().conn(), &key, &value, now)?;
+    Ok(())
+}
+
 /// Runs one operation as the user.
 #[tauri::command]
 pub fn run_op(

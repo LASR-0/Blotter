@@ -17,6 +17,7 @@ tauri-build = { version = "2.7.2", features = [] }
 
 [dependencies]
 blotter-core.workspace = true
+chrono = { version = "0.4.45", default-features = false, features = ["clock"] }
 chrono-tz = "0.10.4"
 iana-time-zone = "0.1.65"
 serde.workspace = true

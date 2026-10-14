@@ -44,8 +44,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 03 | 0 | `ci: build and test on Windows and Linux` | committed `e9760fe` (CI green) |
 | 04 | 1 | `feat(core): domain models, SQLite schema and migrations` | committed `bc79321` |
 | 05 | 1 | `feat(core): operation registry with JSON schemas and change log` | committed `f405964` (CI green) |
-| 06 | 2 | `feat(app): tray, close-to-tray and single-instance CLI handling` | ready |
-| 07 | 2 | `feat(ui): shadcn/ui setup, theme tokens and built-in presets` | planned |
+| 06 | 2 | `feat(app): tray, close-to-tray and single-instance CLI handling` | committed `de724f7` |
+| 07 | 2 | `feat(ui): shadcn/ui setup, theme tokens and built-in presets` | ready |
 | 08 | 2 | `feat(ui): app layout, routing and action/keymap registry` | planned |
 | 09 | 2 | `feat(ui): command palette` | planned |
 | 10 | 3 | `feat(ui): week view time grid` | planned |
@@ -360,7 +360,7 @@ Notes:
     - rrule is only shape-checked (FREQ=…); real parsing arrives in Phase 6.
     - The Inbox box on the placeholder screen is temporary and goes away in #08.
 
-### #06 — Tray, close-to-tray and single-instance CLI            [status: ready]
+### #06 — Tray, close-to-tray and single-instance CLI            [status: committed de724f7]
 Phase: 2
 Message:
     feat(app): tray, close-to-tray and single-instance CLI handling
@@ -407,3 +407,64 @@ Notes:
     - Linux tray uses libayatana-appindicator (already in CI deps); the Flatpak tray
       (StatusNotifier) is verified in Phase 13.
     - "Quit" in the command palette arrives with the palette in #09.
+
+### #07 — shadcn/ui setup, theme tokens and built-in presets            [status: ready]
+Phase: 2
+Message:
+    feat(ui): shadcn/ui setup, theme tokens and built-in presets
+
+    Tailwind v4 with the design reference's token set as the theme: the
+    token names (--color-surface, --radius-md, --text-sm, --font-mono…) are
+    Tailwind namespaces, so utilities like bg-surface read the live CSS
+    variable and a theme switch is just new variable values. Setting tokens
+    on any subtree re-themes only that subtree (for the Phase 10 preview).
+    shadcn/ui names (background, primary, ring…) are aliased onto them.
+
+    Dark, Light, Paper and Gruvbox presets ported from the design, applied
+    before first paint from a local cache and persisted in settings through
+    allowlisted get_setting/set_setting commands. Geist, Geist Mono and
+    Newsreader are bundled (offline). First shadcn-style components:
+    Button, Kbd/KeyHint and Tooltip on Radix.
+Files:
+    M  package.json
+    M  pnpm-lock.yaml
+    M  vite.config.ts
+    M  .prettierrc.json
+    M  src/styles.css
+    M  src/main.tsx
+    M  src/App.tsx
+    A  src/lib/cn.ts
+    A  src/theme/presets.ts
+    A  src/theme/theme.ts
+    A  src/theme/theme.test.ts
+    A  src/components/ui/button.tsx
+    A  src/components/ui/kbd.tsx
+    A  src/components/ui/tooltip.tsx
+    M  src-tauri/src/commands.rs
+    M  src-tauri/src/lib.rs
+    M  src-tauri/Cargo.toml
+    M  Cargo.lock
+    M  .claude/COMMITS.md
+    Stage everything in one go:  git add -A
+Test steps:
+    - pnpm install                → completes
+    - pnpm check                  → clean; Vitest 14 passed (8 duration + 6 theme)
+    - cargo test --workspace      → 62 core + 3 app passed; clippy clean
+    - pnpm tauri dev:
+        · the placeholder screen is restyled: big "Blotter" heading, a Dark/Light/Paper/Gruvbox
+          switch, a Save/Cancel/Skip button row, a sparkle icon button, key chips
+        · click each preset → the whole window recolours instantly; Paper switches the heading
+          to a serif
+        · hover the sparkle button → inverted tooltip "Toggle AI chat  Ctrl /"
+        · pick Gruvbox, close the window from the tray (Quit), relaunch → it opens straight in
+          Gruvbox with no dark flash
+        · Tab through the controls → every one shows the 2px focus ring
+    - Inbox box still works as in #05 (add, tick, untick).
+Notes:
+    - Verified by screenshot here: Paper renders with Newsreader headings, Geist Mono for
+      the mono lines, accent-filled primary button, and correct chips and input styling.
+    - The preset switch on this screen is temporary; #09's command palette gets
+      "Theme: …" commands and #08 replaces this screen with the real layout.
+    - Only Button, Kbd and Tooltip so far; further shadcn components (Dialog, Command,
+      Switch, Select, Popover…) are added in the commits that first use them.
+    - prettier-plugin-tailwindcss now sorts class names; `pnpm format` may reorder classes.
