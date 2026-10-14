@@ -1,8 +1,8 @@
 import { useEffect, useMemo } from 'react';
 import { buildActions, NAV_CONTEXT } from '@/actions/actions';
 import { useKeymap } from '@/keymap/useKeymap';
-import { useOp, usePlannerSync } from '@/lib/queries';
-import type { Blockout } from '@/lib/types';
+import { usePlannerSync } from '@/lib/queries';
+import { useBlockoutWindows } from '@/lib/useBlockoutWindows';
 import { useTheme } from '@/theme/theme';
 import { DiaryView } from '@/views/diary/DiaryView';
 import { InboxView } from '@/views/inbox/InboxView';
@@ -17,6 +17,7 @@ import { DragLayer } from './DragLayer';
 import { useFocus } from './focus';
 import { useSelection } from './selection';
 import { ItemDialog } from './ItemDialog';
+import { LiftDialog } from './LiftDialog';
 import { QuickAddDialog } from './QuickAddDialog';
 import { SIDEBAR_AUTO_COLLAPSE_PX, useNav } from './nav';
 import { useOverlay } from './overlay';
@@ -53,7 +54,7 @@ export function AppShell() {
   const overlayOpen = useOverlay((s) => s.overlay !== null);
   useKeymap(actions, contexts, overlayOpen);
   usePlannerSync();
-  const blockouts = useOp<Blockout[]>('list_blockouts');
+  const windows = useBlockoutWindows();
   useNarrowWindow();
 
   const loadTheme = useTheme((s) => s.load);
@@ -81,7 +82,8 @@ export function AppShell() {
       <QuickAddDialog />
       <ItemDialog />
       <ConfirmDialog />
-      <DragLayer blockouts={blockouts.data ?? []} />
+      <LiftDialog />
+      <DragLayer windows={windows} />
     </div>
   );
 }

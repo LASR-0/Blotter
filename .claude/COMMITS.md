@@ -59,8 +59,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 18 | 4 | `feat(app): quick-capture window, global shortcut and --capture flag` | committed `0a70bd0` |
 | 19 | 5 | `feat(core): block-out windows with exceptions` | committed `0ae5626` |
 | 20 | 5 | `feat(core): slot engine with fixed/flexible rules` | committed `73370bb` |
-| 20a | 5 | `fix(ui): give quick-add errors their own row` | ready (fix from #20 live check) |
-| 21 | 5 | `feat(ui): block-out settings and calendar shading` | planned |
+| 20a | 5 | `fix(ui): give quick-add errors their own row` | committed `5f7e140` |
+| 21 | 5 | `feat(ui): block-out settings and calendar shading` | ready |
 | 22 | 5 | `feat: inbox auto-slot and conflict warnings` | planned |
 | 23 | 5 | `feat: end-of-day rollover` | planned |
 | 24 | 6 | `feat(core): recurring items with occurrence exceptions` | planned |
@@ -1324,7 +1324,7 @@ Notes:
       meter and shading onto core data.
     - Error text keeps the core's "invalid input:" prefix, as every op error does today.
 
-### #20a — Quick-add errors get their own row            [status: ready]
+### #20a — Quick-add errors get their own row            [status: committed 5f7e140]
 Phase: 5 (fix to #17, found during #20's live check)
 Message:
     fix(ui): give quick-add errors their own row
@@ -1345,3 +1345,92 @@ Test steps:
 Notes:
     - Verified here by screenshot. Applies to the quick-capture popup too, which uses the same panel.
     - Numbered 20a so the planned sequence keeps its numbers.
+
+### #21 — Block-out settings and calendar shading            [status: ready]
+Phase: 5
+Message:
+    feat(ui): block-out settings and calendar shading
+
+    Settings → Block-outs (design S2):
+    - The list shows a hatched swatch per block-out, its days and times
+      (and timezone, when it isn't yours) and whether fixed items are
+      allowed or warn. Reorder by dragging or with Alt+Up/Down.
+    - The editor has label, day toggles, start and end (typed, e.g.
+      "5:30pm"; it notes when a window runs past midnight), an "Allow
+      fixed items" switch, Save (Ctrl+Enter), Revert and a two-click
+      Delete. New block-out creates one from the same form.
+    - Exceptions lists lifted dates and removes them with x. Adding takes
+      one date or a range with a note; a range only lifts the days the
+      block-out applies on, as one undoable batch (e.g. a week of leave).
+
+    The calendar now draws block-outs from the core (list_blockout_windows
+    via one shared, cached query) instead of re-deriving them in the UI,
+    so each block-out's own timezone and lifted dates are respected:
+    - Week: hatched, labelled windows in every day column, and a pin on
+      fixed items sitting inside one.
+    - Month: a hatched bar by the date on days with a block-out during
+      planning hours, with the details as a tooltip.
+    - Diary: the timeline rail, the day meters and drag refusal.
+
+    b l (or the palette) opens "Block-outs on <day>" for the focused day
+    in any calendar view: a switch per block-out lifts or restores it on
+    that day. Sidebar block-outs open their settings.
+Files:
+    A  src/views/settings/BlockoutsPage.tsx
+    A  src/app/LiftDialog.tsx
+    A  src/components/ui/switch.tsx
+    A  src/lib/blockoutDraft.ts
+    A  src/lib/blockoutDraft.test.ts
+    A  src/lib/useBlockoutWindows.ts
+    M  src/lib/availability.ts
+    M  src/lib/availability.test.ts
+    M  src/lib/dnd.ts
+    M  src/lib/dnd.test.ts
+    M  src/lib/types.ts
+    M  src/actions/actions.ts
+    M  src/app/AppShell.tsx
+    M  src/app/DragLayer.tsx
+    M  src/app/Sidebar.tsx
+    M  src/app/drag.ts
+    M  src/app/focus.ts
+    M  src/app/nav.ts
+    M  src/app/overlay.ts
+    M  src/views/SettingsView.tsx
+    M  src/views/WeekView.tsx
+    M  src/views/MonthView.tsx
+    M  src/views/YearView.tsx
+    M  src/views/diary/DiaryView.tsx
+    M  src/views/diary/TimelineRail.tsx
+    M  .claude/COMMITS.md
+    M  .claude/roadmap.md
+    Stage everything in one go:  git add -A
+Test steps:
+    - pnpm check                → clean; Vitest 134 passed (+8 block-out draft; availability and
+                                  dnd tests now use core windows)
+    - Rust unchanged since #20.
+    - pnpm tauri dev (demo DB):
+        · g w → Work hatched and labelled Mon–Fri 08:30–17:00, Sleep from 23:00; Standup,
+          Telehealth, Dentist and Team lunch show a pin; the weekend is clear
+        · g m → a small hatched bar after the date on weekdays only
+        · b l (Week, today focused) → "Block-outs on Wed 14 Oct" with Work and Sleep; Space on
+          Work → Lifted; Esc → Wednesday has no Work shading and Standup loses its pin
+        · Ctrl+K "edit block" → Settings → Block-outs with Work selected
+        · End "5:30pm", Ctrl+Enter → saved; the sidebar shows M-F 08:30-17:30
+        · Exceptions: 19/10/2026 to 23/10/2026, note "Leave", Enter → five dated rows
+        · click Work, Alt+↓ → it moves below Sleep (sidebar order too); drag a row by its
+          handle to reorder with the mouse
+        · New block-out → form; Create with no label → "Give the block-out a label."
+        · click a sidebar block-out → its settings open
+Notes:
+    - Verified here with real keys and clicks, by screenshot: Week shading and pins, Month
+      bars, b l lifting and restoring, the settings list and editor, the 17:30 save, a 5-day
+      exception range and Alt+↓ reordering. Fixed while testing: the End field spilled out of
+      its column, and the b l hint wrapped mid-chord.
+    - Not built: the design's "lift from the day's context menu". b l and the settings page
+      cover it; right-click menus could come with a later polish pass.
+    - The Month bar counts windows that start that day and overlap planning hours, so Sleep
+      doesn't mark every day. The Week grid still shades Sleep.
+    - Block-out colour and icon (in the core model) have no controls yet; everything uses the
+      theme's block-out hatch, as in the design.
+    - Planning hours for the day meter are still the frontend constant (core setting since #20;
+      UI in #38).

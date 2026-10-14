@@ -16,7 +16,7 @@ import {
   parseISO,
   startOfWeek,
 } from 'date-fns';
-import { ArrowsClockwise } from '@phosphor-icons/react';
+import { ArrowsClockwise, PushPin } from '@phosphor-icons/react';
 import { withFocusedItem } from '@/actions/itemActions';
 import { startPointerDrag, useDrag } from '@/app/drag';
 import { useFocus, useScrollFocusIntoView, useViewController } from '@/app/focus';
@@ -26,6 +26,7 @@ import { DropPreview } from '@/components/DropPreview';
 import { ErrorPanel } from '@/components/EmptyState';
 import { Kbd } from '@/components/ui/kbd';
 import { isOpError } from '@/lib/api';
+import { blockedIntervals, windowTimes } from '@/lib/availability';
 import { cn } from '@/lib/cn';
 import { timeOf } from '@/lib/format';
 import { moveInWeek, STEP_MIN } from '@/lib/focusNav';
@@ -35,6 +36,7 @@ import { isoDate, WEEK_STARTS_ON } from '@/lib/period';
 import { useOp } from '@/lib/queries';
 import { itemColor } from '@/lib/tags';
 import type { Agenda, Item } from '@/lib/types';
+import { useBlockoutWindows } from '@/lib/useBlockoutWindows';
 import { useNow } from '@/lib/useNow';
 
 /** Height of one hour in the grid (design reference: 44px). */
@@ -73,12 +75,15 @@ function EventBlock({
   placed,
   now,
   focused,
+  pinned,
   onSelect,
 }: {
   item: Item;
   placed: Placed;
   now: Date;
   focused: boolean;
+  /** A fixed item sitting inside a block-out. */
+  pinned: boolean;
   onSelect: (id: string) => void;
 }) {
   const done = item.status === 'done';
@@ -123,19 +128,29 @@ function EventBlock({
           : 'z-2 flex flex-col gap-px px-1.5 py-[3px] text-xs',
       )}
     >
-      <span
-        className={cn(
-          'truncate font-medium',
-          done
-            ? 'text-text-muted line-through'
-            : isOverdue(item, now)
-              ? 'text-danger'
-              : 'text-text',
+      <span className="flex min-w-0 items-center gap-1">
+        <span
+          className={cn(
+            'truncate font-medium',
+            done
+              ? 'text-text-muted line-through'
+              : isOverdue(item, now)
+                ? 'text-danger'
+                : 'text-text',
+          )}
+        >
+          {item.title}
+        </span>
+        {item.rrule && <ArrowsClockwise size={10} className="flex-none text-text-muted" />}
+        {pinned && (
+          <PushPin
+            size={10}
+            weight="fill"
+            aria-label="Fixed inside block-out"
+            className="ml-auto flex-none text-text-muted"
+          />
         )}
-      >
-        {item.title}
       </span>
-      {item.rrule && <ArrowsClockwise size={10} className="flex-none text-text-muted" />}
       {showTime && (
         <span className="truncate font-mono text-[10px] text-text-muted">
           {range}
@@ -174,6 +189,7 @@ export function WeekView() {
     end: isoDate(days[6] as Date),
   });
   const items = useMemo(() => agenda.data?.items ?? [], [agenda.data]);
+  const windows = useBlockoutWindows();
   const byId = useMemo(() => new Map(items.map((i) => [i.id, i])), [items]);
 
   const allDay = useMemo(
@@ -206,9 +222,9 @@ export function WeekView() {
           }))
           .filter((s) => onDay(s.start, s.end))
           .map((s) => ({ ...s, start: Math.max(0, s.start), end: Math.min(DAY_MIN, s.end) }));
-        return { day, placed: layoutDay(spans) };
+        return { day, placed: layoutDay(spans), blocks: blockedIntervals(windows, day) };
       }),
-    [days, items],
+    [days, items, windows],
   );
 
   // Open each week scrolled to the morning, or to just before now.
@@ -303,6 +319,12 @@ export function WeekView() {
         },
       });
       return true;
+    },
+    day: () => {
+      if (mode === 'cell') return days[cursor.day] ?? null;
+      const start = focusedId ? byId.get(focusedId)?.start_at : null;
+      if (start) return parseISO(start);
+      return days.find((d) => isSameDay(d, new Date())) ?? first;
     },
   });
 
@@ -427,7 +449,7 @@ export function WeekView() {
             ))}
           </div>
 
-          {columns.map(({ day, placed }, i) => (
+          {columns.map(({ day, placed, blocks }, i) => (
             <div
               key={i}
               onClick={onColumnClick(i)}
@@ -456,6 +478,20 @@ export function WeekView() {
                   />
                 </div>
               ))}
+              {blocks.map((b) => (
+                <div
+                  key={`${b.window.blockout_id}-${b.start}`}
+                  title={`${b.window.label} ${windowTimes(b.window)} (block-out)`}
+                  className="pointer-events-none absolute inset-x-0 border-y border-[color-mix(in_srgb,var(--color-blockout)_50%,transparent)] bg-hatch"
+                  style={{ top: minutesToPx(b.start), height: minutesToPx(b.end - b.start) }}
+                >
+                  {b.end - b.start >= 45 && (
+                    <span className="absolute top-1 right-1 rounded-[3px] bg-bg px-1 font-mono text-[10px] text-text-muted">
+                      {b.window.label}
+                    </span>
+                  )}
+                </div>
+              ))}
               {placed.map((p) => {
                 const item = byId.get(p.id);
                 return item ? (
@@ -465,6 +501,10 @@ export function WeekView() {
                     placed={p}
                     now={now}
                     focused={mode === 'item' && focusedId === p.id}
+                    pinned={
+                      item.anchoring === 'fixed' &&
+                      blocks.some((b) => p.start < b.end && p.end > b.start)
+                    }
                     onSelect={selectItem}
                   />
                 ) : null;

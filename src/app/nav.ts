@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { isCalendarView, stepPeriod, type CalendarView, type View } from '@/lib/period';
 
-export type SettingsPage = 'theme' | 'about';
+export type SettingsPage = 'blockouts' | 'theme' | 'about';
 
 interface NavState {
   view: View;
@@ -15,6 +15,8 @@ interface NavState {
   /** Window is narrower than SIDEBAR_AUTO_COLLAPSE_PX. */
   narrow: boolean;
   settingsPage: SettingsPage;
+  /** The block-out selected on the Block-outs settings page. */
+  blockoutId: string | null;
   /** Whether the Diary shows its Inbox rail. */
   diaryInbox: boolean;
   /** Keys pressed so far in an unfinished chord, for the top-bar hint. */
@@ -31,6 +33,8 @@ interface NavState {
   toggleSidebar: () => void;
   setNarrow: (narrow: boolean) => void;
   openSettings: (page?: SettingsPage) => void;
+  /** Opens Settings → Block-outs with `id` selected. */
+  openBlockout: (id: string | null) => void;
   setChord: (chord: NavState['chord']) => void;
   toggleDiaryInbox: () => void;
 }
@@ -46,6 +50,7 @@ export const useNav = create<NavState>()(
       sidebarCollapsed: null,
       narrow: false,
       settingsPage: 'theme',
+      blockoutId: null,
       diaryInbox: true,
       chord: null,
 
@@ -60,6 +65,8 @@ export const useNav = create<NavState>()(
       setNarrow: (narrow) => set({ narrow }),
       openSettings: (page) =>
         set((s) => ({ view: 'settings', settingsPage: page ?? s.settingsPage })),
+      openBlockout: (blockoutId) =>
+        set({ view: 'settings', settingsPage: 'blockouts', blockoutId }),
       setChord: (chord) => set({ chord }),
       toggleDiaryInbox: () => set((s) => ({ diaryInbox: !s.diaryInbox })),
     }),

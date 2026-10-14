@@ -23,7 +23,7 @@ import {
   slotStart,
   type Drop,
 } from '@/lib/dnd';
-import type { Blockout, Item } from '@/lib/types';
+import type { BlockoutWindow, Item } from '@/lib/types';
 import { useFocus } from './focus';
 
 export type DragMode = 'move' | 'resize';
@@ -35,7 +35,7 @@ export type Hover =
       date: Date;
       startMin: number;
       endMin: number;
-      refused: Blockout | null;
+      refused: BlockoutWindow | null;
     }
   | { kind: 'day'; date: Date; index: number; sortOrder?: number }
   | { kind: 'inbox' };
@@ -48,8 +48,8 @@ interface DragState {
   x: number;
   y: number;
   hover: Hover | null;
-  /** Block-outs used to refuse flexible drops; set by the shell. */
-  blockouts: Blockout[];
+  /** Block-out windows used to refuse flexible drops; set by the shell. */
+  windows: BlockoutWindow[];
 }
 
 export const useDrag = create<DragState>(() => ({
@@ -59,7 +59,7 @@ export const useDrag = create<DragState>(() => ({
   x: 0,
   y: 0,
   hover: null,
-  blockouts: [],
+  windows: [],
 }));
 
 /** Movement before a press becomes a drag. */
@@ -68,7 +68,7 @@ const THRESHOLD_PX = 4;
 const parseDate = (s: string) => parseISO(s);
 
 export function computeHover(x: number, y: number): Hover | null {
-  const { item, mode, grabMin, blockouts } = useDrag.getState();
+  const { item, mode, grabMin, windows } = useDrag.getState();
   if (!item) return null;
 
   if (mode === 'resize') {
@@ -113,7 +113,7 @@ export function computeHover(x: number, y: number): Hover | null {
       date,
       startMin,
       endMin,
-      refused: refusedBy(item, date, startMin, endMin, blockouts),
+      refused: refusedBy(item, date, startMin, endMin, windows),
     };
   }
 

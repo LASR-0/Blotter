@@ -75,6 +75,7 @@ export function YearView() {
       openWeek(focusDay);
       return true;
     },
+    day: () => focusDay,
   });
 
   let total = 0;

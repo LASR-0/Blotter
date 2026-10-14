@@ -62,6 +62,25 @@ export interface Blockout {
   exceptions: BlockoutException[];
 }
 
+/** One occurrence of a block-out (`list_blockout_windows`); instants are UTC. */
+export interface BlockoutWindow {
+  blockout_id: string;
+  label: string;
+  /** Local date the occurrence starts on; lift it with an exception on this date. */
+  date: string;
+  start: string;
+  end: string;
+  permits_fixed: boolean;
+  color: string | null;
+}
+
+export interface BlockoutWindows {
+  start: string;
+  end: string;
+  timezone: string;
+  windows: BlockoutWindow[];
+}
+
 export interface Agenda {
   start: string;
   end: string;

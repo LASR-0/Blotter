@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { between, dropCall, refusedBy, resizeEnd, slotStart } from './dnd';
-import type { Blockout, Item } from './types';
+import type { BlockoutWindow, Item } from './types';
 
 const local = (s: string) => new Date(s).toISOString();
 const item = (o: Partial<Item>): Item => ({
@@ -31,22 +31,14 @@ const item = (o: Partial<Item>): Item => ({
   updated_at: '',
   ...o,
 });
-const work: Blockout = {
-  id: 'w',
+const work: BlockoutWindow = {
+  blockout_id: 'w',
   label: 'Work',
-  weekdays: ['mon', 'tue', 'wed', 'thu', 'fri'],
-  start_time: '08:30',
-  end_time: '17:00',
-  tz: 'Australia/Melbourne',
-  active_from: null,
-  active_until: null,
+  date: '2026-10-13',
+  start: new Date(2026, 9, 13, 8, 30).toISOString(),
+  end: new Date(2026, 9, 13, 17, 0).toISOString(),
   permits_fixed: true,
   color: null,
-  icon: null,
-  sort_order: 0,
-  created_at: '',
-  updated_at: '',
-  exceptions: [],
 };
 const tue = new Date(2026, 9, 13);
 

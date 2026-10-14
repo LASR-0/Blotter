@@ -11,7 +11,8 @@ import { moveInColumns, STEP_MIN } from '@/lib/focusNav';
 import { moveByDays, moveByMinutes, resizeByMinutes } from '@/lib/itemMoves';
 import { isoDate } from '@/lib/period';
 import { useOp } from '@/lib/queries';
-import type { Agenda, Blockout, Item } from '@/lib/types';
+import type { Agenda, Item } from '@/lib/types';
+import { useBlockoutWindows } from '@/lib/useBlockoutWindows';
 import { useNow } from '@/lib/useNow';
 import { DayColumn } from './DayColumn';
 import { InboxRail } from './InboxRail';
@@ -45,7 +46,7 @@ export function DiaryView() {
     end: isoDate(days[DAYS - 1] as Date),
   });
   const overdue = useOp<Item[]>('list_overdue');
-  const blockouts = useOp<Blockout[]>('list_blockouts');
+  const windows = useBlockoutWindows();
   const byDay = useMemo(() => itemsByDay(agenda.data?.items ?? []), [agenda.data]);
   const scheduledIds = useMemo(
     () => new Set((agenda.data?.items ?? []).map((i) => i.id)),
@@ -73,6 +74,7 @@ export function DiaryView() {
       ),
     resize: (dir) =>
       withFocusedItem((item) => resizeByMinutes(item, dir === 'down' ? STEP_MIN : -STEP_MIN)),
+    day: () => columns.find((_, i) => columnIds[i]?.includes(focusedId ?? ''))?.day ?? anchor,
   });
 
   return (
@@ -98,13 +100,13 @@ export function DiaryView() {
               // Overdue tasks surface on today's column only, unless already listed there.
               overdue={lateItems}
               plannedMin={plannedMinutes(items, day)}
-              availableMin={availableMinutes(blockouts.data ?? [], day)}
+              availableMin={availableMinutes(windows, day)}
               loading={agenda.isPending}
             />
           );
         })}
       </div>
-      <TimelineRail day={anchor} items={anchorItems} blockouts={blockouts.data ?? []} />
+      <TimelineRail day={anchor} items={anchorItems} windows={windows} />
     </div>
   );
 }

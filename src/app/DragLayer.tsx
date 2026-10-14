@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { DotsSixVertical } from '@phosphor-icons/react';
 import { cardTime } from '@/lib/format';
-import type { Blockout } from '@/lib/types';
+import type { BlockoutWindow } from '@/lib/types';
 import { computeHover, useDrag } from './drag';
 
 /** Distance from a scroll container's edge that starts auto-scrolling. */
@@ -35,15 +35,15 @@ function useAutoScroll(active: boolean) {
 }
 
 /** The ghost card that follows the pointer while dragging (design: "Dragging"). */
-export function DragLayer({ blockouts }: { blockouts: Blockout[] }) {
+export function DragLayer({ windows }: { windows: BlockoutWindow[] }) {
   const item = useDrag((s) => s.item);
   const mode = useDrag((s) => s.mode);
   const x = useDrag((s) => s.x);
   const y = useDrag((s) => s.y);
   useAutoScroll(item !== null);
   useEffect(() => {
-    useDrag.setState({ blockouts });
-  }, [blockouts]);
+    useDrag.setState({ windows });
+  }, [windows]);
 
   useEffect(() => {
     if (!item) return;

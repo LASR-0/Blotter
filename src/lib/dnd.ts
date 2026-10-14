@@ -4,7 +4,7 @@
 import { format, parseISO } from 'date-fns';
 import { blockedIntervals } from './availability';
 import type { OpCallSpec } from './itemDraft';
-import type { Blockout, Item } from './types';
+import type { BlockoutWindow, Item } from './types';
 
 /** Drop slots snap to 15 minutes (design annotation). */
 export const SNAP_MIN = 15;
@@ -49,11 +49,11 @@ export function refusedBy(
   date: Date,
   startMin: number,
   endMin: number,
-  blockouts: readonly Blockout[],
-): Blockout | null {
+  windows: readonly BlockoutWindow[],
+): BlockoutWindow | null {
   if (item.anchoring === 'fixed') return null;
-  const hit = blockedIntervals(blockouts, date).find((b) => startMin < b.end && endMin > b.start);
-  return hit?.blockout ?? null;
+  const hit = blockedIntervals(windows, date).find((b) => startMin < b.end && endMin > b.start);
+  return hit?.window ?? null;
 }
 
 /** A sort_order between neighbours (either may be missing at the ends). */

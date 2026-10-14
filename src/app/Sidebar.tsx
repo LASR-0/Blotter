@@ -204,11 +204,17 @@ export function Sidebar() {
           <section className="flex flex-col gap-px">
             <h2 className="px-2 pb-1 text-xs font-normal text-text-muted">Block-outs</h2>
             {blockouts.data?.map((b) => (
-              <div key={b.id} className="flex h-7 items-center gap-2.5 rounded-md px-2">
+              <button
+                key={b.id}
+                type="button"
+                title={`Edit ${b.label}`}
+                onClick={() => useNav.getState().openBlockout(b.id)}
+                className="flex h-7 cursor-pointer items-center gap-2.5 rounded-md px-2 text-left hover:bg-hover"
+              >
                 <span className="size-3 rounded-[3px] border border-[color-mix(in_srgb,var(--color-blockout)_50%,transparent)] bg-hatch" />
                 <span className="flex-1 truncate">{b.label}</span>
                 <span className="font-mono text-[10px] text-text-muted">{blockoutWhen(b)}</span>
-              </div>
+              </button>
             ))}
           </section>
         )}

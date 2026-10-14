@@ -16,6 +16,7 @@ import { ErrorPanel } from '@/components/EmptyState';
 import { Kbd } from '@/components/ui/kbd';
 import { Popover, PopoverClose, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { isOpError } from '@/lib/api';
+import { blockedIntervals, PLANNING_HOURS, windowTimes } from '@/lib/availability';
 import { cn } from '@/lib/cn';
 import { dayKey, itemsByDay } from '@/lib/days';
 import { timeOf } from '@/lib/format';
@@ -23,6 +24,7 @@ import { isoDate, WEEK_STARTS_ON } from '@/lib/period';
 import { useOp } from '@/lib/queries';
 import { itemColor } from '@/lib/tags';
 import type { Agenda, Item } from '@/lib/types';
+import { useBlockoutWindows } from '@/lib/useBlockoutWindows';
 import { useNow } from '@/lib/useNow';
 
 /** Chips shown per cell before collapsing into "+N more". */
@@ -124,6 +126,7 @@ export function MonthView() {
     const first = startOfWeek(startOfMonth(anchor), { weekStartsOn: WEEK_STARTS_ON });
     return Array.from({ length: CELLS }, (_, i) => addDays(first, i));
   }, [anchor]);
+  const windows = useBlockoutWindows();
   const agenda = useOp<Agenda>('list_agenda', {
     start: isoDate(days[0] as Date),
     end: isoDate(days[CELLS - 1] as Date),
@@ -149,6 +152,7 @@ export function MonthView() {
       openWeek(focusDay);
       return true;
     },
+    day: () => focusDay,
   });
 
   return (
@@ -177,6 +181,10 @@ export function MonthView() {
           const shown = items.slice(0, MAX_CHIPS);
           const focused = isSameDay(day, focusDay);
           const hidden = items.length - shown.length;
+          const dayBlocks = blockedIntervals(
+            windows.filter((w) => w.date === isoDate(day)),
+            day,
+          ).filter((b) => b.end > PLANNING_HOURS.start && b.start < PLANNING_HOURS.end);
           return (
             <div
               key={day.getTime()}
@@ -209,6 +217,14 @@ export function MonthView() {
                 >
                   {day.getDate() === 1 ? format(day, 'MMM d') : format(day, 'd')}
                 </button>
+                {dayBlocks.length > 0 && (
+                  <span
+                    title={dayBlocks
+                      .map((b) => `${b.window.label} ${windowTimes(b.window)} (block-out)`)
+                      .join('\n')}
+                    className="h-1 w-7 rounded-[2px] bg-[repeating-linear-gradient(135deg,color-mix(in_srgb,var(--color-blockout)_70%,transparent)_0_1.5px,transparent_1.5px_4px)]"
+                  />
+                )}
               </div>
               <div className="flex min-h-0 flex-col gap-0.5 overflow-hidden px-1 pb-1">
                 {shown.map((item) => (

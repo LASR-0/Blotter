@@ -470,7 +470,8 @@ Each phase states the intent, then the acceptance criteria (AC) and leads to ver
 **Progress (2026-10-14):**
 - #19 (block-out window expansion in the core, plus `list_blockout_windows`) is committed.
 - #20 (the slot engine, `find_free_slots`, planning hours and buffer settings, and enforcement on every path that a flexible task never lands in a block-out) is committed.
-- #21 (block-out settings page and calendar shading from core windows) is next.
+- #21 (block-out settings page, `b l` lifting, and calendar shading from core windows) is committed.
+- #22 (Inbox auto-slot with a results panel, plus conflict flags) is next.
 
 ### Phase 6 — Recurrence and reminders
 **Intent:**

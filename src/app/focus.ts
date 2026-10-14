@@ -17,6 +17,8 @@ export interface ViewController {
   tab?(): void;
   /** Enter with no focused item (e.g. open a day). True if handled. */
   enter?(): boolean;
+  /** The day keyboard focus is on, for day actions such as lifting block-outs. */
+  day?(): Date | null;
 }
 
 interface FocusState {
@@ -47,6 +49,7 @@ export function useViewController(controller: ViewController): void {
       resize: (d) => latest.current.resize?.(d),
       tab: () => latest.current.tab?.(),
       enter: () => latest.current.enter?.() ?? false,
+      day: () => latest.current.day?.() ?? null,
     };
     useFocus.getState().setController(proxy);
     return () => {

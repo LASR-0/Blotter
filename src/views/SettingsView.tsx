@@ -1,15 +1,17 @@
 import { useEffect, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { Check, Info, Palette, type Icon } from '@phosphor-icons/react';
+import { Check, Info, Palette, Prohibit, type Icon } from '@phosphor-icons/react';
 import { useNav, type SettingsPage } from '@/app/nav';
 import { Kbd } from '@/components/ui/kbd';
 import { cn } from '@/lib/cn';
 import { PRESETS, type Theme } from '@/theme/presets';
 import { useTheme } from '@/theme/theme';
+import { BlockoutsPage } from './settings/BlockoutsPage';
 
 // Pages appear here as their phases land: General, Block-outs, Calendars,
 // AI providers, Notifications, Keybindings and Backups (design S1–S9).
 const PAGES: readonly { id: SettingsPage; label: string; icon: Icon }[] = [
+  { id: 'blockouts', label: 'Block-outs', icon: Prohibit },
   { id: 'theme', label: 'Theme', icon: Palette },
   { id: 'about', label: 'About', icon: Info },
 ];
@@ -43,7 +45,13 @@ export function SettingsView() {
         ))}
       </nav>
       <main className="min-w-0 flex-1 overflow-auto">
-        {page === 'about' ? <AboutPage /> : <ThemePage />}
+        {page === 'about' ? (
+          <AboutPage />
+        ) : page === 'blockouts' ? (
+          <BlockoutsPage />
+        ) : (
+          <ThemePage />
+        )}
       </main>
     </div>
   );

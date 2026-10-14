@@ -5,10 +5,10 @@ import { startPointerDrag } from '@/app/drag';
 import { useOverlay } from '@/app/overlay';
 import { DropPreview } from '@/components/DropPreview';
 import { isoDate } from '@/lib/period';
-import { blockedIntervals } from '@/lib/availability';
+import { blockedIntervals, windowTimes } from '@/lib/availability';
 import { cn } from '@/lib/cn';
 import { layoutDay } from '@/lib/layout';
-import type { Blockout, Item } from '@/lib/types';
+import type { BlockoutWindow, Item } from '@/lib/types';
 import { itemColor } from '@/lib/tags';
 import { useNow } from '@/lib/useNow';
 
@@ -32,11 +32,11 @@ function laneStyle(p: { lane: number; lanes: number } | undefined) {
 export function TimelineRail({
   day,
   items,
-  blockouts,
+  windows,
 }: {
   day: Date;
   items: Item[];
-  blockouts: Blockout[];
+  windows: BlockoutWindow[];
 }) {
   const now = useNow();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -56,7 +56,7 @@ export function TimelineRail({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dayKey]);
 
-  const blocks = blockedIntervals(blockouts, day);
+  const blocks = blockedIntervals(windows, day);
   const timed = items
     .filter((i) => !i.all_day && i.start_at)
     .map((i) => {
@@ -110,12 +110,12 @@ export function TimelineRail({
 
           {blocks.map((b) => (
             <div
-              key={`${b.blockout.id}-${b.start}`}
+              key={`${b.window.blockout_id}-${b.start}`}
               className="absolute right-0 border-y border-[color-mix(in_srgb,var(--color-blockout)_45%,transparent)] bg-hatch"
               style={{ left: GUTTER_PX, top: px(b.start), height: px(b.end - b.start) }}
             >
               <span className="absolute top-1 right-1.5 rounded-[3px] bg-bg px-1 font-mono text-[10px] text-text-muted">
-                {b.blockout.label} {b.blockout.start_time}–{b.blockout.end_time}
+                {b.window.label} {windowTimes(b.window)}
               </span>
             </div>
           ))}
