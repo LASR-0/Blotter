@@ -33,6 +33,7 @@ import {
 import { deleteFocused, openFocused, toggleFocused } from '@/actions/itemActions';
 import { useFocus } from '@/app/focus';
 import { useNav } from '@/app/nav';
+import { useSelection, type BulkEditor } from '@/app/selection';
 import { useOverlay } from '@/app/overlay';
 import { PRESETS } from '@/theme/presets';
 import { useTheme } from '@/theme/theme';
@@ -267,6 +268,51 @@ export function buildActions(): Action[] {
       context: NAV_CONTEXT,
       run: deleteFocused,
     },
+    {
+      id: 'inbox.select',
+      label: 'Select / deselect task',
+      group: 'Focused item',
+      icon: CheckSquare,
+      binding: 'Space',
+      context: 'inbox',
+      paletteHidden: true,
+      run: () => {
+        const id = useFocus.getState().itemId;
+        if (id) useSelection.getState().toggle(id);
+      },
+    },
+    {
+      id: 'inbox.clear',
+      label: 'Clear selection',
+      group: 'Focused item',
+      icon: CheckSquare,
+      binding: 'Escape',
+      context: 'inbox',
+      paletteHidden: true,
+      sheet: false,
+      run: () => useSelection.getState().clear(),
+    },
+    ...(
+      [
+        ['schedule', 'd', 'Schedule selected tasks'],
+        ['duration', 't', 'Set duration of selected tasks'],
+        ['priority', 'p', 'Set priority of selected tasks'],
+        ['due', 'u', 'Set due date of selected tasks'],
+      ] as const
+    ).map(([editor, key, label]): Action => ({
+      id: `inbox.bulk.${editor}`,
+      label,
+      group: 'Focused item',
+      icon: CheckSquare,
+      binding: key,
+      context: 'inbox',
+      paletteHidden: true,
+      sheet:
+        editor === 'schedule'
+          ? { label: 'Bulk schedule / duration / priority / due', keys: 'd t p u' }
+          : false,
+      run: () => useSelection.getState().openEditor(editor as BulkEditor),
+    })),
     {
       id: 'week.cursor',
       label: 'Switch item ↔ time cursor',

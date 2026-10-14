@@ -1,5 +1,6 @@
 // Actions on the keyboard-focused item, shared by every navigable view.
 
+import { deleteSelection } from '@/actions/bulkActions';
 import { useFocus } from '@/app/focus';
 import { useOverlay } from '@/app/overlay';
 import { runOp } from '@/lib/api';
@@ -44,6 +45,8 @@ export function openFocused(): boolean {
 }
 
 export function deleteFocused(): void {
+  // In the Inbox, Del acts on the multi-selection when there is one.
+  if (deleteSelection()) return;
   const id = useFocus.getState().itemId;
   if (!id) return;
   fetchItem(id)

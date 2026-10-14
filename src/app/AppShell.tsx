@@ -5,7 +5,7 @@ import { useOp, usePlannerSync } from '@/lib/queries';
 import type { Blockout } from '@/lib/types';
 import { useTheme } from '@/theme/theme';
 import { DiaryView } from '@/views/diary/DiaryView';
-import { InboxView } from '@/views/InboxView';
+import { InboxView } from '@/views/inbox/InboxView';
 import { PendingView } from '@/views/PendingView';
 import { SettingsView } from '@/views/SettingsView';
 import { MonthView } from '@/views/MonthView';
@@ -15,6 +15,7 @@ import { CommandPalette } from './CommandPalette';
 import { ConfirmDialog } from './ConfirmDialog';
 import { DragLayer } from './DragLayer';
 import { useFocus } from './focus';
+import { useSelection } from './selection';
 import { ItemDialog } from './ItemDialog';
 import { SIDEBAR_AUTO_COLLAPSE_PX, useNav } from './nav';
 import { useOverlay } from './overlay';
@@ -45,6 +46,7 @@ export function AppShell() {
   // Focus belongs to the view it was set in.
   useEffect(() => {
     useFocus.getState().setItem(null);
+    useSelection.getState().clear();
   }, [view]);
 
   const overlayOpen = useOverlay((s) => s.overlay !== null);

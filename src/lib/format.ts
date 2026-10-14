@@ -61,3 +61,18 @@ export function parseTime(input: string): string | null {
   }
   return `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
 }
+
+/** How long ago something was added: `now`, `today`, `yesterday`, `3d ago`, or `12 Oct`. */
+export function addedAgo(iso: string, now: Date = new Date()): string {
+  const then = parseISO(iso);
+  if (now.getTime() - then.getTime() < 60_000) return 'now';
+  const days = Math.round(
+    (new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime() -
+      new Date(then.getFullYear(), then.getMonth(), then.getDate()).getTime()) /
+      86_400_000,
+  );
+  if (days <= 0) return 'today';
+  if (days === 1) return 'yesterday';
+  if (days < 7) return `${days}d ago`;
+  return format(then, 'd MMM');
+}

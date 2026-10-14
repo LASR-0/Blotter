@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseTime } from './format';
+import { addedAgo, parseTime } from './format';
 
 describe('parseTime', () => {
   it.each([
@@ -19,5 +19,18 @@ describe('parseTime', () => {
 
   it.each(['', 'noon', '24:00', '9:60', '13pm', '0am', '12345'])('rejects %j', (input) => {
     expect(parseTime(input)).toBeNull();
+  });
+});
+
+describe('addedAgo', () => {
+  const now = new Date(2026, 9, 14, 10, 30);
+  it.each([
+    [new Date(2026, 9, 14, 10, 29, 30), 'now'],
+    [new Date(2026, 9, 14, 7, 0), 'today'],
+    [new Date(2026, 9, 13, 23, 0), 'yesterday'],
+    [new Date(2026, 9, 11, 9, 0), '3d ago'],
+    [new Date(2026, 9, 1, 9, 0), '1 Oct'],
+  ])('%s → %s', (then, expected) => {
+    expect(addedAgo(then.toISOString(), now)).toBe(expected);
   });
 });

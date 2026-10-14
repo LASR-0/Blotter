@@ -53,8 +53,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 12 | 3 | `feat(ui): diary view with day columns and timeline rail` | committed `c0e2b59` |
 | 13 | 3 | `feat(ui): item dialog and completion with timestamps` | committed `9c17d90` |
 | 14 | 3 | `feat(ui): keyboard navigation and keyboard move/resize` | committed `a5913b0` |
-| 15 | 3 | `feat(ui): drag-and-drop rescheduling in week view` | ready (scope widened: Diary + Inbox rail too) |
-| 16 | 4 | `feat(ui): inbox panel and view` | planned |
+| 15 | 3 | `feat(ui): drag-and-drop rescheduling in week view` | committed `e883650` (scope widened: Diary + Inbox rail too) |
+| 16 | 4 | `feat(ui): inbox panel and view` | ready |
 | 17 | 4 | `feat: natural-language quick add with live preview` | planned |
 | 18 | 4 | `feat(app): quick-capture window, global shortcut and --capture flag` | planned |
 | 19 | 5 | `feat(core): block-out windows with exceptions` | planned |
@@ -935,7 +935,7 @@ Notes:
     - Focus is logical (store + ring), not DOM focus, so screen readers don't yet follow it;
       aria-activedescendant wiring is a follow-up worth doing before v1.
 
-### #15 — Drag-and-drop rescheduling            [status: ready]
+### #15 — Drag-and-drop rescheduling            [status: committed e883650]
 Phase: 3
 Message:
     feat(ui): drag-and-drop rescheduling in week view and diary
@@ -1006,3 +1006,53 @@ Notes:
       can't go there") when toasts land with undo in #27.
     - Core enforcement of "flexible never in a block-out" for every path (AI, MCP, keyboard)
       arrives with the slot engine in #20.
+
+### #16 — Inbox view with multi-select and bulk actions            [status: ready]
+Phase: 4
+Message:
+    feat(ui): inbox panel and view
+
+    The full Inbox from the design (V3): a header with the unscheduled
+    count, a brain-dump box where Enter adds every line as its own task in
+    one batch (Shift+Enter for a new line; text stays if saving fails), and
+    a task table with select box, title and tags, duration, priority (!2
+    amber, !3 red), due and when it was added.
+
+    Multi-select by click or Space, Esc to clear. A floating bulk bar acts
+    on the selection, each change as one undoable batch: Schedule… (d, to
+    a day or a time), Duration (t), Priority (p), Due (u, set or clear) and
+    Delete (Del, with a confirm). Rows keep keyboard focus (j/k), double
+    click opens the dialog and rows can be dragged onto days. The Diary's
+    Inbox rail from #12 remains the side panel.
+Files:
+    A  src/views/inbox/InboxView.tsx
+    A  src/views/inbox/BulkBar.tsx
+    A  src/app/selection.ts
+    A  src/actions/bulkActions.ts
+    D  src/views/InboxView.tsx
+    M  src/actions/actions.ts
+    M  src/actions/itemActions.ts
+    M  src/app/AppShell.tsx
+    M  src/lib/format.ts
+    M  src/lib/format.test.ts
+    M  .claude/COMMITS.md
+    Stage everything in one go:  git add -A
+Test steps:
+    - pnpm check                → clean; Vitest 115 passed (+5 added-ago)
+    - pnpm tauri dev (demo DB), press i:
+        · type two lines in the box (Shift+Enter between), Enter → both appear, box clears
+        · j to focus a row, Space selects it (accent tint, ticked box); select another
+        · bulk bar shows "2 selected"; p → pick !2 → both rows show !2 in amber
+        · t → type 1h → Set duration → both show 1h
+        · u → pick a date → both show it under Due; u again with no date → cleared
+        · d → pick a date → both leave the Inbox and appear on that day in the Diary
+        · select one, Del → "Delete 1 task?" → Enter → gone
+        · Esc clears the selection; leaving the Inbox clears it too
+        · click a row to select it, double click to open the dialog
+Notes:
+    - Verified here: keyboard selection, the bulk bar, bulk priority applied to two rows in
+      one batch, and a brain-dump line added from the box.
+    - Not yet in the bulk bar: Auto-slot and its result panel (#22) and Ask AI (#31). The
+      token hints under the box (~45m #tag !2 due fri) arrive with the parser in #17; until
+      then each line is a plain title.
+    - Completed Inbox tasks are hidden here; they'll show in History (#39).
