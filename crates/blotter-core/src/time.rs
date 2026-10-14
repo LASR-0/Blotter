@@ -50,6 +50,21 @@ pub fn parse_time(column: &'static str, s: &str) -> Result<NaiveTime> {
     })
 }
 
+/// Serde for `NaiveTime` as `HH:MM`, matching the database encoding.
+pub mod hhmm {
+    use chrono::NaiveTime;
+    use serde::{Deserialize, Deserializer, Serializer};
+
+    pub fn serialize<S: Serializer>(t: &NaiveTime, s: S) -> Result<S::Ok, S::Error> {
+        s.serialize_str(&super::fmt_time(*t))
+    }
+
+    pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<NaiveTime, D::Error> {
+        let s = String::deserialize(d)?;
+        NaiveTime::parse_from_str(&s, "%H:%M").map_err(serde::de::Error::custom)
+    }
+}
+
 /// Source of "now", injectable so tests are deterministic.
 pub trait Clock: Send + Sync {
     fn now(&self) -> Instant;

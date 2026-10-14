@@ -213,6 +213,7 @@ fn create_item(ctx: &mut Ctx<'_>, a: CreateItemArgs) -> Result<Item> {
     }
 
     finalize(ctx, &mut item)?;
+    super::slots::check_placement(ctx, None, &item)?;
     store::items::insert(ctx.conn, &item)?;
     ctx.record(ENTITY, &item.id, None, Some(&item))?;
     Ok(item)
@@ -313,6 +314,7 @@ fn update_item(ctx: &mut Ctx<'_>, a: UpdateItemArgs) -> Result<Item> {
 
     item.updated_at = ctx.now;
     finalize(ctx, &mut item)?;
+    super::slots::check_placement(ctx, Some(&before), &item)?;
     if item == before {
         return Ok(item);
     }
@@ -390,6 +392,7 @@ fn schedule_item(ctx: &mut Ctx<'_>, a: ScheduleItemArgs) -> Result<Item> {
     }
     item.updated_at = ctx.now;
     finalize(ctx, &mut item)?;
+    super::slots::check_placement(ctx, Some(&before), &item)?;
     store::items::update(ctx.conn, &item)?;
     ctx.record(ENTITY, &item.id, Some(&before), Some(&item))?;
     Ok(item)

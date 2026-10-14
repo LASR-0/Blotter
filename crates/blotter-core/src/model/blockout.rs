@@ -11,9 +11,9 @@ pub struct Blockout {
     pub id: String,
     pub label: String,
     pub weekdays: Weekdays,
-    #[serde(with = "hhmm")]
+    #[serde(with = "crate::time::hhmm")]
     pub start_time: NaiveTime,
-    #[serde(with = "hhmm")]
+    #[serde(with = "crate::time::hhmm")]
     pub end_time: NaiveTime,
     pub tz: String,
     pub active_from: Option<NaiveDate>,
@@ -131,21 +131,6 @@ impl schemars::JsonSchema for Weekdays {
             "uniqueItems": true,
             "description": "Days the block-out applies, e.g. [\"mon\",\"tue\",\"wed\",\"thu\",\"fri\"]."
         })
-    }
-}
-
-/// Serde for `NaiveTime` as `HH:MM`, matching the database encoding.
-mod hhmm {
-    use chrono::NaiveTime;
-    use serde::{Deserialize, Deserializer, Serializer};
-
-    pub fn serialize<S: Serializer>(t: &NaiveTime, s: S) -> Result<S::Ok, S::Error> {
-        s.serialize_str(&t.format("%H:%M").to_string())
-    }
-
-    pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<NaiveTime, D::Error> {
-        let s = String::deserialize(d)?;
-        NaiveTime::parse_from_str(&s, "%H:%M").map_err(serde::de::Error::custom)
     }
 }
 

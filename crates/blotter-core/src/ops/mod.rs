@@ -11,6 +11,7 @@ pub mod input;
 mod items;
 mod reads;
 mod reminders;
+mod slots;
 
 use std::collections::BTreeMap;
 
@@ -184,6 +185,7 @@ impl Registry {
             .chain(items::defs())
             .chain(blockouts::defs())
             .chain(reminders::defs())
+            .chain(slots::defs())
         {
             let previous = ops.insert(def.name, def);
             debug_assert!(previous.is_none(), "duplicate operation name");

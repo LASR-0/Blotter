@@ -19,11 +19,13 @@ use std::collections::HashSet;
 
 use chrono::NaiveDate;
 use chrono_tz::Tz;
+use rusqlite::Connection;
 use serde::Serialize;
 
 use crate::error::{CoreError, Result};
 use crate::model::{Blockout, BlockoutException};
 use crate::ops::input::resolve_local;
+use crate::store;
 use crate::time::Instant;
 
 /// One occurrence of a block-out, as a UTC range `[start, end)`.
@@ -47,6 +49,13 @@ impl BlockoutWindow {
     pub fn overlaps(&self, start: Instant, end: Instant) -> bool {
         self.start < end && start < self.end
     }
+}
+
+/// Every stored block-out's windows overlapping `[from, to)`.
+pub fn load(conn: &Connection, from: Instant, to: Instant) -> Result<Vec<BlockoutWindow>> {
+    let blockouts = store::blockouts::list(conn)?;
+    let exceptions = store::blockouts::list_exceptions(conn, None, None)?;
+    expand(&blockouts, &exceptions, from, to)
 }
 
 /// Every window of `blockouts` overlapping `[from, to)`, sorted by start.

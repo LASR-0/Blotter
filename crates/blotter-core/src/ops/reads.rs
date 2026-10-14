@@ -235,13 +235,11 @@ fn list_blockouts(ctx: &mut Ctx<'_>, _: NoArgs) -> Result<Vec<BlockoutWithExcept
 fn list_blockout_windows(ctx: &mut Ctx<'_>, a: DateRangeArgs) -> Result<BlockoutWindows> {
     let (start, end) = checked_days(a.start, a.end)?;
     let range = day_range(ctx, start, end);
-    let blockouts = store::blockouts::list(ctx.conn)?;
-    let exceptions = store::blockouts::list_exceptions(ctx.conn, None, None)?;
     Ok(BlockoutWindows {
         start,
         end,
         timezone: ctx.settings.tz.name().to_owned(),
-        windows: windows::expand(&blockouts, &exceptions, range.start, range.end)?,
+        windows: windows::load(ctx.conn, range.start, range.end)?,
     })
 }
 

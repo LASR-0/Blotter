@@ -57,8 +57,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 16 | 4 | `feat(ui): inbox panel and view` | committed `48863c5` |
 | 17 | 4 | `feat: natural-language quick add with live preview` | committed `22e3001` |
 | 18 | 4 | `feat(app): quick-capture window, global shortcut and --capture flag` | committed `0a70bd0` |
-| 19 | 5 | `feat(core): block-out windows with exceptions` | ready |
-| 20 | 5 | `feat(core): slot engine with fixed/flexible rules` | planned |
+| 19 | 5 | `feat(core): block-out windows with exceptions` | committed `0ae5626` |
+| 20 | 5 | `feat(core): slot engine with fixed/flexible rules` | ready |
 | 21 | 5 | `feat(ui): block-out settings and calendar shading` | planned |
 | 22 | 5 | `feat: inbox auto-slot and conflict warnings` | planned |
 | 23 | 5 | `feat: end-of-day rollover` | planned |
@@ -1207,7 +1207,7 @@ Notes:
       Pressing the shortcut again hides it. Enter on "fix gate ~30m #home" puts it in the Inbox
       with 30m. `blotter.exe --capture` opens the focused popup without the main window.
 
-### #19 — Block-out windows with exceptions            [status: ready]
+### #19 — Block-out windows with exceptions            [status: committed 0ae5626]
 Phase: 5
 Message:
     feat(core): block-out windows with exceptions
@@ -1256,3 +1256,69 @@ Notes:
       lift a range, such as two weeks of leave, as one run_batch, so it still undoes in one step.
     - Planning hours (07:00–22:00) are still a frontend constant; they join the core settings
       with the slot engine in #20.
+
+### #20 — Slot engine with fixed/flexible rules            [status: ready]
+Phase: 5
+Message:
+    feat(core): slot engine with fixed/flexible rules
+
+    The slot engine from roadmap §4.5, pure and deterministic. Free time
+    is planning hours minus block-out windows and busy time (open, timed
+    items, padded by the buffer on both sides). Slots take the earliest
+    fit in each free gap, with starts rounded up to 5 minutes.
+
+    Planning hours (per weekday, default 07:00-22:00, a day can be off)
+    and the slot buffer (default 0 minutes) are now core settings.
+
+    New read op find_free_slots(duration_min, from?, until?, limit?,
+    exclude_item?) searches from now (never the past) up to 14 days by
+    default, or up to a deadline.
+
+    Rule 1 is enforced on every path: create_item, update_item and
+    schedule_item refuse to put an open flexible item inside a block-out,
+    with a message naming the block-out and its times. This covers the
+    UI, AI and MCP alike. Fixed items may go anywhere. The check only
+    runs when an item's time or anchoring changes, so an item caught by
+    a block-out created later can still be renamed, completed or moved
+    out. Lifted dates free the time. Day-only tasks have no time and
+    aren't affected.
+Files:
+    A  crates/blotter-core/src/slots.rs
+    A  crates/blotter-core/src/ops/slots.rs
+    M  crates/blotter-core/src/lib.rs
+    M  crates/blotter-core/src/settings.rs
+    M  crates/blotter-core/src/time.rs           (HH:MM serde moved here from the block-out model)
+    M  crates/blotter-core/src/model/blockout.rs
+    M  crates/blotter-core/src/windows.rs        (windows::load reads and expands stored block-outs)
+    M  crates/blotter-core/src/ops/mod.rs
+    M  crates/blotter-core/src/ops/items.rs
+    M  crates/blotter-core/src/ops/reads.rs
+    M  crates/blotter-core/src/planner.rs        (find_ is a read-op prefix)
+    M  .claude/COMMITS.md
+    M  .claude/roadmap.md
+    Stage everything in one go:  git add -A
+Test steps:
+    - cargo test --workspace    → 87 core (+8 engine, +5 ops) + 6 app passed
+    - cargo clippy --workspace --all-targets -- -D warnings → clean; cargo fmt --check → clean
+    - cargo run -p blotter-core --example seed -- <fresh db> → still seeds cleanly
+    - pnpm tauri dev (demo DB):
+        · n, "meal prep thu 10am ~1h", Enter → refused in red: "… would be inside the Work
+          block-out (Thu 15 Oct 08:30–17:00) …", nothing created
+        · n, "dentist thu 10am", Enter → created (an event is fixed, so allowed)
+        · double-click a flexible evening task, set Time to 10:00 on a weekday, Save → the
+          dialog shows the same refusal
+Notes:
+    - Verified here: the engine and op tests, plus the live quick-add refusal above (screenshot).
+    - Decisions:
+      · Default buffer is 0 (roadmap: "default 0–10 minutes"). It's a setting
+        (slot_buffer_min) and gets a control with General settings in #38.
+      · Manual placement (dialog, drag, keyboard) only enforces block-outs. Planning hours
+        and overlapping items constrain the engine's choices, not where you put something
+        yourself; overlaps get flagged as conflicts in #22.
+      · Slots are ranked soonest-first, one per free gap. auto_slot (#22) adds due-date and
+        priority ordering on top.
+    - Keyboard moves (Shift+arrows) and drags into a block-out are refused with only a console
+      error until toasts arrive in #27. Drags already refuse visibly in the UI (since #15).
+    - The frontend still has its own PLANNING_HOURS constant for the Diary meter; #21 moves the
+      meter and shading onto core data.
+    - Error text keeps the core's "invalid input:" prefix, as every op error does today.

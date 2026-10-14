@@ -12,6 +12,7 @@ pub mod model;
 pub mod ops;
 mod planner;
 pub mod settings;
+pub mod slots;
 pub mod store;
 pub mod time;
 pub mod windows;

@@ -163,7 +163,8 @@ pub(crate) mod tests {
                 def.mutates,
                 !def.name.starts_with("list_")
                     && !def.name.starts_with("get_")
-                    && !def.name.starts_with("search_"),
+                    && !def.name.starts_with("search_")
+                    && !def.name.starts_with("find_"),
                 "{}",
                 def.name
             );

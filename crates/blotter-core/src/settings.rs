@@ -5,11 +5,14 @@ use chrono_tz::Tz;
 use rusqlite::Connection;
 
 use crate::error::Result;
+use crate::slots::PlanningHours;
 use crate::store;
 
 pub const KEY_TIMEZONE: &str = "timezone";
 pub const KEY_DEFAULT_TASK_DURATION: &str = "default_task_duration_min";
 pub const KEY_DEFAULT_EVENT_DURATION: &str = "default_event_duration_min";
+pub const KEY_PLANNING_HOURS: &str = "planning_hours";
+pub const KEY_SLOT_BUFFER: &str = "slot_buffer_min";
 
 #[derive(Debug, Clone)]
 pub struct PlannerSettings {
@@ -20,6 +23,10 @@ pub struct PlannerSettings {
     pub default_task_duration_min: u32,
     /// Applied when an event is created without an end or duration.
     pub default_event_duration_min: u32,
+    /// When flexible tasks may be placed (default 07:00–22:00 every day).
+    pub planning_hours: PlanningHours,
+    /// Minutes kept free before and after scheduled items when slotting.
+    pub slot_buffer_min: u32,
 }
 
 impl PlannerSettings {
@@ -35,6 +42,8 @@ impl PlannerSettings {
                 .unwrap_or(30),
             default_event_duration_min: store::settings::get(conn, KEY_DEFAULT_EVENT_DURATION)?
                 .unwrap_or(60),
+            planning_hours: store::settings::get(conn, KEY_PLANNING_HOURS)?.unwrap_or_default(),
+            slot_buffer_min: store::settings::get(conn, KEY_SLOT_BUFFER)?.unwrap_or(0),
         })
     }
 }
