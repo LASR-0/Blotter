@@ -55,8 +55,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 14 | 3 | `feat(ui): keyboard navigation and keyboard move/resize` | committed `a5913b0` |
 | 15 | 3 | `feat(ui): drag-and-drop rescheduling in week view` | committed `e883650` (scope widened: Diary + Inbox rail too) |
 | 16 | 4 | `feat(ui): inbox panel and view` | committed `48863c5` |
-| 17 | 4 | `feat: natural-language quick add with live preview` | ready |
-| 18 | 4 | `feat(app): quick-capture window, global shortcut and --capture flag` | planned |
+| 17 | 4 | `feat: natural-language quick add with live preview` | committed `22e3001` |
+| 18 | 4 | `feat(app): quick-capture window, global shortcut and --capture flag` | ready |
 | 19 | 5 | `feat(core): block-out windows with exceptions` | planned |
 | 20 | 5 | `feat(core): slot engine with fixed/flexible rules` | planned |
 | 21 | 5 | `feat(ui): block-out settings and calendar shading` | planned |
@@ -1057,7 +1057,7 @@ Notes:
       then each line is a plain title.
     - Completed Inbox tasks are hidden here; they'll show in History (#39).
 
-### #17 — Natural-language quick add with live preview            [status: ready]
+### #17 — Natural-language quick add with live preview            [status: committed 22e3001]
 Phase: 4
 Message:
     feat: natural-language quick add with live preview
@@ -1112,3 +1112,87 @@ Notes:
     - A date without a time becomes an all-day item on that day; auto-slotting it into
       free time arrives with #22.
     - A recurring line with no date starts today. Recurrence expansion arrives with #24.
+    - Live check, 2026-10-14 (after commit): typing "dentist tue 3pm ~45m @fixed #health" into
+      the n bar showed the chips Duration 45m, Anchoring fixed, Tag health, Date Tue 20 Oct and
+      Time 15:00, plus the preview "Fixed event · Tue 20 Oct 15:00–15:45" with the Calendar pill.
+      Enter / Ctrl+Enter / Alt+Enter weren't pressed: the running instance was Luke's own, on
+      real data. They are in #18's test steps, so they get checked on the next run.
+
+### #18 — Quick-capture window, global shortcut and --capture            [status: ready]
+Phase: 4
+Message:
+    feat(app): quick-capture window, global shortcut and --capture flag
+
+    A quick-capture popup (design W6): an undecorated, always-on-top
+    window, 600px wide, centred and kept out of the taskbar. It holds the
+    quick-add panel in capture mode, sized to its content. It is created
+    hidden at startup, so it appears instantly. Enter writes the line
+    through the operation layer and hides it; Alt+Enter keeps it open;
+    Esc discards and hides. Clicking elsewhere hides it but keeps the
+    half-typed line.
+
+    It opens from:
+    - Ctrl+Shift+Space, system-wide (global-shortcut plugin; pressing it
+      again hides the popup),
+    - blotter --capture, on first launch or forwarded to the running
+      instance (it no longer brings the main window forward),
+    - the tray menu's new "Quick capture" item,
+    - the command palette.
+
+    On Wayland the shortcut isn't registered. Settings → About explains
+    this and shows a Hyprland bind for blotter --capture. A shortcut
+    that fails to register (e.g. already taken) is reported there too and
+    never stops the app starting.
+Files:
+    A  src-tauri/src/capture.rs
+    M  src-tauri/src/shell.rs
+    M  src-tauri/src/lib.rs
+    M  src-tauri/Cargo.toml              (tauri-plugin-global-shortcut 2.3.2)
+    M  src-tauri/capabilities/default.json
+    M  Cargo.lock
+    A  src/app/CaptureApp.tsx
+    M  src/main.tsx
+    M  src/components/QuickAddPanel.tsx
+    M  src/actions/actions.ts
+    M  src/views/SettingsView.tsx
+    M  .claude/COMMITS.md
+    M  .claude/roadmap.md
+    Stage everything in one go:  git add -A
+Test steps:
+    - pnpm check                → clean; Vitest 126 passed
+    - cargo clippy --workspace --all-targets -- -D warnings → clean
+    - cargo test --workspace    → core unchanged; app 6 passed (+3 capture: Wayland detection,
+                                  height clamp, status JSON)
+    - Quit any running Blotter first (single instance), then pnpm tauri dev (demo DB):
+        #17 leftovers, in the main window:
+        · n, "call plumber", Alt+Enter → "Created" status, bar stays open and empty
+        · n, "pay rent fri !2", Ctrl+Enter → created, item dialog opens on it
+        · n, "dentist tue 3pm ~45m @fixed", Enter → on Tuesday at 15:00
+        Quick capture:
+        · with another app focused, press Ctrl+Shift+Space → a 600px popup titled "Quick capture"
+          appears centred, on top, cursor in the box, no taskbar button
+        · type "fix gate ~30m #home", Enter → popup hides; the Inbox (main window) shows it with 30m
+        · open it again: the box is empty. Type something and click another window → it hides;
+          Ctrl+Shift+Space → the text is still there; Esc → hides; open again → empty
+        · Ctrl+Shift+Space twice → opens, then hides
+        · type a long line with many tokens (e.g. "x tue 3pm ~1h #a #b #c !2 every monday due fri")
+          → the chips wrap and the window grows to fit, nothing is clipped
+        · in a terminal: ./target/debug/blotter.exe --capture → the popup opens; the main window
+          does not come forward
+        · right-click tray → "Quick capture" → the popup opens
+        · Ctrl+K → "Quick capture" → the popup opens
+        · switch theme to Gruvbox in the main window, then open the popup → it's in Gruvbox
+        · Settings → About → "Quick capture  Ctrl Shift Space" section
+        · quit, start with --capture as the first launch → only the popup shows
+Notes:
+    - Destination: the design labels the popup "Inbox · scheduled on triage", but the popup uses
+      the same grammar as the n bar, so a line with a date/time ("dentist tue 3pm") is scheduled
+      and the pill says where it will land. Plain brain-dump lines go to the Inbox. Say if you'd
+      rather force everything into the Inbox in capture mode.
+    - Ctrl+Enter in the popup behaves like Enter (the design has no "open details" there).
+    - Not verified here: the Linux paths (X11 shortcut, the Wayland message, a Hyprland bind).
+      Linux CI compiles them; a live check comes in Phase 13 with the Flatpak.
+    - The shortcut is fixed at Ctrl+Shift+Space until the keybinding editor (#36) can rebind it;
+      the About section moves to Settings → Keybindings then.
+    - The popup opens on the monitor it last used (Tauri centres it on its current monitor), not
+      necessarily the one under the pointer.

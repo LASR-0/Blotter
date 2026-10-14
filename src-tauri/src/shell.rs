@@ -5,14 +5,16 @@ use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{AppHandle, Emitter, Manager, Runtime, WindowEvent};
 
+use crate::capture::{self, CAPTURE_WINDOW};
 use crate::cli::{CliAction, LaunchArgs};
 
 pub const MAIN_WINDOW: &str = "main";
 
-/// Emitted with a [`CliAction`] when a launch asks for capture or chat.
+/// Emitted with a [`CliAction`] when a launch asks for the chat.
 pub const CLI_EVENT: &str = "app:cli";
 
 const MENU_SHOW: &str = "show";
+const MENU_CAPTURE: &str = "capture";
 const MENU_QUIT: &str = "quit";
 
 /// Shows, unminimizes and focuses the main window.
@@ -32,28 +34,41 @@ pub fn handle_launch<R: Runtime>(app: &AppHandle<R>, args: &LaunchArgs) {
     match args.action {
         CliAction::Show if args.hidden => {}
         CliAction::Show => show_main(app),
-        action @ (CliAction::Capture | CliAction::Chat) => {
+        // Only the popup: capturing shouldn't pull the whole app forward.
+        CliAction::Capture => capture::show(app),
+        CliAction::Chat => {
             show_main(app);
-            let _ = app.emit(CLI_EVENT, action);
+            let _ = app.emit(CLI_EVENT, CliAction::Chat);
         }
     }
 }
 
 /// Closing the main window hides it instead; the process stays in the tray.
+/// The capture popup hides when closed or when it loses focus.
 pub fn on_window_event<R: Runtime>(window: &tauri::Window<R>, event: &WindowEvent) {
-    if let WindowEvent::CloseRequested { api, .. } = event {
-        if window.label() == MAIN_WINDOW {
+    match (window.label(), event) {
+        (MAIN_WINDOW | CAPTURE_WINDOW, WindowEvent::CloseRequested { api, .. }) => {
             api.prevent_close();
             let _ = window.hide();
         }
+        // Clicking elsewhere dismisses it; the typed text stays for next time.
+        (CAPTURE_WINDOW, WindowEvent::Focused(false)) => {
+            let _ = window.hide();
+        }
+        _ => {}
     }
 }
 
-/// Builds the tray icon: left-click opens Blotter, the menu has Open and Quit.
+/// Builds the tray icon: left-click opens Blotter; the menu has Open, Quick
+/// capture and Quit.
 pub fn build_tray<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
     let show = MenuItem::with_id(app, MENU_SHOW, "Open Blotter", true, None::<&str>)?;
+    let capture = MenuItem::with_id(app, MENU_CAPTURE, "Quick capture", true, None::<&str>)?;
     let quit = MenuItem::with_id(app, MENU_QUIT, "Quit Blotter", true, None::<&str>)?;
-    let menu = Menu::with_items(app, &[&show, &PredefinedMenuItem::separator(app)?, &quit])?;
+    let menu = Menu::with_items(
+        app,
+        &[&show, &capture, &PredefinedMenuItem::separator(app)?, &quit],
+    )?;
 
     let mut builder = TrayIconBuilder::with_id("blotter")
         .tooltip("Blotter")
@@ -61,6 +76,7 @@ pub fn build_tray<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
         .show_menu_on_left_click(false)
         .on_menu_event(|app, event| match event.id().as_ref() {
             MENU_SHOW => show_main(app),
+            MENU_CAPTURE => capture::show(app),
             MENU_QUIT => app.exit(0),
             _ => {}
         })

@@ -16,6 +16,7 @@ import {
   CrosshairSimple,
   Gear,
   Keyboard,
+  Lightning,
   MagnifyingGlass,
   NotePencil,
   Moon,
@@ -341,6 +342,17 @@ export function buildActions(): Action[] {
       binding: 'n',
       keywords: ['create', 'add', 'task', 'capture', 'natural'],
       run: () => overlay().open('quickadd'),
+    },
+    {
+      // The OS-level shortcut is registered by the backend; this entry lists it
+      // on the sheet and opens the popup from the palette (e.g. on Wayland).
+      id: 'capture.open',
+      label: 'Quick capture (system-wide)',
+      group: 'Actions',
+      icon: Lightning,
+      binding: 'Ctrl+Shift+Space',
+      keywords: ['capture', 'popup', 'inbox', 'brain dump'],
+      run: () => void invoke('show_capture'),
     },
     {
       id: 'item.new',

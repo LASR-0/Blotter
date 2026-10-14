@@ -1,6 +1,7 @@
 //! The Blotter desktop app: windows, tray, notifications, keychain and AI
 //! HTTP on top of `blotter-core`.
 
+mod capture;
 mod cli;
 mod commands;
 mod shell;
@@ -81,6 +82,9 @@ pub fn run() {
             let state = open_state(app)?;
             app.manage(state);
             shell::build_tray(app.handle())?;
+            let shortcut = capture::register_shortcut(app.handle());
+            app.manage(shortcut);
+            capture::prepare(app.handle());
             // The main window starts hidden (tauri.conf.json) so `--hidden`
             // launches never flash it.
             shell::handle_launch(app.handle(), &launch);
@@ -96,6 +100,10 @@ pub fn run() {
             commands::run_batch,
             commands::get_setting,
             commands::set_setting,
+            capture::show_capture,
+            capture::hide_capture,
+            capture::fit_capture,
+            capture::capture_shortcut_status,
         ])
         .run(tauri::generate_context!());
 

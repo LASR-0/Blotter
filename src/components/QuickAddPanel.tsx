@@ -18,6 +18,7 @@ import {
 } from '@phosphor-icons/react';
 import { Kbd } from '@/components/ui/kbd';
 import { isOpError, runOp } from '@/lib/api';
+import { cn } from '@/lib/cn';
 import { formatDuration } from '@/lib/duration';
 import {
   destination,
@@ -117,7 +118,13 @@ export function QuickAddPanel({
   };
 
   return (
-    <div className="overflow-hidden rounded-lg bg-surface-raised text-base text-text shadow-overlay">
+    <div
+      className={cn(
+        'overflow-hidden bg-surface-raised text-base text-text',
+        // In capture mode the window itself is the popup.
+        mode === 'bar' && 'rounded-lg shadow-overlay',
+      )}
+    >
       {mode === 'capture' && (
         <div className="flex items-center gap-2 border-b border-border px-3.5 py-2 text-xs text-text-muted">
           <Lightning weight="fill" className="text-accent-text" />

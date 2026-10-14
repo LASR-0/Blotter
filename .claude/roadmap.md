@@ -449,8 +449,8 @@ Each phase states the intent, then the acceptance criteria (AC) and leads to ver
 
 **Progress (2026-10-14):**
 - #16 (Inbox) is committed.
-- #17 (quick add) is ready to commit. Left over: a live check of typing into the `n` bar (chips and preview), plus Ctrl+Enter and Alt+Enter.
-- #18 (the quick-capture window, global shortcut and `--capture`) hasn't started. The `app:cli` event and the capture-mode panel variant already exist.
+- #17 (quick add) is committed (`22e3001`). Chips and preview are verified live; checking Enter, Ctrl+Enter and Alt+Enter is folded into #18's test steps.
+- #18 (the quick-capture window, global shortcut and `--capture`) is ready to commit. The Linux shortcut and Wayland paths still need a live check (Phase 13).
 
 ### Phase 5 — Block-outs and scheduling
 **Intent:**
