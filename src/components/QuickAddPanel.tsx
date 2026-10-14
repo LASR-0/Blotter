@@ -186,7 +186,13 @@ export function QuickAddPanel({
           {dest.label}
         </span>
       </div>
-      <div className="flex items-center gap-3.5 border-t border-border px-3.5 py-2 text-xs text-text-muted">
+      {status && !status.ok && (
+        // Errors can be long (e.g. a block-out refusal), so they get a row of their own.
+        <div role="alert" className="border-t border-border px-3.5 py-2 text-sm text-danger">
+          {status.text}
+        </div>
+      )}
+      <div className="flex items-center gap-3.5 border-t border-border px-3.5 py-2 text-xs whitespace-nowrap text-text-muted">
         <span className="flex items-center gap-[5px]">
           <Kbd>↵</Kbd>Create
         </span>
@@ -199,8 +205,8 @@ export function QuickAddPanel({
           <Kbd>Alt ↵</Kbd>Keep open
         </span>
         <span className="flex-1" />
-        {status && (
-          <span role="status" className={status.ok ? 'text-text-muted' : 'text-danger'}>
+        {status?.ok && (
+          <span role="status" className="min-w-0 truncate">
             {status.text}
           </span>
         )}

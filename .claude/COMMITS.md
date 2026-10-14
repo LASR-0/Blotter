@@ -58,7 +58,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 17 | 4 | `feat: natural-language quick add with live preview` | committed `22e3001` |
 | 18 | 4 | `feat(app): quick-capture window, global shortcut and --capture flag` | committed `0a70bd0` |
 | 19 | 5 | `feat(core): block-out windows with exceptions` | committed `0ae5626` |
-| 20 | 5 | `feat(core): slot engine with fixed/flexible rules` | ready |
+| 20 | 5 | `feat(core): slot engine with fixed/flexible rules` | committed `73370bb` |
+| 20a | 5 | `fix(ui): give quick-add errors their own row` | ready (fix from #20 live check) |
 | 21 | 5 | `feat(ui): block-out settings and calendar shading` | planned |
 | 22 | 5 | `feat: inbox auto-slot and conflict warnings` | planned |
 | 23 | 5 | `feat: end-of-day rollover` | planned |
@@ -1257,7 +1258,7 @@ Notes:
     - Planning hours (07:00–22:00) are still a frontend constant; they join the core settings
       with the slot engine in #20.
 
-### #20 — Slot engine with fixed/flexible rules            [status: ready]
+### #20 — Slot engine with fixed/flexible rules            [status: committed 73370bb]
 Phase: 5
 Message:
     feat(core): slot engine with fixed/flexible rules
@@ -1322,3 +1323,25 @@ Notes:
     - The frontend still has its own PLANNING_HOURS constant for the Diary meter; #21 moves the
       meter and shading onto core data.
     - Error text keeps the core's "invalid input:" prefix, as every op error does today.
+
+### #20a — Quick-add errors get their own row            [status: ready]
+Phase: 5 (fix to #17, found during #20's live check)
+Message:
+    fix(ui): give quick-add errors their own row
+
+    A long error, such as the new block-out refusal, shared the footer
+    with the key hints, so the hints wrapped into narrow columns. Errors
+    now get a full-width row above the footer. The hints stay on one line,
+    and the short "Created …" note stays inline and truncates.
+Files:
+    M  src/components/QuickAddPanel.tsx
+    M  .claude/COMMITS.md
+    Stage everything in one go:  git add -A
+Test steps:
+    - pnpm check                → clean; Vitest 126 passed
+    - pnpm tauri dev (demo DB): n, "meal prep thu 10am ~1h", Enter → the refusal shows in red
+      on its own row under the preview; "↵ Create · Ctrl ↵ Create & open details · Alt ↵ Keep
+      open" stays on one line. Alt+Enter on a valid line still shows "Created …" at the right.
+Notes:
+    - Verified here by screenshot. Applies to the quick-capture popup too, which uses the same panel.
+    - Numbered 20a so the planned sequence keeps its numbers.
