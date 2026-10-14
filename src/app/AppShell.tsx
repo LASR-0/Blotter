@@ -1,7 +1,8 @@
 import { useEffect, useMemo } from 'react';
 import { buildActions, NAV_CONTEXT } from '@/actions/actions';
 import { useKeymap } from '@/keymap/useKeymap';
-import { usePlannerSync } from '@/lib/queries';
+import { useOp, usePlannerSync } from '@/lib/queries';
+import type { Blockout } from '@/lib/types';
 import { useTheme } from '@/theme/theme';
 import { DiaryView } from '@/views/diary/DiaryView';
 import { InboxView } from '@/views/InboxView';
@@ -12,6 +13,7 @@ import { WeekView } from '@/views/WeekView';
 import { YearView } from '@/views/YearView';
 import { CommandPalette } from './CommandPalette';
 import { ConfirmDialog } from './ConfirmDialog';
+import { DragLayer } from './DragLayer';
 import { useFocus } from './focus';
 import { ItemDialog } from './ItemDialog';
 import { SIDEBAR_AUTO_COLLAPSE_PX, useNav } from './nav';
@@ -48,6 +50,7 @@ export function AppShell() {
   const overlayOpen = useOverlay((s) => s.overlay !== null);
   useKeymap(actions, contexts, overlayOpen);
   usePlannerSync();
+  const blockouts = useOp<Blockout[]>('list_blockouts');
   useNarrowWindow();
 
   const loadTheme = useTheme((s) => s.load);
@@ -74,6 +77,7 @@ export function AppShell() {
       <ShortcutSheet actions={actions} />
       <ItemDialog />
       <ConfirmDialog />
+      <DragLayer blockouts={blockouts.data ?? []} />
     </div>
   );
 }

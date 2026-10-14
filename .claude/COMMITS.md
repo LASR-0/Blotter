@@ -52,8 +52,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 11 | 3 | `feat(ui): month and year views` | committed `e63069b` |
 | 12 | 3 | `feat(ui): diary view with day columns and timeline rail` | committed `c0e2b59` |
 | 13 | 3 | `feat(ui): item dialog and completion with timestamps` | committed `9c17d90` |
-| 14 | 3 | `feat(ui): keyboard navigation and keyboard move/resize` | ready |
-| 15 | 3 | `feat(ui): drag-and-drop rescheduling in week view` | planned |
+| 14 | 3 | `feat(ui): keyboard navigation and keyboard move/resize` | committed `a5913b0` |
+| 15 | 3 | `feat(ui): drag-and-drop rescheduling in week view` | ready (scope widened: Diary + Inbox rail too) |
 | 16 | 4 | `feat(ui): inbox panel and view` | planned |
 | 17 | 4 | `feat: natural-language quick add with live preview` | planned |
 | 18 | 4 | `feat(app): quick-capture window, global shortcut and --capture flag` | planned |
@@ -858,7 +858,7 @@ Notes:
     - Undo of a Save (or Delete) arrives with undo/redo in #27; each Save is already a
       single batch, so it will undo in one step.
 
-### #14 — Keyboard navigation and keyboard move/resize            [status: ready]
+### #14 — Keyboard navigation and keyboard move/resize            [status: committed a5913b0]
 Phase: 3
 Message:
     feat(ui): keyboard navigation and keyboard move/resize
@@ -934,3 +934,75 @@ Notes:
       with drag and drop in #15.
     - Focus is logical (store + ring), not DOM focus, so screen readers don't yet follow it;
       aria-activedescendant wiring is a follow-up worth doing before v1.
+
+### #15 — Drag-and-drop rescheduling            [status: ready]
+Phase: 3
+Message:
+    feat(ui): drag-and-drop rescheduling in week view and diary
+
+    Pointer-driven drag and drop following the design's drag annotations.
+    A press becomes a drag after 4px, so clicks and double clicks still
+    work; the source stays as a 45% dashed placeholder and a tilted ghost
+    card follows the pointer; Esc cancels and scroll areas follow the
+    pointer near their edges.
+
+    Week: drag an event to a new time or day (dashed slot snapped to 15
+    minutes with its time range) or drag its bottom edge to resize. Diary:
+    drag cards between day columns (2px accent insert line; timed cards
+    keep their time, untimed ones are reordered via sort_order), onto the
+    timeline rail to schedule at a time, and between the Inbox rail and the
+    days in both directions. A flexible item over a block-out shows the
+    refused slot ("⦸ Work — flexible") and snaps back; fixed items may drop
+    inside. Every drop is one update_item / unschedule_item call.
+
+    Core: update_item accepts sort_order. The timeline rail now lays out
+    overlapping items in lanes like the Week grid. Slot snapping, refusal,
+    midpoint ordering and drop-to-operation mapping are pure, tested rules.
+Files:
+    A  src/app/drag.ts
+    A  src/app/DragLayer.tsx
+    A  src/components/DropPreview.tsx
+    A  src/lib/dnd.ts
+    A  src/lib/dnd.test.ts
+    M  src/app/AppShell.tsx
+    M  src/components/ItemCard.tsx
+    M  src/views/WeekView.tsx
+    M  src/views/diary/DayColumn.tsx
+    M  src/views/diary/DiaryView.tsx
+    M  src/views/diary/InboxRail.tsx
+    M  src/views/diary/TimelineRail.tsx
+    M  crates/blotter-core/src/ops/items.rs
+    M  .claude/COMMITS.md
+    Stage everything in one go:  git add -A
+    (Message differs slightly from the planned one: "...in week view and diary".)
+Test steps:
+    - pnpm check                → clean; Vitest 110 passed (+9 dnd)
+    - cargo test --workspace    → 64 core (+1 sort_order) + 3 app; clippy clean
+    - With the demo DB (reseed for a clean slate):
+        Week (g w):
+          · drag an evening task down an hour → dashed slot shows e.g. "20:15–20:30"; release → moved
+          · drag the bottom edge of an event → it grows/shrinks in 15m steps
+          · drag a flexible task (e.g. Meal prep) into Mon–Fri 09:00–17:00 → red hatched
+            "⦸ Work — flexible" slot; release → it snaps back unchanged
+          · drag a fixed event (e.g. Dentist) into work hours → allowed
+          · start a drag, press Esc → cancelled
+        Diary (g d):
+          · drag a card from Thursday to Friday → insert line shows; release → it's on Friday, same time
+          · drag a card onto the Timeline rail → slot with time range; release → scheduled today then
+          · drag an Inbox-rail task onto a day column → becomes a day task there; Inbox count drops
+          · drag a day task back onto the Inbox rail (it highlights) → back in the Inbox
+          · drag an event onto the Inbox rail → no highlight, nothing happens (only tasks go there)
+        · a plain click still focuses, a double click still opens the dialog
+Notes:
+    - Verified here with posted pointer events and mid-drag screenshots: Week move with slot
+      preview, refused block-out drop snapping back, Diary cross-column insert line, timeline
+      drop (Dinner moved to 21:00 and the day meter turned red), Inbox rail → day.
+    - Fixed while testing: overlapping items on the timeline rail drew on top of each other;
+      they now share the width in lanes.
+    - Untimed day tasks always list above timed cards (they have no time to sort by), so the
+      insert line's position only reorders among the untimed ones. A refinement for later:
+      show the line only where an untimed card can actually go.
+    - A refused drop is silent for now; it gets a toast ("Work is a block-out; flexible tasks
+      can't go there") when toasts land with undo in #27.
+    - Core enforcement of "flexible never in a block-out" for every path (AI, MCP, keyboard)
+      arrives with the slot engine in #20.

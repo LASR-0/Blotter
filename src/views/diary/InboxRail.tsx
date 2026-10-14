@@ -7,6 +7,7 @@ import {
   Tray,
 } from '@phosphor-icons/react';
 import { useNav } from '@/app/nav';
+import { startPointerDrag, useDrag } from '@/app/drag';
 import { useOverlay } from '@/app/overlay';
 import { Tooltip } from '@/components/ui/tooltip';
 import { isOpError, runOp } from '@/lib/api';
@@ -24,6 +25,8 @@ export function InboxRail() {
   const items = (inbox.data ?? []).filter((i) => i.status === 'open');
   const [draft, setDraft] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const dropHere = useDrag((s) => s.hover?.kind === 'inbox');
+  const draggingId = useDrag((s) => s.item?.id);
 
   if (!open) {
     return (
@@ -87,13 +90,25 @@ export function InboxRail() {
         </label>
         {error && <p className="m-0 pt-1.5 font-mono text-xs text-danger">{error}</p>}
       </form>
-      <div className="flex min-h-0 flex-1 flex-col gap-1 overflow-auto px-2.5 pb-2.5">
+      <div
+        data-drop="inbox"
+        data-autoscroll
+        className={cn(
+          'flex min-h-0 flex-1 flex-col gap-1 overflow-auto rounded-md px-2.5 pb-2.5',
+          dropHere &&
+            'bg-accent-tint outline-[1.5px] -outline-offset-4 outline-accent outline-dashed',
+        )}
+      >
         {items.map((item) => (
           <div
             key={item.id}
             title={item.title}
             onDoubleClick={() => useOverlay.getState().openItem({ id: item.id })}
-            className="flex h-8 flex-none items-center gap-2 rounded-md border border-border bg-bg px-2"
+            onPointerDown={(e) => startPointerDrag(e, item)}
+            className={cn(
+              'flex h-8 flex-none cursor-grab items-center gap-2 rounded-md border border-border bg-bg px-2',
+              draggingId === item.id && 'border-dashed border-border-strong opacity-45',
+            )}
           >
             <DotsSixVertical size={13} className="text-text-muted opacity-70" />
             <span

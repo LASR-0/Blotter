@@ -1,4 +1,5 @@
 import { ArrowsClockwise, Check, PushPin } from '@phosphor-icons/react';
+import { startPointerDrag, useDrag } from '@/app/drag';
 import { useFocus } from '@/app/focus';
 import { useOverlay } from '@/app/overlay';
 import { isOpError, runOp } from '@/lib/api';
@@ -29,17 +30,23 @@ export function ItemCard({
     );
   const time = cardTime(item, overdue);
   const focused = useFocus((s) => s.itemId === item.id);
+  const dragged = useDrag((s) => s.item?.id === item.id && s.mode === 'move');
 
   return (
     <div
       data-focus-id={item.id}
+      data-card-id={item.id}
+      data-sort={item.sort_order}
+      data-untimed={!item.start_at}
       aria-selected={focused}
+      onPointerDown={(e) => startPointerDrag(e, item)}
       onClick={() => useFocus.getState().setItem(item.id)}
       onDoubleClick={() => useOverlay.getState().openItem({ id: item.id })}
       title="Double-click to edit"
       className={cn(
         'relative rounded-md border px-3 py-2.5',
         focused && 'outline-2 outline-offset-2 outline-focus-ring',
+        dragged && 'border-dashed border-border-strong opacity-45',
         done
           ? 'border-border bg-transparent'
           : 'border-border bg-surface hover:border-border-strong',

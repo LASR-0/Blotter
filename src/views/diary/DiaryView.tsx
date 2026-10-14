@@ -78,7 +78,7 @@ export function DiaryView() {
   return (
     <div className="relative flex h-full min-h-0">
       <InboxRail />
-      <div className="flex min-w-0 flex-1 overflow-x-auto overflow-y-hidden">
+      <div data-autoscroll className="flex min-w-0 flex-1 overflow-x-auto overflow-y-hidden">
         {agenda.isError && (
           <div className="absolute top-16 left-1/2 z-20 w-[352px] -translate-x-1/2">
             <ErrorPanel

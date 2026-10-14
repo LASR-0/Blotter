@@ -18,9 +18,11 @@ import {
 } from 'date-fns';
 import { ArrowsClockwise } from '@phosphor-icons/react';
 import { withFocusedItem } from '@/actions/itemActions';
+import { startPointerDrag, useDrag } from '@/app/drag';
 import { useFocus, useScrollFocusIntoView, useViewController } from '@/app/focus';
 import { useNav } from '@/app/nav';
 import { useOverlay } from '@/app/overlay';
+import { DropPreview } from '@/components/DropPreview';
 import { ErrorPanel } from '@/components/EmptyState';
 import { Kbd } from '@/components/ui/kbd';
 import { isOpError } from '@/lib/api';
@@ -82,6 +84,7 @@ function EventBlock({
   const done = item.status === 'done';
   const color = itemColor(item);
   const height = Math.max(minutesToPx(placed.end - placed.start) - 2, 17);
+  const drag = useDrag((s) => (s.item?.id === item.id ? s.mode : null));
   const compact = height < 30;
   const showTime = height > 34;
   const range =
@@ -106,9 +109,14 @@ function EventBlock({
         onSelect(item.id);
       }}
       onDoubleClick={() => useOverlay.getState().openItem({ id: item.id })}
+      onPointerDown={(e) => {
+        const r = e.currentTarget.getBoundingClientRect();
+        startPointerDrag(e, item, { grabMin: ((e.clientY - r.top) / HOUR_PX) * 60 });
+      }}
       style={style}
       className={cn(
-        'absolute rounded-sm',
+        'absolute cursor-grab rounded-sm',
+        drag && 'opacity-45',
         focused ? 'z-5 outline-2 outline-offset-1 outline-focus-ring' : 'overflow-hidden',
         compact
           ? 'z-3 flex flex-row items-center gap-1 px-[5px] text-[10.5px]'
@@ -133,6 +141,14 @@ function EventBlock({
           {range}
           {done && item.completed_at && `  ✓ ${timeOf(item.completed_at)}`}
         </span>
+      )}
+      {item.start_at && !compact && (
+        <span
+          aria-hidden
+          title="Drag to resize (or Alt+↑/↓)"
+          onPointerDown={(e) => startPointerDrag(e, item, { mode: 'resize' })}
+          className="absolute inset-x-0 bottom-0 h-1.5 cursor-ns-resize"
+        />
       )}
       {focused && (
         <span
@@ -317,7 +333,7 @@ export function WeekView() {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div ref={scrollRef} className="relative min-h-0 flex-1 overflow-auto">
+      <div ref={scrollRef} data-autoscroll className="relative min-h-0 flex-1 overflow-auto">
         {agenda.isError && (
           <div className="absolute top-3 left-1/2 z-20 w-[420px] -translate-x-1/2">
             <ErrorPanel
@@ -415,6 +431,10 @@ export function WeekView() {
             <div
               key={i}
               onClick={onColumnClick(i)}
+              data-drop="grid"
+              data-scope="week"
+              data-date={isoDate(day)}
+              data-hour-px={HOUR_PX}
               className={cn(
                 'relative border-l border-border',
                 i === todayIdx
@@ -449,6 +469,7 @@ export function WeekView() {
                   />
                 ) : null;
               })}
+              <DropPreview scope="week" date={day} hourPx={HOUR_PX} className="inset-x-0.5" />
               {mode === 'cell' && cursor.day === i && (
                 <div
                   data-focus-id={`cursor-${i}-${cursor.minute}`}

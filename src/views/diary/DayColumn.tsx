@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
-import { format } from 'date-fns';
+import { format, isSameDay } from 'date-fns';
 import { Plus, SunHorizon } from '@phosphor-icons/react';
+import { useDrag } from '@/app/drag';
 import { EmptyState } from '@/components/EmptyState';
 import { ItemCard } from '@/components/ItemCard';
 import { isOpError, runOp } from '@/lib/api';
@@ -18,6 +19,15 @@ export interface DayColumnProps {
   plannedMin: number;
   availableMin: number;
   loading: boolean;
+}
+
+/** Design: "Insert line between cards" — 2px accent line with an end dot. */
+function InsertLine() {
+  return (
+    <div aria-hidden className="relative h-0.5 flex-none rounded-[1px] bg-accent">
+      <span className="absolute -top-[3px] -left-[3px] size-2 rounded-full border-2 border-accent bg-bg" />
+    </div>
+  );
 }
 
 function SectionLabel({ children, danger }: { children: string; danger?: boolean }) {
@@ -91,6 +101,17 @@ export function DayColumn({
   loading,
 }: DayColumnProps) {
   const [error, setError] = useState<string | null>(null);
+  const draggingId = useDrag((s) => s.item?.id);
+  const insertAt = useDrag((s) =>
+    s.hover?.kind === 'day' && isSameDay(s.hover.date, day) ? s.hover.index : null,
+  );
+  // The insert line sits before the n-th card, counting cards as rendered
+  // (without the one being dragged).
+  let cardIndex = 0;
+  const lineBefore = (item: { id: string }) => {
+    if (item.id === draggingId) return null;
+    return insertAt === cardIndex++ ? <InsertLine /> : null;
+  };
   const freeMin = Math.max(0, availableMin - plannedMin);
   const pct =
     availableMin > 0 ? Math.min(100, (plannedMin / availableMin) * 100) : plannedMin > 0 ? 100 : 0;
@@ -149,7 +170,12 @@ export function DayColumn({
         </div>
       </header>
 
-      <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-auto px-3 pb-4">
+      <div
+        data-drop="day"
+        data-date={isoDate(day)}
+        data-autoscroll
+        className="flex min-h-0 flex-1 flex-col gap-2 overflow-auto px-3 pb-4"
+      >
         {loading &&
           [1, 0.7, 0.45].map((o) => (
             <div
@@ -163,7 +189,10 @@ export function DayColumn({
           <>
             <SectionLabel danger>Overdue</SectionLabel>
             {overdue.map((item) => (
-              <ItemCard key={item.id} item={item} large overdue onError={setError} />
+              <div key={item.id} className="contents">
+                {lineBefore(item)}
+                <ItemCard item={item} large overdue onError={setError} />
+              </div>
             ))}
             {items.length > 0 && <SectionLabel>Today</SectionLabel>}
           </>
@@ -180,8 +209,12 @@ export function DayColumn({
         )}
 
         {items.map((item) => (
-          <ItemCard key={item.id} item={item} large={today} onError={setError} />
+          <div key={item.id} className="contents">
+            {lineBefore(item)}
+            <ItemCard item={item} large={today} onError={setError} />
+          </div>
         ))}
+        {insertAt !== null && insertAt >= cardIndex && <InsertLine />}
 
         <AddTask day={day} onError={setError} />
         {error && <code className="font-mono text-xs text-danger">{error}</code>}

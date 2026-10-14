@@ -135,6 +135,8 @@ pub struct UpdateItemArgs {
     pub rrule: Option<Option<String>>,
     #[serde(default, deserialize_with = "patch")]
     pub tz: Option<Option<String>>,
+    /// Position within a Diary day (lower sorts first); used when reordering.
+    pub sort_order: Option<f64>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -244,6 +246,12 @@ fn update_item(ctx: &mut Ctx<'_>, a: UpdateItemArgs) -> Result<Item> {
     }
     if let Some(v) = a.rrule {
         item.rrule = v;
+    }
+    if let Some(v) = a.sort_order {
+        if !v.is_finite() {
+            return Err(CoreError::invalid("sort_order must be a finite number"));
+        }
+        item.sort_order = v;
     }
     if let Some(v) = a.tz {
         item.tz = v;
@@ -678,6 +686,31 @@ mod tests {
             .query_row("SELECT COUNT(*) FROM changes", [], |r| r.get(0))
             .unwrap();
         assert_eq!(n, 0, "failed calls leave no change rows");
+    }
+
+    #[test]
+    fn update_sets_sort_order_and_rejects_non_finite() {
+        let mut p = planner();
+        let i = item(run(
+            &mut p,
+            "create_item",
+            json!({ "title": "Errand", "date": "2026-10-20" }),
+        ));
+        let u = item(run(
+            &mut p,
+            "update_item",
+            json!({ "id": i.id, "sort_order": 2.5 }),
+        ));
+        assert_eq!(u.sort_order, 2.5);
+        // JSON can't carry NaN, so only an absurd value can be tried; it must be finite.
+        let err = p
+            .execute(
+                "update_item",
+                json!({ "id": i.id, "sort_order": "high" }),
+                &Actor::User,
+            )
+            .unwrap_err();
+        assert!(err.to_string().contains("sort_order"));
     }
 
     #[test]

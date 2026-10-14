@@ -1,9 +1,13 @@
 import { useLayoutEffect, useRef } from 'react';
 import { format, isSameDay, parseISO } from 'date-fns';
 import { Clock, PushPin } from '@phosphor-icons/react';
+import { startPointerDrag } from '@/app/drag';
 import { useOverlay } from '@/app/overlay';
+import { DropPreview } from '@/components/DropPreview';
+import { isoDate } from '@/lib/period';
 import { blockedIntervals } from '@/lib/availability';
 import { cn } from '@/lib/cn';
+import { layoutDay } from '@/lib/layout';
 import type { Blockout, Item } from '@/lib/types';
 import { itemColor } from '@/lib/tags';
 import { useNow } from '@/lib/useNow';
@@ -13,6 +17,16 @@ const HOUR_PX = 34;
 const GUTTER_PX = 44;
 const MS_PER_MIN = 60_000;
 const px = (min: number) => (min / 60) * HOUR_PX;
+
+/** Horizontal position inside the rail for an item's overlap lane. */
+function laneStyle(p: { lane: number; lanes: number } | undefined) {
+  const lane = p?.lane ?? 0;
+  const count = p?.lanes ?? 1;
+  return {
+    left: `calc(${GUTTER_PX + 4}px + (100% - ${GUTTER_PX + 8}px) * ${lane / count})`,
+    width: `calc((100% - ${GUTTER_PX + 8}px) / ${count} - ${count > 1 ? 2 : 0}px)`,
+  };
+}
 
 /** The docked timeline for one day: hour grid, block-outs, timed items, now-line. */
 export function TimelineRail({
@@ -56,6 +70,13 @@ export function TimelineRail({
       };
     })
     .filter((t) => t.end > 0 && t.start < 24 * 60);
+  // Overlapping items share the rail's width in lanes, as in the Week grid.
+  const lanes = new Map(
+    layoutDay(timed.map((t) => ({ id: t.item.id, start: t.start, end: t.end }))).map((p) => [
+      p.id,
+      p,
+    ]),
+  );
   const inBlock = (s: number, e: number) => blocks.some((b) => s >= b.start && e <= b.end);
 
   return (
@@ -65,8 +86,15 @@ export function TimelineRail({
         <span className="font-semibold">Timeline</span>
         <span className="font-mono text-xs text-text-muted">{format(day, 'EEE d')}</span>
       </div>
-      <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto pt-1 pr-3 pb-4">
-        <div className="relative" style={{ height: 24 * HOUR_PX }}>
+      <div ref={scrollRef} data-autoscroll className="min-h-0 flex-1 overflow-auto pt-1 pr-3 pb-4">
+        <div
+          data-drop="grid"
+          data-scope="timeline"
+          data-date={isoDate(day)}
+          data-hour-px={HOUR_PX}
+          className="relative"
+          style={{ height: 24 * HOUR_PX }}
+        >
           {Array.from({ length: 24 }, (_, h) => (
             <div
               key={h}
@@ -101,9 +129,13 @@ export function TimelineRail({
                 key={item.id}
                 title={item.title}
                 onDoubleClick={() => useOverlay.getState().openItem({ id: item.id })}
-                className="absolute right-1 flex items-center gap-1 overflow-hidden rounded-[3px] px-1.5 text-[10.5px]"
+                onPointerDown={(e) => {
+                  const r = e.currentTarget.getBoundingClientRect();
+                  startPointerDrag(e, item, { grabMin: ((e.clientY - r.top) / HOUR_PX) * 60 });
+                }}
+                className="absolute flex cursor-grab items-center gap-1 overflow-hidden rounded-[3px] px-1.5 text-[10.5px]"
                 style={{
-                  left: GUTTER_PX + 4,
+                  ...laneStyle(lanes.get(item.id)),
                   top: px(start) + 1,
                   height: Math.max(px(end - start) - 2, 14),
                   background: `color-mix(in srgb, ${color} ${done ? 7 : 18}%, var(--color-bg))`,
@@ -121,6 +153,8 @@ export function TimelineRail({
               </div>
             );
           })}
+
+          <DropPreview scope="timeline" date={day} hourPx={HOUR_PX} className="right-1 left-12" />
 
           {isToday && (
             <div
