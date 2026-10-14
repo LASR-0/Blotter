@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
   addDays,
   format,
@@ -9,6 +9,7 @@ import {
   startOfWeek,
 } from 'date-fns';
 import { X } from '@phosphor-icons/react';
+import { useViewController } from '@/app/focus';
 import { useNav } from '@/app/nav';
 import { useOverlay } from '@/app/overlay';
 import { ErrorPanel } from '@/components/EmptyState';
@@ -129,6 +130,27 @@ export function MonthView() {
   });
   const byDay = useMemo(() => itemsByDay(agenda.data?.items ?? []), [agenda.data]);
 
+  // Keyboard focus is a day: the chosen one if it's in this month, else today
+  // (when shown) or the 1st.
+  const [chosen, setChosen] = useState<Date | null>(null);
+  const focusDay =
+    chosen && isSameMonth(chosen, anchor)
+      ? chosen
+      : isSameMonth(now, anchor)
+        ? new Date(now.getFullYear(), now.getMonth(), now.getDate())
+        : startOfMonth(anchor);
+  useViewController({
+    move: (dir) => {
+      const next = addDays(focusDay, { left: -1, right: 1, up: -7, down: 7 }[dir]);
+      setChosen(next);
+      if (!isSameMonth(next, anchor)) useNav.getState().goToDate(next);
+    },
+    enter: () => {
+      openWeek(focusDay);
+      return true;
+    },
+  });
+
   return (
     <div className="relative flex h-full min-h-0 flex-col">
       {agenda.isError && (
@@ -153,12 +175,16 @@ export function MonthView() {
           const today = isSameDay(day, now);
           const items = byDay.get(dayKey(day)) ?? [];
           const shown = items.slice(0, MAX_CHIPS);
+          const focused = isSameDay(day, focusDay);
           const hidden = items.length - shown.length;
           return (
             <div
               key={day.getTime()}
+              aria-selected={focused}
+              onClick={() => setChosen(day)}
               className={cn(
                 'relative flex min-h-0 flex-col border-r border-b border-border',
+                focused && 'z-1 outline-2 -outline-offset-2 outline-focus-ring',
                 !inMonth
                   ? 'bg-surface'
                   : isWeekend(day)

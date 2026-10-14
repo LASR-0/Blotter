@@ -9,7 +9,10 @@ export function ShortcutSheet({ actions }: { actions: readonly Action[] }) {
   const close = useOverlay((s) => s.close);
   const sections = ACTION_GROUPS.map((g) => ({
     name: g,
-    rows: actions.filter((a) => a.group === g && a.binding),
+    rows: actions.flatMap((a) => {
+      if (a.group !== g || !a.binding || a.sheet === false) return [];
+      return [{ id: a.id, label: a.sheet?.label ?? a.label, keys: a.sheet?.keys ?? a.binding }];
+    }),
   })).filter((s) => s.rows.length > 0);
 
   return (
@@ -25,7 +28,7 @@ export function ShortcutSheet({ actions }: { actions: readonly Action[] }) {
             e.preventDefault();
             (e.currentTarget as HTMLElement | null)?.focus();
           }}
-          className="fixed top-[110px] left-1/2 z-41 flex w-[880px] max-w-[calc(100vw-32px)] -translate-x-1/2 flex-col gap-4 rounded-lg bg-surface-raised px-6 pt-5 pb-[22px] shadow-overlay focus:outline-none"
+          className="fixed top-[110px] left-1/2 z-41 flex w-[1040px] max-w-[calc(100vw-32px)] -translate-x-1/2 flex-col gap-4 rounded-lg bg-surface-raised px-6 pt-5 pb-[22px] shadow-overlay focus:outline-none"
         >
           <div className="flex items-center gap-2.5">
             <Dialog.Title className="m-0 font-heading text-xl font-heading-weight">
@@ -36,7 +39,7 @@ export function ShortcutSheet({ actions }: { actions: readonly Action[] }) {
               <Kbd>Esc</Kbd>
             </Dialog.Close>
           </div>
-          <div className="grid grid-cols-3 gap-x-7 gap-y-5">
+          <div className="grid grid-cols-4 gap-x-6 gap-y-5">
             {sections.map((s) => (
               <section key={s.name} className="flex flex-col gap-0.5">
                 <h3 className="m-0 pb-1.5 text-xs font-normal tracking-[.06em] text-text-muted uppercase">
@@ -45,7 +48,7 @@ export function ShortcutSheet({ actions }: { actions: readonly Action[] }) {
                 {s.rows.map((a) => (
                   <div key={a.id} className="flex h-7 items-center gap-2 border-b border-border">
                     <span className="flex-1">{a.label}</span>
-                    {a.binding && <KeyChips binding={a.binding} />}
+                    <KeyChips binding={a.keys} />
                   </div>
                 ))}
               </section>

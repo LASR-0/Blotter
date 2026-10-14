@@ -1,4 +1,5 @@
 import { ArrowsClockwise, Check, PushPin } from '@phosphor-icons/react';
+import { useFocus } from '@/app/focus';
 import { useOverlay } from '@/app/overlay';
 import { isOpError, runOp } from '@/lib/api';
 import { cn } from '@/lib/cn';
@@ -27,13 +28,18 @@ export function ItemCard({
       onError?.(isOpError(e) ? e.message : String(e)),
     );
   const time = cardTime(item, overdue);
+  const focused = useFocus((s) => s.itemId === item.id);
 
   return (
     <div
+      data-focus-id={item.id}
+      aria-selected={focused}
+      onClick={() => useFocus.getState().setItem(item.id)}
       onDoubleClick={() => useOverlay.getState().openItem({ id: item.id })}
       title="Double-click to edit"
       className={cn(
         'relative rounded-md border px-3 py-2.5',
+        focused && 'outline-2 outline-offset-2 outline-focus-ring',
         done
           ? 'border-border bg-transparent'
           : 'border-border bg-surface hover:border-border-strong',
@@ -46,7 +52,10 @@ export function ItemCard({
           aria-checked={done}
           aria-label={done ? `Mark "${item.title}" open` : `Complete "${item.title}"`}
           title="Toggle complete"
-          onClick={toggle}
+          onClick={(e) => {
+            e.stopPropagation();
+            void toggle();
+          }}
           onDoubleClick={(e) => e.stopPropagation()}
           className={cn(
             'mt-px grid size-4 flex-none cursor-pointer place-items-center rounded-sm p-0 text-on-accent',

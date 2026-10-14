@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from 'react';
-import { buildActions } from '@/actions/actions';
+import { buildActions, NAV_CONTEXT } from '@/actions/actions';
 import { useKeymap } from '@/keymap/useKeymap';
 import { usePlannerSync } from '@/lib/queries';
 import { useTheme } from '@/theme/theme';
@@ -11,6 +11,8 @@ import { MonthView } from '@/views/MonthView';
 import { WeekView } from '@/views/WeekView';
 import { YearView } from '@/views/YearView';
 import { CommandPalette } from './CommandPalette';
+import { ConfirmDialog } from './ConfirmDialog';
+import { useFocus } from './focus';
 import { ItemDialog } from './ItemDialog';
 import { SIDEBAR_AUTO_COLLAPSE_PX, useNav } from './nav';
 import { useOverlay } from './overlay';
@@ -30,10 +32,18 @@ function useNarrowWindow() {
   }, [setNarrow]);
 }
 
+/** Views with roving keyboard focus. */
+const NAV_VIEWS: readonly string[] = ['diary', 'week', 'month', 'year', 'inbox'];
+
 export function AppShell() {
   const view = useNav((s) => s.view);
   const actions = useMemo(() => buildActions(), []);
-  const contexts = useMemo(() => [view], [view]);
+  const contexts = useMemo(() => (NAV_VIEWS.includes(view) ? [view, NAV_CONTEXT] : [view]), [view]);
+
+  // Focus belongs to the view it was set in.
+  useEffect(() => {
+    useFocus.getState().setItem(null);
+  }, [view]);
 
   const overlayOpen = useOverlay((s) => s.overlay !== null);
   useKeymap(actions, contexts, overlayOpen);
@@ -63,6 +73,7 @@ export function AppShell() {
       <CommandPalette actions={actions} />
       <ShortcutSheet actions={actions} />
       <ItemDialog />
+      <ConfirmDialog />
     </div>
   );
 }

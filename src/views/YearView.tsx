@@ -1,7 +1,17 @@
 import { useMemo, useState } from 'react';
-import { addDays, endOfYear, format, getDaysInMonth, isSameDay, startOfYear } from 'date-fns';
+import {
+  addDays,
+  endOfYear,
+  format,
+  getDaysInMonth,
+  isSameDay,
+  isSameYear,
+  startOfYear,
+} from 'date-fns';
+import { useViewController } from '@/app/focus';
 import { useNav } from '@/app/nav';
 import { ErrorPanel } from '@/components/EmptyState';
+import { Kbd } from '@/components/ui/kbd';
 import { Segmented } from '@/components/ui/segmented';
 import { isOpError } from '@/lib/api';
 import { cn } from '@/lib/cn';
@@ -46,6 +56,26 @@ export function YearView() {
       }),
     [year],
   );
+
+  // Keyboard focus is a day in the shown year (today when it's this year).
+  const [chosen, setChosen] = useState<Date | null>(null);
+  const focusDay =
+    chosen && isSameYear(chosen, anchor)
+      ? chosen
+      : isSameYear(now, anchor)
+        ? new Date(now.getFullYear(), now.getMonth(), now.getDate())
+        : startOfYear(anchor);
+  useViewController({
+    move: (dir) => {
+      const next = addDays(focusDay, { left: -1, right: 1, up: -7, down: 7 }[dir]);
+      setChosen(next);
+      if (!isSameYear(next, anchor)) useNav.getState().goToDate(next);
+    },
+    enter: () => {
+      openWeek(focusDay);
+      return true;
+    },
+  });
 
   let total = 0;
   for (const [key, list] of byDay) if (key.startsWith(String(year))) total += list.length;
@@ -124,11 +154,13 @@ export function YearView() {
                   const label = `${format(d, 'EEE d MMM')} · ${items.length} ${
                     mode === 'scheduled' ? 'items' : 'done'
                   }${mode === 'scheduled' && minutes ? `, ${formatDuration(minutes)}` : ''}`;
+                  const focused = isSameDay(d, focusDay);
                   return (
                     <button
                       key={d.getDate()}
                       type="button"
-                      onClick={() => openWeek(d)}
+                      aria-selected={focused}
+                      onClick={() => (focused ? openWeek(d) : setChosen(d))}
                       title={`${label} · open in Week`}
                       aria-label={label}
                       style={{ background: `var(--heat-${level})` }}
@@ -136,9 +168,16 @@ export function YearView() {
                         'grid min-h-0 cursor-pointer place-items-center rounded-[3px] font-mono text-[10px]',
                         level >= 3 ? 'font-medium text-on-accent' : 'text-text-muted',
                         isSameDay(d, now) && 'shadow-[inset_0_0_0_1.5px_var(--color-text)]',
+                        focused && 'relative z-4 outline-2 outline-offset-1 outline-focus-ring',
                       )}
                     >
                       {d.getDate()}
+                      {focused && (
+                        <span className="pointer-events-none absolute bottom-[calc(100%+8px)] left-1/2 z-5 flex -translate-x-1/2 items-center gap-2 rounded-md bg-surface-raised px-[9px] py-1.5 font-ui text-xs font-normal whitespace-nowrap text-text shadow-overlay">
+                          <span className="font-medium">{label}</span>
+                          <Kbd>↵ Week</Kbd>
+                        </span>
+                      )}
                     </button>
                   );
                 })}

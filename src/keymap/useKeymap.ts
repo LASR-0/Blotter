@@ -16,6 +16,16 @@ function isTyping(target: EventTarget | null): boolean {
   return !['checkbox', 'radio', 'button', 'submit', 'reset', 'range', 'color'].includes(type);
 }
 
+/** Buttons, links and form controls handle Enter and Space themselves. */
+function isActivatable(target: EventTarget | null): boolean {
+  return (
+    target instanceof HTMLElement &&
+    target.closest(
+      'button, a[href], select, summary, [role="button"], [role="checkbox"], [role="radio"], [role="switch"], [role="tab"], [role="option"]',
+    ) !== null
+  );
+}
+
 /**
  * Installs the global key handler. `contexts` are the active view contexts
  * (bindings with context `global` always apply). While an overlay is open
@@ -29,8 +39,12 @@ export function useKeymap(
   const bindings = useMemo<Binding[]>(
     () =>
       actions.flatMap((a) =>
-        a.binding && (!overlayOpen || a.inOverlay)
-          ? [{ actionId: a.id, sequence: parseBinding(a.binding), context: a.context ?? 'global' }]
+        !overlayOpen || a.inOverlay
+          ? [a.binding, ...(a.altBindings ?? [])].flatMap((b) =>
+              b
+                ? [{ actionId: a.id, sequence: parseBinding(b), context: a.context ?? 'global' }]
+                : [],
+            )
           : [],
       ),
     [actions, overlayOpen],
@@ -52,6 +66,7 @@ export function useKeymap(
       if (e.defaultPrevented || e.isComposing || e.repeat) return;
       const token = eventToken(e);
       if (!token) return;
+      if ((token === 'enter' || token === 'space') && isActivatable(e.target)) return;
       const result = resolve(bindings, pending.current, token, contextSet, isTyping(e.target));
       if (result.type === 'none') {
         if (pending.current.length) clear();

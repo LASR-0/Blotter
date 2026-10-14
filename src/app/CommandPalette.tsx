@@ -94,7 +94,7 @@ function PaletteBody({ actions, close }: { actions: readonly Action[]; close: ()
 
   const groups = ACTION_GROUPS.map((g) => ({
     name: g,
-    actions: actions.filter((a) => a.group === g),
+    actions: actions.filter((a) => a.group === g && !a.paletteHidden),
   })).filter((g) => g.actions.length > 0);
   const items = term.length >= 2 ? (search.data ?? []) : [];
 

@@ -1,7 +1,15 @@
 import { invoke } from '@tauri-apps/api/core';
 import {
+  ArrowDown,
   ArrowLeft,
   ArrowRight,
+  ArrowsOutLineVertical,
+  ArrowUp,
+  CheckSquare,
+  NotePencil as EditIcon,
+  Trash,
+  ArrowsDownUp,
+  Rows,
   Calendar,
   CalendarDots,
   CheckCircle,
@@ -22,13 +30,15 @@ import {
   Tray,
   type Icon,
 } from '@phosphor-icons/react';
+import { deleteFocused, openFocused, toggleFocused } from '@/actions/itemActions';
+import { useFocus } from '@/app/focus';
 import { useNav } from '@/app/nav';
 import { useOverlay } from '@/app/overlay';
 import { PRESETS } from '@/theme/presets';
 import { useTheme } from '@/theme/theme';
 
 /** Palette and cheat-sheet sections, in display order. */
-export const ACTION_GROUPS = ['Go to', 'View', 'Actions', 'Theme'] as const;
+export const ACTION_GROUPS = ['Go to', 'View', 'Focused item', 'Actions', 'Theme'] as const;
 export type ActionGroup = (typeof ACTION_GROUPS)[number];
 
 /**
@@ -43,6 +53,8 @@ export interface Action {
   icon: Icon;
   /** Default binding, e.g. `g w` or `Ctrl+K`. */
   binding?: string;
+  /** Further default bindings, e.g. `k` alongside ArrowUp. */
+  altBindings?: string[];
   /** `global` (default) or a view id where the binding is active. */
   context?: string;
   /** Extra words the palette matches on. */
@@ -51,11 +63,20 @@ export interface Action {
   hint?: string;
   /** The binding also works while an overlay (palette, sheet) is open. */
   inOverlay?: boolean;
+  /** Hidden from the command palette (pure navigation keys). */
+  paletteHidden?: boolean;
+  /** Shortcut-sheet override: hide (false) or show one summary row for a family. */
+  sheet?: false | { label: string; keys: string };
   run: () => void;
 }
 
 const nav = () => useNav.getState();
 const overlay = () => useOverlay.getState();
+
+const controller = () => useFocus.getState().controller;
+
+/** Context active in views with roving focus (Diary, Week, Month, Year, Inbox). */
+export const NAV_CONTEXT = 'nav';
 
 const THEME_ICONS: Record<string, Icon> = {
   dark: Moon,
@@ -147,6 +168,115 @@ export function buildActions(): Action[] {
       run: () => nav().toggleSidebar(),
     },
 
+    ...(
+      [
+        ['left', 'ArrowLeft', 'h', ArrowLeft],
+        ['right', 'ArrowRight', 'l', ArrowRight],
+        ['up', 'ArrowUp', 'k', ArrowUp],
+        ['down', 'ArrowDown', 'j', ArrowDown],
+      ] as const
+    ).map(([dir, key, vim, icon]): Action => ({
+      id: `focus.${dir}`,
+      label: `Move focus ${dir}`,
+      group: 'Focused item',
+      icon,
+      binding: key,
+      altBindings: [vim],
+      context: NAV_CONTEXT,
+      paletteHidden: true,
+      sheet: dir === 'left' ? { label: 'Move focus (or arrows)', keys: 'h j k l' } : false,
+      run: () => controller()?.move(dir),
+    })),
+    ...(
+      [
+        ['left', 'Shift+ArrowLeft', 'Move item a day earlier'],
+        ['right', 'Shift+ArrowRight', 'Move item a day later'],
+        ['up', 'Shift+ArrowUp', 'Move item 15m earlier'],
+        ['down', 'Shift+ArrowDown', 'Move item 15m later'],
+      ] as const
+    ).map(([dir, key, label]): Action => ({
+      id: `item.move.${dir}`,
+      label,
+      group: 'Focused item',
+      icon: ArrowsDownUp,
+      binding: key,
+      context: NAV_CONTEXT,
+      paletteHidden: true,
+      sheet: dir === 'left' ? { label: 'Move item (day / 15m)', keys: 'Shift+←↑↓→' } : false,
+      run: () => controller()?.shift?.(dir),
+    })),
+    {
+      id: 'item.resize.longer',
+      label: 'Make item 15m longer',
+      group: 'Focused item',
+      icon: ArrowsOutLineVertical,
+      binding: 'Alt+ArrowDown',
+      context: NAV_CONTEXT,
+      paletteHidden: true,
+      sheet: { label: 'Resize item', keys: 'Alt+↑↓' },
+      run: () => controller()?.resize?.('down'),
+    },
+    {
+      id: 'item.resize.shorter',
+      label: 'Make item 15m shorter',
+      group: 'Focused item',
+      icon: ArrowsOutLineVertical,
+      binding: 'Alt+ArrowUp',
+      context: NAV_CONTEXT,
+      paletteHidden: true,
+      sheet: false,
+      run: () => controller()?.resize?.('up'),
+    },
+    {
+      id: 'item.open',
+      label: 'Open',
+      group: 'Focused item',
+      icon: EditIcon,
+      binding: 'Enter',
+      context: NAV_CONTEXT,
+      paletteHidden: true,
+      run: () => {
+        if (!openFocused()) controller()?.enter?.();
+      },
+    },
+    {
+      id: 'item.edit',
+      label: 'Edit focused item',
+      group: 'Focused item',
+      icon: EditIcon,
+      binding: 'e',
+      context: NAV_CONTEXT,
+      run: () => void openFocused(),
+    },
+    {
+      id: 'item.toggle',
+      label: 'Toggle complete',
+      group: 'Focused item',
+      icon: CheckSquare,
+      binding: 'x',
+      context: NAV_CONTEXT,
+      keywords: ['done', 'complete', 'finish'],
+      run: toggleFocused,
+    },
+    {
+      id: 'item.delete',
+      label: 'Delete focused item',
+      group: 'Focused item',
+      icon: Trash,
+      binding: 'Delete',
+      context: NAV_CONTEXT,
+      run: deleteFocused,
+    },
+    {
+      id: 'week.cursor',
+      label: 'Switch item ↔ time cursor',
+      group: 'Focused item',
+      icon: Rows,
+      binding: 'Tab',
+      context: 'week',
+      paletteHidden: true,
+      run: () => controller()?.tab?.(),
+    },
     {
       id: 'palette.toggle',
       label: 'Command palette',

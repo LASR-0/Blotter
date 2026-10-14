@@ -1,10 +1,14 @@
 import { useMemo } from 'react';
 import { addDays, isSameDay, parseISO } from 'date-fns';
+import { withFocusedItem } from '@/actions/itemActions';
+import { useFocus, useScrollFocusIntoView, useViewController } from '@/app/focus';
 import { useNav } from '@/app/nav';
 import { ErrorPanel } from '@/components/EmptyState';
 import { isOpError } from '@/lib/api';
 import { availableMinutes } from '@/lib/availability';
 import { dayKey, itemsByDay } from '@/lib/days';
+import { moveInColumns, STEP_MIN } from '@/lib/focusNav';
+import { moveByDays, moveByMinutes, resizeByMinutes } from '@/lib/itemMoves';
 import { isoDate } from '@/lib/period';
 import { useOp } from '@/lib/queries';
 import type { Agenda, Blockout, Item } from '@/lib/types';
@@ -49,6 +53,28 @@ export function DiaryView() {
   );
   const anchorItems = byDay.get(dayKey(anchor)) ?? [];
 
+  // Each column as rendered: today's Overdue section first, then its items.
+  const columns = days.map((day) => {
+    const isToday = isSameDay(day, now);
+    const lateItems = isToday ? (overdue.data ?? []).filter((i) => !scheduledIds.has(i.id)) : [];
+    return { day, isToday, lateItems, items: byDay.get(dayKey(day)) ?? [] };
+  });
+  const columnIds = columns.map((c) => [...c.lateItems, ...c.items].map((i) => i.id));
+
+  const focusedId = useFocus((s) => s.itemId);
+  useScrollFocusIntoView(focusedId);
+  useViewController({
+    move: (dir) => useFocus.getState().setItem(moveInColumns(columnIds, focusedId, dir)),
+    shift: (dir) =>
+      withFocusedItem((item) =>
+        dir === 'left' || dir === 'right'
+          ? moveByDays(item, dir === 'right' ? 1 : -1)
+          : moveByMinutes(item, dir === 'down' ? STEP_MIN : -STEP_MIN),
+      ),
+    resize: (dir) =>
+      withFocusedItem((item) => resizeByMinutes(item, dir === 'down' ? STEP_MIN : -STEP_MIN)),
+  });
+
   return (
     <div className="relative flex h-full min-h-0">
       <InboxRail />
@@ -62,9 +88,7 @@ export function DiaryView() {
             />
           </div>
         )}
-        {days.map((day) => {
-          const isToday = isSameDay(day, now);
-          const items = byDay.get(dayKey(day)) ?? [];
+        {columns.map(({ day, isToday, lateItems, items }) => {
           return (
             <DayColumn
               key={day.getTime()}
@@ -72,7 +96,7 @@ export function DiaryView() {
               today={isToday}
               items={items}
               // Overdue tasks surface on today's column only, unless already listed there.
-              overdue={isToday ? (overdue.data ?? []).filter((i) => !scheduledIds.has(i.id)) : []}
+              overdue={lateItems}
               plannedMin={plannedMinutes(items, day)}
               availableMin={availableMinutes(blockouts.data ?? [], day)}
               loading={agenda.isPending}

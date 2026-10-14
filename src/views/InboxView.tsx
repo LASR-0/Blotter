@@ -1,9 +1,11 @@
 import { useState, type FormEvent } from 'react';
 import { Plus, Tray } from '@phosphor-icons/react';
+import { useFocus, useScrollFocusIntoView, useViewController } from '@/app/focus';
 import { EmptyState, ErrorPanel } from '@/components/EmptyState';
 import { ItemCard } from '@/components/ItemCard';
 import { Kbd } from '@/components/ui/kbd';
 import { isOpError, runOp } from '@/lib/api';
+import { moveInColumns } from '@/lib/focusNav';
 import { useOp } from '@/lib/queries';
 import type { Item } from '@/lib/types';
 
@@ -13,6 +15,12 @@ export function InboxView() {
   const inbox = useOp<Item[]>('list_inbox');
   const [draft, setDraft] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const focusedId = useFocus((s) => s.itemId);
+  const ids = (inbox.data ?? []).map((i) => i.id);
+  useScrollFocusIntoView(focusedId);
+  useViewController({
+    move: (dir) => useFocus.getState().setItem(moveInColumns([ids], focusedId, dir)),
+  });
 
   const add = (e: FormEvent) => {
     e.preventDefault();

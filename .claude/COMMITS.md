@@ -51,8 +51,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 10 | 3 | `feat(ui): week view time grid` | committed `9de2693` |
 | 11 | 3 | `feat(ui): month and year views` | committed `e63069b` |
 | 12 | 3 | `feat(ui): diary view with day columns and timeline rail` | committed `c0e2b59` |
-| 13 | 3 | `feat(ui): item dialog and completion with timestamps` | ready |
-| 14 | 3 | `feat(ui): keyboard navigation and keyboard move/resize` | planned |
+| 13 | 3 | `feat(ui): item dialog and completion with timestamps` | committed `9c17d90` |
+| 14 | 3 | `feat(ui): keyboard navigation and keyboard move/resize` | ready |
 | 15 | 3 | `feat(ui): drag-and-drop rescheduling in week view` | planned |
 | 16 | 4 | `feat(ui): inbox panel and view` | planned |
 | 17 | 4 | `feat: natural-language quick add with live preview` | planned |
@@ -788,7 +788,7 @@ Notes:
     - "Add task" makes an all-day task on that day (no time yet), which is how a day-only
       task is stored. Planning hours are fixed at 07:00–22:00 until the General settings (#38).
 
-### #13 — Item dialog and completion with timestamps            [status: ready]
+### #13 — Item dialog and completion with timestamps            [status: committed 9c17d90]
 Phase: 3
 Message:
     feat(ui): item dialog and completion with timestamps
@@ -857,3 +857,80 @@ Notes:
       recurrence in #24; for now a recurring item shows its rule read-only.
     - Undo of a Save (or Delete) arrives with undo/redo in #27; each Save is already a
       single batch, so it will undo in one step.
+
+### #14 — Keyboard navigation and keyboard move/resize            [status: ready]
+Phase: 3
+Message:
+    feat(ui): keyboard navigation and keyboard move/resize
+
+    Roving keyboard focus in every navigable view, per roadmap §5.4 and the
+    design annotations. Arrows or h j k l move focus: Diary card to card
+    and column to column; Week to the nearest item by time, with Tab
+    switching to a half-hour grid cursor (Enter there opens a new item at
+    that slot); Month and Year by day and week, following into the next
+    month or year, Enter opening the day's week (Year shows the focused
+    day's tooltip); Inbox up and down.
+
+    On the focused item: Enter or e opens it, x toggles completion, Del
+    deletes after a confirm dialog (Enter confirms, Esc cancels).
+    Shift+arrows move it by a day or 15 minutes and Alt+↑/↓ resize it, all
+    through update_item so moves are validated and change-logged. A single
+    click focuses, a double click opens. The Week view gains the design's
+    key-hint and status footer, and focused events show the resize handle.
+
+    Each view registers a small controller; the shared actions live in the
+    registry under a new "Focused item" group, active only in navigable
+    views. Actions can carry alternate bindings (ArrowUp / k), Enter and
+    Space keep their native meaning on buttons, and the shortcut sheet
+    shows each key family as one row. Focus movement and move/resize
+    argument building are pure, tested modules.
+Files:
+    A  src/app/focus.ts
+    A  src/app/ConfirmDialog.tsx
+    A  src/actions/itemActions.ts
+    A  src/lib/focusNav.ts
+    A  src/lib/focusNav.test.ts
+    A  src/lib/itemMoves.ts
+    A  src/lib/itemMoves.test.ts
+    M  src/actions/actions.ts
+    M  src/keymap/useKeymap.ts
+    M  src/app/AppShell.tsx
+    M  src/app/overlay.ts
+    M  src/app/CommandPalette.tsx
+    M  src/app/ShortcutSheet.tsx
+    M  src/components/ItemCard.tsx
+    M  src/views/diary/DiaryView.tsx
+    M  src/views/InboxView.tsx
+    M  src/views/WeekView.tsx
+    M  src/views/MonthView.tsx
+    M  src/views/YearView.tsx
+    M  .claude/COMMITS.md
+    Stage everything in one go:  git add -A
+Test steps:
+    - pnpm check                → clean; Vitest 101 passed (+6 focus, +7 move/resize)
+    - With the demo DB, mouse untouched:
+        Diary (g d): j/k/h/l (or arrows) move the ring between cards and columns; x ticks the
+          focused card; e or Enter opens it; Shift+→ moves it to the next day (keeps its time);
+          Shift+↓ makes a timed card 15m later; Del → "Delete …?" → Esc keeps it
+        Week (g w): j / l move by time and day; footer shows "focus: … · Tue 07:15–07:45";
+          Shift+↓ moves 15m, Shift+→ a day; Alt+↓ / Alt+↑ resize (never below 15m);
+          Tab → cursor box "HH:MM · ↵ to add"; arrows move it by 30m / a day; Enter → New item
+          pre-filled with that day and time; Tab again → back to the item you had
+        Month (g m): arrows move the ring by day/week, crossing into the next month; Enter → that week
+        Year (g y): arrows move the ring with a tooltip ("Thu 22 Oct · … ↵ Week"); Enter → week
+        Inbox (i): j/k move between tasks; x / e / Del work
+    - Typing in any text field (Inbox input, dialog) never moves focus or triggers x/e/Del.
+    - Tab on a focused button outside the Week grid still moves browser focus normally; Enter on
+      a focused button presses it.
+    - ? → the sheet has a "Focused item" column with one row each for Move focus, Move item,
+      Resize item, plus Open, Edit, Toggle complete, Delete.
+Notes:
+    - Verified here with real and posted key events and screenshots: Diary column jumps, Week
+      nearest-by-time, x toggle, Tab cursor and Enter → prefilled New item, Shift+↓ ×2 moved an
+      item 07:15 → 07:45, Year focus with tooltip.
+    - Fixed while testing: in cursor mode Enter opened the previously focused item instead of
+      creating at the cursor; item focus is now parked while the cursor is active.
+    - Diary Shift+↑/↓ shifts timed cards by 15m; reordering untimed cards within a day comes
+      with drag and drop in #15.
+    - Focus is logical (store + ring), not DOM focus, so screen readers don't yet follow it;
+      aria-activedescendant wiring is a follow-up worth doing before v1.
