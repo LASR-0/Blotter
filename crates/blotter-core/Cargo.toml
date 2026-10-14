@@ -9,8 +9,11 @@ rust-version.workspace = true
 
 [dependencies]
 chrono = { version = "0.4.45", default-features = false, features = ["clock", "serde", "std"] }
+chrono-tz = "0.10.4"
+jsonschema = { version = "0.58.6", default-features = false }
 rusqlite = { version = "0.40.2", features = ["bundled"] }
 rusqlite_migration = "2.6.0"
+schemars = "1.2.3"
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true

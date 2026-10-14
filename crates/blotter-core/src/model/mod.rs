@@ -16,7 +16,10 @@ pub use reminder::Reminder;
 macro_rules! string_enum {
     ($(#[$meta:meta])* $name:ident { $($variant:ident => $text:literal),+ $(,)? }) => {
         $(#[$meta])*
-        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+        #[derive(
+            Debug, Clone, Copy, PartialEq, Eq, Hash,
+            serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+        )]
         pub enum $name {
             $(#[serde(rename = $text)] $variant),+
         }

@@ -16,6 +16,14 @@ pub enum CoreError {
     #[error("invalid input: {0}")]
     Invalid(String),
 
+    /// Arguments failed the operation's JSON Schema. Each entry reads like
+    /// `/start: "tuesday" is not a valid date-time`, so a model can fix its call.
+    #[error("invalid arguments for {op}: {}", errors.join("; "))]
+    InvalidArgs { op: String, errors: Vec<String> },
+
+    #[error("unknown operation '{0}'")]
+    UnknownOp(String),
+
     #[error("corrupt stored value in {column}: {value}")]
     Corrupt { column: &'static str, value: String },
 

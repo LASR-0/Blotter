@@ -40,3 +40,47 @@ body {
 .scaffold code.error {
   color: #f07178;
 }
+
+.scaffold-inbox {
+  margin-top: 16px;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.scaffold-inbox input[type='text'],
+.scaffold-inbox input:not([type]) {
+  height: 32px;
+  padding: 0 10px;
+  border-radius: 6px;
+  border: 1px solid #3a3b44;
+  background: #18191e;
+  color: inherit;
+  font: inherit;
+}
+
+.scaffold-inbox input:focus-visible {
+  outline: 2px solid #b2a8fb;
+  outline-offset: 2px;
+}
+
+.scaffold-inbox ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.scaffold-inbox label {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.scaffold-inbox .done {
+  color: #989aa4;
+  text-decoration: line-through;
+}

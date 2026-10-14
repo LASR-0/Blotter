@@ -42,8 +42,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 01 | 0 | `chore: scaffold Tauri 2 + React + Vite app with Cargo workspace` | committed `2ce6f7e` |
 | 02 | 0 | `chore: add rustfmt, clippy, eslint, prettier and vitest tooling` | committed `467e1ca` |
 | 03 | 0 | `ci: build and test on Windows and Linux` | committed `e9760fe` (CI green) |
-| 04 | 1 | `feat(core): domain models, SQLite schema and migrations` | ready |
-| 05 | 1 | `feat(core): operation registry with JSON schemas and change log` | planned |
+| 04 | 1 | `feat(core): domain models, SQLite schema and migrations` | committed `bc79321` |
+| 05 | 1 | `feat(core): operation registry with JSON schemas and change log` | ready |
 | 06 | 2 | `feat(app): tray, close-to-tray and single-instance CLI handling` | planned |
 | 07 | 2 | `feat(ui): shadcn/ui setup, theme tokens and built-in presets` | planned |
 | 08 | 2 | `feat(ui): app layout, routing and action/keymap registry` | planned |
@@ -226,7 +226,7 @@ Notes:
       and I'll add a fix entry.
     - Bundling (installers) is not built in CI yet; that arrives in Phase 13.
 
-### #04 — Domain models, SQLite schema and migrations            [status: ready]
+### #04 — Domain models, SQLite schema and migrations            [status: committed bc79321]
 Phase: 1
 Message:
     feat(core): domain models, SQLite schema and migrations
@@ -287,3 +287,75 @@ Notes:
       series item appears at its first occurrence only.
     - The db status line on the placeholder screen is temporary; the real app
       layout replaces it in #08.
+
+### #05 — Operation registry, JSON Schemas and change log            [status: ready]
+Phase: 1
+Message:
+    feat(core): operation registry with JSON schemas and change log
+
+    One registry of typed operations serves the UI now and the AI loop and
+    MCP server later. Each op has a name, description, read/mutate flag and
+    a JSON Schema generated from its argument type (schemars); arguments are
+    validated with jsonschema before the handler runs, and every violation
+    is reported so a model can correct its call.
+
+    Mutations run in one transaction with their change-log rows (full
+    before/after JSON, actor, shared batch id). Deletes log cascaded
+    reminders, overrides and exceptions so undo can restore them.
+
+    Ops: list_agenda, get_item, search_items, list_inbox, list_blockouts,
+    get_day_summary, create/update/delete/complete/uncomplete/schedule/
+    unschedule_item, create/update/delete_blockout, add/remove_blockout_
+    exception, set_reminder, clear_reminder.
+
+    The app holds a Planner (OS timezone as default), exposes list_ops and
+    run_op, and emits planner:changed after each committed mutation.
+Files:
+    M  crates/blotter-core/Cargo.toml
+    M  crates/blotter-core/src/lib.rs
+    M  crates/blotter-core/src/error.rs
+    M  crates/blotter-core/src/model/mod.rs
+    M  crates/blotter-core/src/model/blockout.rs
+    A  crates/blotter-core/src/settings.rs
+    A  crates/blotter-core/src/planner.rs
+    A  crates/blotter-core/src/ops/mod.rs
+    A  crates/blotter-core/src/ops/input.rs
+    A  crates/blotter-core/src/ops/items.rs
+    A  crates/blotter-core/src/ops/reads.rs
+    A  crates/blotter-core/src/ops/reminders.rs
+    A  crates/blotter-core/src/ops/blockouts.rs
+    M  src-tauri/Cargo.toml
+    M  src-tauri/src/lib.rs
+    A  src-tauri/src/commands.rs
+    A  src/lib/api.ts
+    M  src/App.tsx
+    M  src/styles.css
+    M  Cargo.lock
+    M  .claude/COMMITS.md
+    Stage everything in one go:  git add -A
+Test steps:
+    - cargo test --workspace                                  → 62 passed in blotter-core
+    - cargo clippy --workspace --all-targets -- -D warnings  → no warnings
+    - cargo fmt --all --check                                 → clean
+    - pnpm check                                              → clean, 8 passed
+    - pnpm tauri dev:
+        · first line reads "core v0.1.0 · 20 operations"
+        · type "Call plumber" in the Inbox box, press Enter → it appears in the list
+        · tick it → struck through; untick → back to normal
+        · type only spaces and press Enter → nothing happens
+        · close and relaunch → the item is still there (persistence)
+    - Optional, to see the change log: open %APPDATA%\io.github.lasr0.Blotter\blotter.db in
+      DB Browser for SQLite → table `changes` has one row per action above, actor `user`,
+      with before/after JSON.
+Notes:
+    - Acceptance for Phase 1 (roadmap §8): every §4.3 op except find_free_slots and
+      auto_slot (Phase 5) is implemented and tested; every mutation writes change rows
+      (one test drives all 11 mutating ops); DB lives in app-data with WAL.
+    - Added remove_blockout_exception (not in §4.3) so a lifted date can be un-lifted
+      without deleting the whole block-out.
+    - Naive times in arguments ("2026-10-20T15:00") are read in the user's timezone;
+      DST gaps move forward, overlaps take the earlier instant (tested on Melbourne).
+    - The "flexible never inside a block-out" rule is enforced in Phase 5 (#20/#22),
+      when the slot engine lands. Until then schedule_item accepts any time.
+    - rrule is only shape-checked (FREQ=…); real parsing arrives in Phase 6.
+    - The Inbox box on the placeholder screen is temporary and goes away in #08.

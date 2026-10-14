@@ -9,11 +9,17 @@ pub mod db;
 pub mod error;
 pub mod id;
 pub mod model;
+pub mod ops;
+mod planner;
+pub mod settings;
 pub mod store;
 pub mod time;
 
 pub use db::Database;
 pub use error::{CoreError, Result};
+pub use model::Actor;
+pub use ops::{OpCall, OpInfo, OpOutcome};
+pub use planner::Planner;
 
 /// Crate version, surfaced in the About page and MCP server info.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

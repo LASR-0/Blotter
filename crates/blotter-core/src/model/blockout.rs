@@ -106,6 +106,26 @@ impl<'de> Deserialize<'de> for Weekdays {
     }
 }
 
+impl schemars::JsonSchema for Weekdays {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        "Weekdays".into()
+    }
+
+    fn inline_schema() -> bool {
+        true
+    }
+
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!({
+            "type": "array",
+            "items": { "type": "string", "enum": NAMES },
+            "minItems": 1,
+            "uniqueItems": true,
+            "description": "Days the block-out applies, e.g. [\"mon\",\"tue\",\"wed\",\"thu\",\"fri\"]."
+        })
+    }
+}
+
 /// Serde for `NaiveTime` as `HH:MM`, matching the database encoding.
 mod hhmm {
     use chrono::NaiveTime;
