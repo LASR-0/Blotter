@@ -21,7 +21,8 @@ chrono-tz = "0.10.4"
 iana-time-zone = "0.1.65"
 serde.workspace = true
 serde_json.workspace = true
-tauri = { version = "2.12.3", features = [] }
+tauri = { version = "2.12.3", features = ["tray-icon"] }
+tauri-plugin-single-instance = "2.5.3"
 
 [lints]
 workspace = true

@@ -43,8 +43,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 02 | 0 | `chore: add rustfmt, clippy, eslint, prettier and vitest tooling` | committed `467e1ca` |
 | 03 | 0 | `ci: build and test on Windows and Linux` | committed `e9760fe` (CI green) |
 | 04 | 1 | `feat(core): domain models, SQLite schema and migrations` | committed `bc79321` |
-| 05 | 1 | `feat(core): operation registry with JSON schemas and change log` | ready |
-| 06 | 2 | `feat(app): tray, close-to-tray and single-instance CLI handling` | planned |
+| 05 | 1 | `feat(core): operation registry with JSON schemas and change log` | committed `f405964` (CI green) |
+| 06 | 2 | `feat(app): tray, close-to-tray and single-instance CLI handling` | ready |
 | 07 | 2 | `feat(ui): shadcn/ui setup, theme tokens and built-in presets` | planned |
 | 08 | 2 | `feat(ui): app layout, routing and action/keymap registry` | planned |
 | 09 | 2 | `feat(ui): command palette` | planned |
@@ -288,7 +288,7 @@ Notes:
     - The db status line on the placeholder screen is temporary; the real app
       layout replaces it in #08.
 
-### #05 — Operation registry, JSON Schemas and change log            [status: ready]
+### #05 — Operation registry, JSON Schemas and change log            [status: committed f405964, CI green]
 Phase: 1
 Message:
     feat(core): operation registry with JSON schemas and change log
@@ -359,3 +359,51 @@ Notes:
       when the slot engine lands. Until then schedule_item accepts any time.
     - rrule is only shape-checked (FREQ=…); real parsing arrives in Phase 6.
     - The Inbox box on the placeholder screen is temporary and goes away in #08.
+
+### #06 — Tray, close-to-tray and single-instance CLI            [status: ready]
+Phase: 2
+Message:
+    feat(app): tray, close-to-tray and single-instance CLI handling
+
+    Closing the main window hides it; the process stays in the tray so
+    reminders can keep firing. The tray icon opens Blotter on left-click and
+    its menu has Open and Quit. A second launch hands its arguments to the
+    running instance (single-instance plugin) and exits.
+
+    CLI flags: --capture and --chat bring the window forward and emit an
+    app:cli event (the capture popup and chat consume it in #18 and #31);
+    --hidden starts in the tray without showing a window, for autostart.
+    The main window now starts hidden and is shown in setup, so hidden
+    launches never flash.
+Files:
+    A  src-tauri/src/cli.rs
+    A  src-tauri/src/shell.rs
+    M  src-tauri/src/lib.rs
+    M  src-tauri/Cargo.toml
+    M  src-tauri/tauri.conf.json
+    M  Cargo.lock
+    M  .claude/COMMITS.md
+    Stage everything in one go:  git add -A
+Test steps:
+    - cargo test --workspace                                  → 62 core + 3 app (cli) passed
+    - cargo clippy --workspace --all-targets -- -D warnings  → no warnings
+    - pnpm tauri dev, then by hand:
+        · the window opens as before, and a Blotter icon appears in the tray
+          (may be under the ^ overflow arrow)
+        · click the window's X → window disappears, tray icon stays, process still in Task Manager
+        · left-click the tray icon → window comes back, focused
+        · close it again, right-click tray → "Open Blotter" restores it
+        · right-click tray → "Quit Blotter" → app exits fully (gone from Task Manager)
+    - Single instance (while `pnpm tauri dev` is running), in a second terminal:
+          ./target/debug/blotter.exe
+        → no second window; the existing one comes to the front; the second process exits
+    - Hidden start: quit, then run  ./target/debug/blotter.exe --hidden  (with `pnpm dev`
+      running in another terminal for the frontend) → only the tray icon appears; click it
+      to open the window.
+Notes:
+    - Verified here: a second launch with --chat leaves exactly one blotter.exe running.
+    - Quick capture (#18) and chat (#31) don't exist yet, so --capture/--chat currently
+      just bring the window forward; the app:cli event is already emitted for them.
+    - Linux tray uses libayatana-appindicator (already in CI deps); the Flatpak tray
+      (StatusNotifier) is verified in Phase 13.
+    - "Quit" in the command palette arrives with the palette in #09.

@@ -1,7 +1,9 @@
 //! The Blotter desktop app: windows, tray, notifications, keychain and AI
 //! HTTP on top of `blotter-core`.
 
+mod cli;
 mod commands;
+mod shell;
 
 use std::path::PathBuf;
 use std::sync::Mutex;
@@ -62,13 +64,24 @@ fn apply_platform_workarounds() {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     apply_platform_workarounds();
+    let launch = cli::parse(std::env::args());
 
     let result = tauri::Builder::default()
-        .setup(|app| {
+        // Must be the first plugin: a second launch hands its arguments to
+        // this instance and exits before anything else initialises.
+        .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
+            shell::handle_launch(app, &cli::parse(argv));
+        }))
+        .setup(move |app| {
             let state = open_state(app)?;
             app.manage(state);
+            shell::build_tray(app.handle())?;
+            // The main window starts hidden (tauri.conf.json) so `--hidden`
+            // launches never flash it.
+            shell::handle_launch(app.handle(), &launch);
             Ok(())
         })
+        .on_window_event(shell::on_window_event)
         .invoke_handler(tauri::generate_handler![
             commands::app_version,
             commands::db_status,
