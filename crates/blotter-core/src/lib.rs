@@ -14,6 +14,7 @@ mod planner;
 pub mod settings;
 pub mod store;
 pub mod time;
+pub mod windows;
 
 pub use db::Database;
 pub use error::{CoreError, Result};

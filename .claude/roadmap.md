@@ -450,7 +450,7 @@ Each phase states the intent, then the acceptance criteria (AC) and leads to ver
 **Progress (2026-10-14):**
 - #16 (Inbox) is committed.
 - #17 (quick add) is committed (`22e3001`). Chips and preview are verified live; checking Enter, Ctrl+Enter and Alt+Enter is folded into #18's test steps.
-- #18 (the quick-capture window, global shortcut and `--capture`) is ready to commit. The Linux shortcut and Wayland paths still need a live check (Phase 13).
+- #18 (the quick-capture window, global shortcut and `--capture`) is committed (`0a70bd0`) and verified live on Windows. The Linux shortcut and Wayland paths still need a live check (Phase 13).
 
 ### Phase 5 — Block-outs and scheduling
 **Intent:**
@@ -466,6 +466,10 @@ Each phase states the intent, then the acceptance criteria (AC) and leads to ver
 - A fixed task can be.
 - Unplaceable tasks report reasons.
 - Engine unit tests cover DST and due dates.
+
+**Progress (2026-10-14):**
+- #19 (block-out window expansion in the core, plus `list_blockout_windows`) is committed.
+- #20 (the slot engine) is next. It builds on `windows::expand` and moves planning hours into the core settings.
 
 ### Phase 6 — Recurrence and reminders
 **Intent:**

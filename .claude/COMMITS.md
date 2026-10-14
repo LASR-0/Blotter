@@ -56,8 +56,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 15 | 3 | `feat(ui): drag-and-drop rescheduling in week view` | committed `e883650` (scope widened: Diary + Inbox rail too) |
 | 16 | 4 | `feat(ui): inbox panel and view` | committed `48863c5` |
 | 17 | 4 | `feat: natural-language quick add with live preview` | committed `22e3001` |
-| 18 | 4 | `feat(app): quick-capture window, global shortcut and --capture flag` | ready |
-| 19 | 5 | `feat(core): block-out windows with exceptions` | planned |
+| 18 | 4 | `feat(app): quick-capture window, global shortcut and --capture flag` | committed `0a70bd0` |
+| 19 | 5 | `feat(core): block-out windows with exceptions` | ready |
 | 20 | 5 | `feat(core): slot engine with fixed/flexible rules` | planned |
 | 21 | 5 | `feat(ui): block-out settings and calendar shading` | planned |
 | 22 | 5 | `feat: inbox auto-slot and conflict warnings` | planned |
@@ -1118,7 +1118,7 @@ Notes:
       Enter / Ctrl+Enter / Alt+Enter weren't pressed: the running instance was Luke's own, on
       real data. They are in #18's test steps, so they get checked on the next run.
 
-### #18 — Quick-capture window, global shortcut and --capture            [status: ready]
+### #18 — Quick-capture window, global shortcut and --capture            [status: committed 0a70bd0]
 Phase: 4
 Message:
     feat(app): quick-capture window, global shortcut and --capture flag
@@ -1196,3 +1196,63 @@ Notes:
       the About section moves to Settings → Keybindings then.
     - The popup opens on the monitor it last used (Tauri centres it on its current monitor), not
       necessarily the one under the pointer.
+    - First committed as 9352969 with a typo in the author email (1620670+…), which credited
+      an unrelated GitHub account. Rewritten with the correct email and force-pushed as 0a70bd0
+      (same tree, message and dates), with Luke's OK. The contributor list may stay cached until
+      GitHub Support refreshes it.
+    - Verified live after commit, on a scratch demo DB: n bar Alt+Enter (created, bar stays open
+      and clears) and Ctrl+Enter (created, dialog opens). Ctrl+Shift+Space from Notepad opens the
+      popup focused and centred. A long line wraps the chips onto three rows and the window grows
+      to fit. Esc hides and the next open is empty. Clicking away hides and keeps the text.
+      Pressing the shortcut again hides it. Enter on "fix gate ~30m #home" puts it in the Inbox
+      with 30m. `blotter.exe --capture` opens the focused popup without the main window.
+
+### #19 — Block-out windows with exceptions            [status: ready]
+Phase: 5
+Message:
+    feat(core): block-out windows with exceptions
+
+    Block-outs are rules (weekdays, a wall-clock window in their own
+    timezone, an active date range, lifted dates). The new windows module
+    expands them into concrete UTC windows for any span. It is pure and
+    tested, and the slot engine (#20), calendar shading (#21) and the AI
+    will all read block-outs through it instead of each re-deriving them.
+
+    An occurrence belongs to the local date it starts on. Weekdays, the
+    active range and lifted dates are checked against that date, so
+    Sleep 23:00-06:30 on Friday runs into Saturday morning, and lifting
+    Friday frees the whole night. Times stay wall-clock across DST: Sleep
+    is an hour shorter on the spring-forward night, and times inside the
+    gap move forward, as elsewhere in the core. Windows are half-open, so
+    a task may end exactly when Work starts.
+
+    New read op list_blockout_windows(start, end?) returns the windows
+    for a range of days in the user's timezone, with permits_fixed for
+    each. list_agenda and the new op share one range check.
+    Blockout::applies_on covers the weekday and active-range test.
+Files:
+    A  crates/blotter-core/src/windows.rs
+    M  crates/blotter-core/src/lib.rs
+    M  crates/blotter-core/src/model/blockout.rs
+    M  crates/blotter-core/src/ops/reads.rs
+    M  .claude/COMMITS.md
+    M  .claude/roadmap.md
+    Stage everything in one go:  git add -A
+Test steps:
+    - cargo test --workspace    → 74 core (+9 windows, +1 op) + 6 app passed
+    - cargo clippy --workspace --all-targets -- -D warnings → clean; cargo fmt --check → clean
+    - pnpm check                → unchanged, clean
+    - Nothing visible changes in the app: the calendar still shades block-outs with the
+      frontend helper until #21 switches it to list_blockout_windows.
+Notes:
+    - Rules the tests pin down: weekday windows in local time; midnight wrap covering both
+      days; a lifted date freeing the whole occurrence (including the next morning); active
+      range bounds; DST spring-forward and fall-back lengths (Melbourne); times inside the gap;
+      each block-out's own timezone; half-open edges; a corrupt timezone reported, not panicking.
+    - The frontend helper (src/lib/availability.ts) reads block-out times in the machine's
+      zone and ignores the block-out's own tz. That only matters if they differ, and #21
+      replaces it with the core windows.
+    - Exceptions are one date at a time (add_blockout_exception). The settings page (#21) can
+      lift a range, such as two weeks of leave, as one run_batch, so it still undoes in one step.
+    - Planning hours (07:00–22:00) are still a frontend constant; they join the core settings
+      with the slot engine in #20.

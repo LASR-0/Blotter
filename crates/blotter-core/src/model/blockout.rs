@@ -1,4 +1,4 @@
-use chrono::{NaiveDate, NaiveTime, Weekday};
+use chrono::{Datelike, NaiveDate, NaiveTime, Weekday};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::time::Instant;
@@ -30,6 +30,14 @@ pub struct Blockout {
 impl Blockout {
     pub fn wraps_midnight(&self) -> bool {
         self.end_time < self.start_time
+    }
+
+    /// Whether an occurrence starts on `date` by weekday and active range.
+    /// Lifted dates (exceptions) are checked separately.
+    pub fn applies_on(&self, date: NaiveDate) -> bool {
+        self.weekdays.contains(date.weekday())
+            && self.active_from.is_none_or(|from| date >= from)
+            && self.active_until.is_none_or(|until| date <= until)
     }
 }
 

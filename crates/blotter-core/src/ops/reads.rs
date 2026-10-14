@@ -12,6 +12,7 @@ use crate::model::{Blockout, BlockoutException, Item, ItemStatus, Reminder};
 use crate::store;
 use crate::store::items::ItemRange;
 use crate::time::Instant;
+use crate::windows::{self, BlockoutWindow};
 
 /// Longest range `list_agenda` serves in one call (a Year view is ~366 days).
 const MAX_AGENDA_DAYS: i64 = 400;
@@ -47,6 +48,16 @@ pub(super) fn defs() -> Vec<OpDef> {
             "List block-out windows with their lifted dates.",
             false,
             list_blockouts,
+        ),
+        OpDef::new(
+            "list_blockout_windows",
+            "List the concrete block-out windows covering a date range (inclusive, user's \
+             timezone): each occurrence with its start/end instants, after weekdays, active \
+             ranges and lifted dates are applied. Flexible tasks can't go inside these; \
+             fixed items can unless `permits_fixed` is false. A window past midnight belongs \
+             to the date it starts on.",
+            false,
+            list_blockout_windows,
         ),
         OpDef::new(
             "list_overdue",
@@ -114,6 +125,22 @@ pub struct BlockoutWithExceptions {
 
 #[derive(Debug, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
+pub struct DateRangeArgs {
+    pub start: DateInput,
+    /// Last day, inclusive. Defaults to `start`.
+    pub end: Option<DateInput>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct BlockoutWindows {
+    pub start: NaiveDate,
+    pub end: NaiveDate,
+    pub timezone: String,
+    pub windows: Vec<BlockoutWindow>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct DaySummaryArgs {
     /// Defaults to today.
     pub date: Option<DateInput>,
@@ -148,9 +175,10 @@ pub(crate) fn today(ctx: &Ctx<'_>) -> NaiveDate {
     ctx.now.with_timezone(&ctx.settings.tz).date_naive()
 }
 
-fn list_agenda(ctx: &mut Ctx<'_>, a: ListAgendaArgs) -> Result<Agenda> {
-    let start = a.start.0;
-    let end = a.end.map(|d| d.0).unwrap_or(start);
+/// Checks an inclusive `start..=end` day range (end defaults to start).
+fn checked_days(start: DateInput, end: Option<DateInput>) -> Result<(NaiveDate, NaiveDate)> {
+    let start = start.0;
+    let end = end.map(|d| d.0).unwrap_or(start);
     if end < start {
         return Err(CoreError::invalid("`end` is before `start`"));
     }
@@ -159,6 +187,11 @@ fn list_agenda(ctx: &mut Ctx<'_>, a: ListAgendaArgs) -> Result<Agenda> {
             "range is longer than {MAX_AGENDA_DAYS} days"
         )));
     }
+    Ok((start, end))
+}
+
+fn list_agenda(ctx: &mut Ctx<'_>, a: ListAgendaArgs) -> Result<Agenda> {
+    let (start, end) = checked_days(a.start, a.end)?;
     let mut items = store::items::list_in_range(ctx.conn, day_range(ctx, start, end))?;
     if a.include_done == Some(false) {
         items.retain(|i| i.status != ItemStatus::Done);
@@ -197,6 +230,19 @@ fn list_blockouts(ctx: &mut Ctx<'_>, _: NoArgs) -> Result<Vec<BlockoutWithExcept
             })
         })
         .collect()
+}
+
+fn list_blockout_windows(ctx: &mut Ctx<'_>, a: DateRangeArgs) -> Result<BlockoutWindows> {
+    let (start, end) = checked_days(a.start, a.end)?;
+    let range = day_range(ctx, start, end);
+    let blockouts = store::blockouts::list(ctx.conn)?;
+    let exceptions = store::blockouts::list_exceptions(ctx.conn, None, None)?;
+    Ok(BlockoutWindows {
+        start,
+        end,
+        timezone: ctx.settings.tz.name().to_owned(),
+        windows: windows::expand(&blockouts, &exceptions, range.start, range.end)?,
+    })
 }
 
 fn get_day_summary(ctx: &mut Ctx<'_>, a: DaySummaryArgs) -> Result<DaySummary> {
@@ -453,5 +499,68 @@ mod tests {
         );
         let found = run(&mut p, "search_items", json!({ "query": "shop" }));
         assert_eq!(found.as_array().unwrap().len(), 1);
+    }
+
+    #[test]
+    fn blockout_windows_apply_lifted_dates() {
+        let mut p = crate::planner::tests::planner();
+        let work = run(
+            &mut p,
+            "create_blockout",
+            json!({ "label": "Work", "weekdays": ["mon","tue","wed","thu","fri"],
+                    "start_time": "08:30", "end_time": "17:00" }),
+        );
+        run(
+            &mut p,
+            "create_blockout",
+            json!({ "label": "Sleep", "weekdays": ["mon","tue","wed","thu","fri","sat","sun"],
+                    "start_time": "23:00", "end_time": "06:30", "permits_fixed": false }),
+        );
+        run(
+            &mut p,
+            "add_blockout_exception",
+            json!({ "blockout_id": work["id"], "date": "2026-10-15", "note": "Leave" }),
+        );
+
+        let out = run(
+            &mut p,
+            "list_blockout_windows",
+            json!({ "start": "2026-10-14", "end": "2026-10-15" }),
+        );
+        assert_eq!(out["timezone"], "Australia/Melbourne");
+        let windows: Vec<(String, String, String)> = out["windows"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|w| {
+                (
+                    w["label"].as_str().unwrap().to_owned(),
+                    w["date"].as_str().unwrap().to_owned(),
+                    w["start"].as_str().unwrap().to_owned(),
+                )
+            })
+            .collect();
+        let expected = [
+            ("Sleep", "2026-10-13", "2026-10-13T12:00:00Z"),
+            ("Work", "2026-10-14", "2026-10-13T21:30:00Z"),
+            ("Sleep", "2026-10-14", "2026-10-14T12:00:00Z"),
+            // Thursday's Work is lifted.
+            ("Sleep", "2026-10-15", "2026-10-15T12:00:00Z"),
+        ];
+        let expected: Vec<(String, String, String)> = expected
+            .iter()
+            .map(|(a, b, c)| ((*a).to_owned(), (*b).to_owned(), (*c).to_owned()))
+            .collect();
+        assert_eq!(windows, expected);
+        assert_eq!(out["windows"][0]["permits_fixed"], false);
+
+        let err = p
+            .execute(
+                "list_blockout_windows",
+                json!({ "start": "2026-10-15", "end": "2026-10-14" }),
+                &Actor::User,
+            )
+            .unwrap_err();
+        assert!(err.to_string().contains("before"));
     }
 }
