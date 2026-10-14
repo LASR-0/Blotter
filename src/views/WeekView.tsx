@@ -1,0 +1,319 @@
+import { useLayoutEffect, useMemo, useRef, type CSSProperties } from 'react';
+import {
+  addDays,
+  differenceInCalendarDays,
+  format,
+  getISOWeek,
+  isSameDay,
+  isWeekend,
+  parseISO,
+  startOfWeek,
+} from 'date-fns';
+import { ArrowsClockwise } from '@phosphor-icons/react';
+import { useNav } from '@/app/nav';
+import { ErrorPanel } from '@/components/EmptyState';
+import { isOpError } from '@/lib/api';
+import { cn } from '@/lib/cn';
+import { timeOf } from '@/lib/format';
+import { layoutAllDay, layoutDay, type Placed } from '@/lib/layout';
+import { isoDate, WEEK_STARTS_ON } from '@/lib/period';
+import { useOp } from '@/lib/queries';
+import { itemColor } from '@/lib/tags';
+import type { Agenda, Item } from '@/lib/types';
+import { useNow } from '@/lib/useNow';
+
+/** Height of one hour in the grid (design reference: 44px). */
+const HOUR_PX = 44;
+const GRID_PX = 24 * HOUR_PX;
+const MS_PER_MIN = 60_000;
+/** Hour the grid scrolls to when the week opens, unless "now" is later. */
+const DEFAULT_SCROLL_HOUR = 7;
+
+const minutesToPx = (min: number) => (min / 60) * HOUR_PX;
+
+/** Minutes of `iso` after the start of `day`. */
+function minutesInto(day: Date, iso: string): number {
+  return (parseISO(iso).getTime() - day.getTime()) / MS_PER_MIN;
+}
+
+const DAY_MIN = 24 * 60;
+
+/** Whether [start, end) touches the day; zero-length items count at their instant. */
+function onDay(start: number, end: number): boolean {
+  return start < DAY_MIN && (end > 0 || (end === start && start >= 0));
+}
+
+function isOverdue(item: Item, now: Date): boolean {
+  if (item.status !== 'open' || item.kind !== 'task') return false;
+  const end = item.end_at ?? item.due_at;
+  return end !== null && parseISO(end) < now;
+}
+
+function EventBlock({ item, placed, now }: { item: Item; placed: Placed; now: Date }) {
+  const done = item.status === 'done';
+  const color = itemColor(item);
+  const height = Math.max(minutesToPx(placed.end - placed.start) - 2, 17);
+  const compact = height < 30;
+  const showTime = height > 34;
+  const range =
+    item.start_at && item.end_at ? `${timeOf(item.start_at)}–${timeOf(item.end_at)}` : '';
+  const style: CSSProperties = {
+    top: minutesToPx(placed.start) + 1,
+    height,
+    left: `calc(${(placed.lane / placed.lanes) * 100}% + ${placed.lane === 0 ? 3 : 1}px)`,
+    width: `calc(${100 / placed.lanes}% - ${placed.lanes > 1 ? 4 : 6}px)`,
+    background: `color-mix(in srgb, ${color} ${done ? 7 : 17}%, var(--color-bg))`,
+    borderLeft: `3px solid ${color}`,
+    lineHeight: compact ? `${height - 2}px` : 1.3,
+  };
+
+  return (
+    <div
+      title={`${item.title}${range ? ` · ${range}` : ''}`}
+      style={style}
+      className={cn(
+        'absolute overflow-hidden rounded-sm',
+        compact
+          ? 'z-3 flex flex-row items-center gap-1 px-[5px] text-[10.5px]'
+          : 'z-2 flex flex-col gap-px px-1.5 py-[3px] text-xs',
+      )}
+    >
+      <span
+        className={cn(
+          'truncate font-medium',
+          done
+            ? 'text-text-muted line-through'
+            : isOverdue(item, now)
+              ? 'text-danger'
+              : 'text-text',
+        )}
+      >
+        {item.title}
+      </span>
+      {item.rrule && <ArrowsClockwise size={10} className="flex-none text-text-muted" />}
+      {showTime && (
+        <span className="truncate font-mono text-[10px] text-text-muted">
+          {range}
+          {done && item.completed_at && `  ✓ ${timeOf(item.completed_at)}`}
+        </span>
+      )}
+    </div>
+  );
+}
+
+export function WeekView() {
+  const anchor = useNav((s) => s.anchor);
+  const now = useNow();
+  const days = useMemo(() => {
+    const first = startOfWeek(anchor, { weekStartsOn: WEEK_STARTS_ON });
+    return Array.from({ length: 7 }, (_, i) => addDays(first, i));
+  }, [anchor]);
+  const first = days[0] as Date;
+  const agenda = useOp<Agenda>('list_agenda', {
+    start: isoDate(first),
+    end: isoDate(days[6] as Date),
+  });
+  const items = useMemo(() => agenda.data?.items ?? [], [agenda.data]);
+  const byId = useMemo(() => new Map(items.map((i) => [i.id, i])), [items]);
+
+  const allDay = useMemo(
+    () =>
+      layoutAllDay(
+        items
+          .filter((i) => i.all_day && i.start_date)
+          .map((i) => {
+            const firstIdx = differenceInCalendarDays(parseISO(i.start_date as string), first);
+            const lastIdx = i.end_date
+              ? differenceInCalendarDays(parseISO(i.end_date), first)
+              : firstIdx;
+            return { id: i.id, first: firstIdx, last: lastIdx };
+          }),
+        7,
+      ),
+    [items, first],
+  );
+  const allDayRows = Math.max(1, ...allDay.map((p) => p.row + 1));
+
+  const columns = useMemo(
+    () =>
+      days.map((day) => {
+        const spans = items
+          .filter((i) => !i.all_day && i.start_at)
+          .map((i) => ({
+            id: i.id,
+            start: minutesInto(day, i.start_at as string),
+            end: minutesInto(day, i.end_at ?? (i.start_at as string)),
+          }))
+          .filter((s) => onDay(s.start, s.end))
+          .map((s) => ({ ...s, start: Math.max(0, s.start), end: Math.min(DAY_MIN, s.end) }));
+        return { day, placed: layoutDay(spans) };
+      }),
+    [days, items],
+  );
+
+  // Open each week scrolled to the morning, or to just before now.
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const weekKey = first.getTime();
+  useLayoutEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const nowHour = new Date().getHours() + new Date().getMinutes() / 60;
+    const showingToday = days.some((d) => isSameDay(d, new Date()));
+    const hour = showingToday ? Math.max(DEFAULT_SCROLL_HOUR, nowHour - 3) : DEFAULT_SCROLL_HOUR;
+    el.scrollTop = hour * HOUR_PX - 4;
+    // Only when the week changes, not on every refetch.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [weekKey]);
+
+  const todayIdx = days.findIndex((d) => isSameDay(d, now));
+  const nowTop = minutesToPx(now.getHours() * 60 + now.getMinutes());
+  const grid = 'grid grid-cols-[56px_repeat(7,minmax(0,1fr))]';
+
+  return (
+    <div ref={scrollRef} className="relative h-full overflow-auto">
+      {agenda.isError && (
+        <div className="absolute top-3 left-1/2 z-20 w-[420px] -translate-x-1/2">
+          <ErrorPanel
+            title="Couldn't load this week"
+            message={isOpError(agenda.error) ? agenda.error.message : String(agenda.error)}
+            onRetry={() => void agenda.refetch()}
+          />
+        </div>
+      )}
+
+      {/* Day headers and the all-day lane stay put while the grid scrolls. */}
+      <div className="sticky top-0 z-10 bg-bg">
+        <div className={cn(grid, 'border-b border-border')}>
+          <div className="pt-3.5 pr-2 text-right font-mono text-[10px] text-text-muted">
+            W{getISOWeek(first)}
+          </div>
+          {days.map((d, i) => {
+            const today = i === todayIdx;
+            return (
+              <div
+                key={i}
+                className="flex items-center gap-2 border-l border-border px-2.5 pt-2.5 pb-2"
+              >
+                <span
+                  className={cn(
+                    'text-sm font-medium',
+                    today ? 'text-accent-text' : 'text-text-muted',
+                  )}
+                >
+                  {format(d, 'EEE')}
+                </span>
+                <span
+                  className={cn(
+                    'text-base',
+                    today
+                      ? 'grid h-6 min-w-6 place-items-center rounded-full bg-accent px-1 font-semibold text-on-accent'
+                      : 'font-medium',
+                  )}
+                >
+                  {format(d, 'd')}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+        <div
+          className={cn(grid, 'gap-y-0.5 border-b border-border bg-surface py-1')}
+          style={{ gridTemplateRows: `repeat(${allDayRows}, 24px)` }}
+        >
+          <div className="row-start-1 pt-[5px] pr-2 text-right text-[10px] text-text-muted">
+            all-day
+          </div>
+          {allDay.map((p) => {
+            const item = byId.get(p.id);
+            if (!item) return null;
+            const color = itemColor(item);
+            const done = item.status === 'done';
+            return (
+              <div
+                key={p.id}
+                title={item.title}
+                style={{
+                  gridRow: p.row + 1,
+                  gridColumn: `${p.first + 2} / span ${p.last - p.first + 1}`,
+                  background: `color-mix(in srgb, ${color} ${done ? 7 : 18}%, var(--color-bg))`,
+                  borderLeft: `3px solid ${color}`,
+                }}
+                className={cn(
+                  'mx-1 flex items-center gap-[5px] overflow-hidden rounded-sm px-1.5 text-xs',
+                  done && 'text-text-muted line-through',
+                )}
+              >
+                {item.rrule && <ArrowsClockwise className="flex-none text-text-muted" />}
+                <span className="truncate">{item.title}</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className={cn(grid, 'relative')} style={{ height: GRID_PX }}>
+        <div className="relative">
+          {Array.from({ length: 23 }, (_, h) => h + 1).map((h) => (
+            <span
+              key={h}
+              className="absolute right-2 -mt-1.5 font-mono text-[10px] text-text-muted"
+              style={{ top: h * HOUR_PX }}
+            >
+              {String(h).padStart(2, '0')}:00
+            </span>
+          ))}
+        </div>
+
+        {columns.map(({ day, placed }, i) => (
+          <div
+            key={i}
+            className={cn(
+              'relative border-l border-border',
+              i === todayIdx
+                ? 'bg-[color-mix(in_srgb,var(--color-accent)_4%,var(--color-bg))]'
+                : isWeekend(day) && 'bg-surface',
+            )}
+          >
+            {Array.from({ length: 24 }, (_, h) => (
+              <div key={h}>
+                {h > 0 && (
+                  <div
+                    className="absolute inset-x-0 border-t border-border"
+                    style={{ top: h * HOUR_PX }}
+                  />
+                )}
+                <div
+                  className="absolute inset-x-0 border-t border-dashed border-[color-mix(in_srgb,var(--color-border)_55%,transparent)]"
+                  style={{ top: h * HOUR_PX + HOUR_PX / 2 }}
+                />
+              </div>
+            ))}
+            {placed.map((p) => {
+              const item = byId.get(p.id);
+              return item ? <EventBlock key={p.id} item={item} placed={p} now={now} /> : null;
+            })}
+            {i === todayIdx && (
+              <div
+                aria-hidden
+                className="pointer-events-none absolute right-0 -left-1 z-4 flex items-center"
+                style={{ top: nowTop - 4 }}
+              >
+                <span className="size-2 rounded-full bg-danger" />
+                <span className="h-0.5 flex-1 bg-danger" />
+              </div>
+            )}
+          </div>
+        ))}
+
+        {todayIdx >= 0 && (
+          <div
+            className="pointer-events-none absolute left-2 z-4 rounded-[3px] bg-danger px-1 font-mono text-[10px] text-on-accent"
+            style={{ top: nowTop - 7 }}
+          >
+            {format(now, 'HH:mm')}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

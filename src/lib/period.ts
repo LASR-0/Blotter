@@ -10,6 +10,9 @@ import {
   type Day,
 } from 'date-fns';
 
+/** Week start (Monday). Becomes a General setting in Phase 10. */
+export const WEEK_STARTS_ON: Day = 1;
+
 export type CalendarView = 'week' | 'month' | 'year';
 export type View = 'diary' | CalendarView | 'inbox' | 'history' | 'settings';
 
@@ -47,7 +50,11 @@ export interface PeriodTitle {
 }
 
 /** Header title for a view at `anchor`, e.g. `12 – 18 October 2026` / `W42`. */
-export function periodTitle(view: View, anchor: Date, weekStartsOn: Day = 1): PeriodTitle {
+export function periodTitle(
+  view: View,
+  anchor: Date,
+  weekStartsOn: Day = WEEK_STARTS_ON,
+): PeriodTitle {
   switch (view) {
     case 'diary':
       return { title: format(anchor, 'EEEE d MMMM'), sub: `week ${getISOWeek(anchor)}` };

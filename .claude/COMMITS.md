@@ -47,8 +47,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 06 | 2 | `feat(app): tray, close-to-tray and single-instance CLI handling` | committed `de724f7` |
 | 07 | 2 | `feat(ui): shadcn/ui setup, theme tokens and built-in presets` | committed `7051ac3` (CI green) |
 | 08 | 2 | `feat(ui): app layout, routing and action/keymap registry` | committed `0fbe467` |
-| 09 | 2 | `feat(ui): command palette` | ready |
-| 10 | 3 | `feat(ui): week view time grid` | planned |
+| 09 | 2 | `feat(ui): command palette` | committed `bd6509b` |
+| 10 | 3 | `feat(ui): week view time grid` | ready |
 | 11 | 3 | `feat(ui): month and year views` | planned |
 | 12 | 3 | `feat(ui): diary view with day columns and timeline rail` | planned |
 | 13 | 3 | `feat(ui): item dialog and completion with timestamps` | planned |
@@ -544,7 +544,7 @@ Notes:
     - Diary is a single day list for now; the multi-column Diary with the time meter
       and timeline rail is #12.
 
-### #09 — Command palette and shortcut sheet            [status: ready]
+### #09 — Command palette and shortcut sheet            [status: committed bd6509b]
 Phase: 2
 Message:
     feat(ui): command palette
@@ -604,3 +604,64 @@ Notes:
     - The design's palette also lists Quick add, Daily briefing, Auto-slot, Undo,
       Snapshot and Toggle chat; they join the registry with their features (#17, #33,
       #22, #27, #28, #31). "Rebind in Settings → Keybindings" on the sheet comes with #36.
+
+### #10 — Week view time grid            [status: ready]
+Phase: 3
+Message:
+    feat(ui): week view time grid
+
+    The Week view from the design: day headers with today's accent pill, an
+    all-day lane where multi-day items span columns and stack into rows, and
+    a 24-hour grid (44px per hour, dashed half-hours) that opens at 07:00 or
+    just before now. Items are tinted by tag colour with a 3px edge, done
+    items are muted and struck through, overdue tasks show in danger red,
+    short items collapse to one line, and overlapping items share the width
+    in lanes. Weekends use the surface tone, today's column is tinted, and a
+    red now-line with a time chip tracks the current minute.
+
+    Overlap lanes and all-day rows are computed by pure, tested layout
+    functions; tag colours map known tags to theme tokens and others to a
+    stable palette pick.
+
+    Dev tooling: BLOTTER_DATA_DIR points the app at another data folder, and
+    `cargo run -p blotter-core --example seed -- <db>` fills a database with
+    a demo week through the operation layer.
+Files:
+    A  src/views/WeekView.tsx
+    A  src/lib/layout.ts
+    A  src/lib/layout.test.ts
+    A  src/lib/tags.ts
+    A  src/lib/tags.test.ts
+    A  src/lib/useNow.ts
+    M  src/lib/period.ts
+    M  src/app/AppShell.tsx
+    A  crates/blotter-core/examples/seed.rs
+    M  crates/blotter-core/Cargo.toml
+    M  src-tauri/src/lib.rs
+    M  Cargo.lock
+    M  .claude/COMMITS.md
+    Stage everything in one go:  git add -A
+Test steps:
+    - pnpm check                → clean; Vitest 39 passed (+5 layout, +3 tags)
+    - cargo test --workspace    → 62 core + 3 app passed; clippy clean
+    - Demo data on a scratch database (leaves your real data alone), in Git Bash:
+          export BLOTTER_DATA_DIR="$TEMP/blotter-demo"
+          cargo run -p blotter-core --example seed -- "$BLOTTER_DATA_DIR/blotter.db"
+          pnpm tauri dev
+      then g w:
+        · Mon–Sun headers with today's date in an accent circle; "Bin night" on Wednesday and
+          "Mum visiting" spanning Saturday–Sunday in the all-day lane
+        · Thursday 15:00 Dentist and 15:30 Parent–teacher interview sit side by side
+        · tasks before today are struck through; today's 07:15 Morning run (if past) is red
+        · a red line with a time chip marks now in today's column; Sat/Sun are slightly lighter
+        · [ and ] move by a week; the grid keeps its morning scroll position
+      (Run `unset BLOTTER_DATA_DIR` afterwards, or open a fresh terminal, to get your real data back.)
+    - Without the env var, your own items appear in the week they're scheduled.
+Notes:
+    - Verified here by screenshot against the seeded week: lanes, all-day spanning, done,
+      overdue, compact items and the now-line all render as designed.
+    - Display only in this commit: keyboard focus and moving (#14), drag and drop (#15),
+      opening items (#13), block-out shading (#21) and conflict flags (#22) come next.
+    - The grid assumes 24-hour days; on the two DST-change days an hour is drawn slightly off
+      (items still sit on the correct day). Revisit if it matters in practice.
+    - Week starts on Monday (WEEK_STARTS_ON); it becomes a setting with General in #38.

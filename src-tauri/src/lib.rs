@@ -27,13 +27,18 @@ fn system_timezone() -> Tz {
         .unwrap_or(chrono_tz::UTC)
 }
 
+/// Overrides the data directory, e.g. to try things on a scratch database.
+const DATA_DIR_ENV: &str = "BLOTTER_DATA_DIR";
+
 /// Opens (creating and migrating) the database in the OS app-data
-/// directory, e.g. `%APPDATA%\io.github.lasr0.Blotter\blotter.db`.
+/// directory, e.g. `%APPDATA%\io.github.lasr0.Blotter\blotter.db`, or in
+/// `$BLOTTER_DATA_DIR` when that is set.
 fn open_state(app: &tauri::App) -> Result<AppState, Box<dyn std::error::Error>> {
-    let db_path = app
-        .path()
-        .app_data_dir()?
-        .join(blotter_core::db::DB_FILE_NAME);
+    let data_dir = match std::env::var_os(DATA_DIR_ENV) {
+        Some(dir) if !dir.is_empty() => PathBuf::from(dir),
+        _ => app.path().app_data_dir()?,
+    };
+    let db_path = data_dir.join(blotter_core::db::DB_FILE_NAME);
     let db = Database::open(&db_path)?;
     Ok(AppState {
         planner: Mutex::new(Planner::new(db, system_timezone())),
