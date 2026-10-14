@@ -19,6 +19,8 @@ export interface ItemDraft {
   priority: number;
   tags: string[];
   notes: string;
+  /** RRULE, or '' for none. */
+  repeat: string;
   /** Existing reminders keep their id; new ones have none. */
   reminders: { id?: string; offset_min: number | null; at: string | null }[];
 }
@@ -27,6 +29,14 @@ export interface ReminderLike {
   id: string;
   offset_min: number | null;
   at: string | null;
+}
+
+/** Which occurrences of a recurring item a change applies to. */
+export type RepeatScope = 'this' | 'following' | 'all';
+
+/** Whether an item is (an occurrence of) a recurring series. */
+export function isRecurring(item: Pick<Item, 'rrule' | 'parent_id'>): boolean {
+  return Boolean(item.rrule || item.parent_id);
 }
 
 export interface OpCallSpec {
@@ -50,6 +60,7 @@ export function emptyDraft(defaults: Partial<ItemDraft> = {}): ItemDraft {
     priority: 0,
     tags: [],
     notes: '',
+    repeat: '',
     reminders: [],
     ...defaults,
   };
@@ -68,6 +79,7 @@ export function draftFromItem(item: Item, reminders: readonly ReminderLike[] = [
     priority: item.priority,
     tags: [...item.tags],
     notes: item.notes,
+    repeat: item.rrule ?? '',
     reminders: reminders.map((r) => ({ id: r.id, offset_min: r.offset_min, at: r.at })),
   };
 }
@@ -98,6 +110,7 @@ function validate(d: ItemDraft): string | null {
     return `Can't read "${d.duration}" as a duration; try 30m or 1h30.`;
   if (d.dueTime.trim() && !d.dueDate) return 'A due time needs a due date.';
   if ((d.kind === 'event' || d.kind === 'reminder') && !d.date) return `A ${d.kind} needs a date.`;
+  if (d.repeat && !d.date) return 'A repeating item needs a date to start from.';
   return null;
 }
 
@@ -112,7 +125,7 @@ const sameList = (a: readonly string[], b: readonly string[]) =>
  */
 export function buildChanges(
   draft: ItemDraft,
-  original?: { item: Item; draft: ItemDraft },
+  original?: { item: Item; draft: ItemDraft; scope?: RepeatScope },
 ): DraftResult {
   const error = validate(draft);
   if (error) return { ok: false, error };
@@ -133,6 +146,7 @@ export function buildChanges(
     if (draft.priority) args.priority = draft.priority;
     if (draft.tags.length) args.tags = draft.tags;
     if (draft.notes.trim()) args.notes = draft.notes;
+    if (draft.repeat) args.rrule = draft.repeat;
     const newReminders = draft.reminders.flatMap((r) =>
       r.offset_min !== null ? [r.offset_min] : [],
     );
@@ -150,6 +164,7 @@ export function buildChanges(
   if (!sameList(draft.tags, before.tags)) update.tags = draft.tags;
   if (draft.notes !== before.notes) update.notes = draft.notes;
   if (dueValue(draft) !== dueValue(before)) update.due = dueValue(draft);
+  if (draft.repeat !== before.repeat) update.rrule = draft.repeat || null;
 
   const beforeMinutes = before.duration ? parseDuration(before.duration) : null;
   const scheduleChanged = draft.date !== before.date || draft.time !== before.time;
@@ -170,8 +185,10 @@ export function buildChanges(
     if (durationChanged) update.duration_min = minutes;
   }
 
+  // One occurrence of a series: say which occurrences the change is for.
+  const scope = isRecurring(item) ? { scope: original.scope ?? 'this' } : {};
   if (Object.keys(update).length > 0)
-    calls.push({ name: 'update_item', args: { id: item.id, ...update } });
+    calls.push({ name: 'update_item', args: { id: item.id, ...update, ...scope } });
   if (unschedule) calls.push({ name: 'unschedule_item', args: { id: item.id } });
 
   const keptIds = new Set(draft.reminders.flatMap((r) => (r.id ? [r.id] : [])));

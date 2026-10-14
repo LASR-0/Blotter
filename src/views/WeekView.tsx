@@ -28,6 +28,7 @@ import { Kbd } from '@/components/ui/kbd';
 import { isOpError } from '@/lib/api';
 import { blockedIntervals, windowTimes } from '@/lib/availability';
 import { cn } from '@/lib/cn';
+import { isRecurring } from '@/lib/itemDraft';
 import { conflictMap, conflictText } from '@/lib/conflicts';
 import { timeOf } from '@/lib/format';
 import { moveInWeek, STEP_MIN } from '@/lib/focusNav';
@@ -155,7 +156,7 @@ function EventBlock({
             className="flex-none text-conflict"
           />
         )}
-        {item.rrule && <ArrowsClockwise size={10} className="flex-none text-text-muted" />}
+        {isRecurring(item) && <ArrowsClockwise size={10} className="flex-none text-text-muted" />}
         {pinned && (
           <PushPin
             size={10}
@@ -444,7 +445,7 @@ export function WeekView() {
                     done && 'text-text-muted line-through',
                   )}
                 >
-                  {item.rrule && <ArrowsClockwise className="flex-none text-text-muted" />}
+                  {isRecurring(item) && <ArrowsClockwise className="flex-none text-text-muted" />}
                   <span className="truncate">{item.title}</span>
                 </div>
               );

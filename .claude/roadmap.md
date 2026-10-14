@@ -477,7 +477,7 @@ Each phase states the intent, then the acceptance criteria (AC) and leads to ver
 
 ### Phase 6 — Recurrence and reminders
 
-**Progress (2026-10-14):** #24 (recurrence core: expansion, occurrence ids, this/following/all scopes, exceptions) is committed; #24a (the editing UI) is next.
+**Progress (2026-10-14):** #24 (recurrence core) and #24a (the editing UI: Repeats picker, this/following/all) are committed; #25 (reminder engine and OS notifications) is next.
 **Intent:**
 - RRULE items with occurrence editing,
 - the reminder engine,

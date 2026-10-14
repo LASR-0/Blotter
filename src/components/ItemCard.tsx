@@ -4,6 +4,7 @@ import { useFocus } from '@/app/focus';
 import { useOverlay } from '@/app/overlay';
 import { isOpError, runOp } from '@/lib/api';
 import { cn } from '@/lib/cn';
+import { isRecurring } from '@/lib/itemDraft';
 import { cardTime, timeOf } from '@/lib/format';
 import { tagColor } from '@/lib/tags';
 import type { Item } from '@/lib/types';
@@ -93,7 +94,7 @@ export function ItemCard({
                 <PushPin weight="fill" />
               </span>
             )}
-            {item.rrule && (
+            {isRecurring(item) && (
               <span title="Recurring" className="flex items-center">
                 <ArrowsClockwise />
               </span>

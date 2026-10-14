@@ -24,7 +24,15 @@ import { isOpError, runBatch, runOp } from '@/lib/api';
 import { cn } from '@/lib/cn';
 import { formatDuration } from '@/lib/duration';
 import { parseTime, timeOf } from '@/lib/format';
-import { buildChanges, draftFromItem, emptyDraft, type ItemDraft } from '@/lib/itemDraft';
+import {
+  buildChanges,
+  draftFromItem,
+  emptyDraft,
+  isRecurring,
+  type ItemDraft,
+  type RepeatScope,
+} from '@/lib/itemDraft';
+import { describeRule, presetOf, ruleFor, withEnd, type RepeatPreset } from '@/lib/repeat';
 import { useOp } from '@/lib/queries';
 import { tagColor } from '@/lib/tags';
 import type { Item, ItemKind } from '@/lib/types';
@@ -122,11 +130,18 @@ function ItemForm({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const recurring = Boolean(item && isRecurring(item));
+  // The series row itself (e.g. from search): every change applies to all of it.
+  const isSeries = Boolean(item?.rrule && !item.parent_id);
+  const asksScope = recurring && !isSeries;
+  // Overrides of one occurrence carry no rule of their own.
+  const isOverride = Boolean(item?.parent_id && !item.rrule);
+  const [scope, setScope] = useState<RepeatScope>('this');
   const set = <K extends keyof ItemDraft>(key: K, value: ItemDraft[K]) =>
     setDraft((d) => ({ ...d, [key]: value }));
 
   const save = async () => {
-    const result = buildChanges(draft, item ? { item, draft: initial } : undefined);
+    const result = buildChanges(draft, item ? { item, draft: initial, scope } : undefined);
     if (!result.ok) {
       setError(result.error);
       return;
@@ -159,7 +174,7 @@ function ItemForm({
       return;
     }
     try {
-      await runOp('delete_item', { id: item.id });
+      await runOp('delete_item', asksScope ? { id: item.id, scope } : { id: item.id });
       onDone();
     } catch (e) {
       setError(errorText(e));
@@ -186,7 +201,7 @@ function ItemForm({
         <Dialog.Title className="m-0 text-sm font-normal text-text-muted">
           {item ? 'Edit item' : 'New item'}
         </Dialog.Title>
-        {item?.rrule && (
+        {item && recurring && (
           <span className="flex items-center gap-1 rounded-full border border-border-strong px-[7px] py-px text-xs text-text-muted">
             <ArrowsClockwise />
             Recurring
@@ -409,11 +424,23 @@ function ItemForm({
           <TagEditor tags={draft.tags} onChange={(t) => set('tags', t)} />
         </Row>
 
-        {item?.rrule && (
-          <Row label="Repeats">
-            <span className="font-mono text-[10.5px] text-text-muted">{item.rrule}</span>
-          </Row>
-        )}
+        <Row label="Repeats">
+          {isOverride ? (
+            <span className="text-sm text-text-muted">
+              One occurrence of a repeating series; pick All occurrences below to change the rest.
+            </span>
+          ) : (
+            <RepeatPicker
+              rule={draft.repeat}
+              date={draft.date}
+              onChange={(rule) => {
+                set('repeat', rule);
+                // A rule belongs to the series, never to one occurrence.
+                if (asksScope && scope === 'this') setScope('all');
+              }}
+            />
+          )}
+        </Row>
 
         <Row label="Reminders">
           {draft.reminders.map((r, i) => (
@@ -487,6 +514,22 @@ function ItemForm({
         </Row>
       </div>
 
+      {asksScope && (
+        <div className="mx-[18px] mt-1 flex flex-col gap-2 rounded-md border border-border-strong bg-surface p-3">
+          <span className="text-sm font-medium">This is a recurring item. Apply changes to:</span>
+          <Segmented
+            ariaLabel="Apply changes to"
+            value={scope}
+            onChange={(v) => setScope(v as RepeatScope)}
+            options={[
+              { value: 'this', label: 'This occurrence' },
+              { value: 'following', label: 'This and following' },
+              { value: 'all', label: 'All occurrences' },
+            ]}
+          />
+        </div>
+      )}
+
       {error && (
         <p role="alert" className="mx-[18px] my-0 font-mono text-xs leading-normal text-danger">
           {error}
@@ -505,7 +548,17 @@ function ItemForm({
             onBlur={() => setConfirmDelete(false)}
           >
             <Trash />
-            {confirmDelete ? 'Click again to delete' : 'Delete'}
+            {confirmDelete
+              ? 'Click again to delete'
+              : isSeries
+                ? 'Delete series'
+                : !recurring
+                  ? 'Delete'
+                  : scope === 'this'
+                    ? 'Delete occurrence'
+                    : scope === 'following'
+                      ? 'Delete this and following'
+                      : 'Delete series'}
           </Button>
         )}
         <span className="flex-1" />
@@ -524,6 +577,68 @@ function ItemForm({
         </Button>
       </div>
     </form>
+  );
+}
+
+/** The Repeats row: preset picker, plus the raw rule (editable when custom). */
+function RepeatPicker({
+  rule,
+  date,
+  onChange,
+}: {
+  rule: string;
+  date: string;
+  onChange: (rule: string) => void;
+}) {
+  const preset = presetOf(rule, date);
+  const [custom, setCustom] = useState(preset === 'custom');
+  const day = date ? parseISO(date) : new Date();
+  const options: [RepeatPreset, string][] = [
+    ['none', 'Does not repeat'],
+    ['daily', 'Every day'],
+    ['weekdays', 'Every weekday'],
+    ['weekly', `Every week on ${format(day, 'EEEE')}`],
+    ['fortnightly', `Every 2 weeks on ${format(day, 'EEEE')}`],
+    ['monthly', `Monthly on the ${format(day, 'do')}`],
+    ['yearly', `Every year on ${format(day, 'd MMMM')}`],
+    ['custom', 'Custom rule…'],
+  ];
+  return (
+    <div className="flex min-w-0 flex-wrap items-center gap-2.5">
+      <select
+        aria-label="Repeats"
+        value={custom ? 'custom' : preset}
+        onChange={(e) => {
+          const next = e.target.value as RepeatPreset;
+          setCustom(next === 'custom');
+          if (next === 'custom') return;
+          const r = ruleFor(next, date);
+          onChange(r ? withEnd(r, rule) : '');
+        }}
+        className="h-[30px] min-w-[150px] rounded-md border border-border-strong bg-bg px-2 text-base text-text"
+      >
+        {options.map(([v, label]) => (
+          <option key={v} value={v}>
+            {label}
+          </option>
+        ))}
+      </select>
+      {custom ? (
+        <input
+          value={rule}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="FREQ=WEEKLY;BYDAY=MO,WE"
+          aria-label="Custom repeat rule"
+          className="h-[30px] min-w-0 flex-1 rounded-md border border-border-strong bg-bg px-2.5 font-mono text-sm text-text outline-none focus:border-accent"
+        />
+      ) : (
+        rule && (
+          <span title={describeRule(rule)} className="font-mono text-[10.5px] text-text-muted">
+            RRULE:{rule}
+          </span>
+        )
+      )}
+    </div>
   );
 }
 

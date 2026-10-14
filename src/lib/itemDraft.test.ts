@@ -141,3 +141,46 @@ describe('buildChanges (edit)', () => {
     });
   });
 });
+
+describe('recurring items', () => {
+  const occurrence: Item = {
+    ...gym,
+    id: 'g1@2026-10-13T06:30:00Z',
+    rrule: 'FREQ=WEEKLY;BYDAY=TU',
+    parent_id: 'g1',
+    recurrence_id: '2026-10-13T06:30:00Z',
+  };
+
+  it('sends the chosen scope with an occurrence update', () => {
+    const before = draftFromItem(occurrence);
+    const draft = { ...before, title: 'Gym (legs)' };
+    const all = buildChanges(draft, { item: occurrence, draft: before, scope: 'all' });
+    expect(all.ok && all.calls).toEqual([
+      { name: 'update_item', args: { id: occurrence.id, title: 'Gym (legs)', scope: 'all' } },
+    ]);
+    const one = buildChanges(draft, { item: occurrence, draft: before });
+    expect(one.ok && one.calls[0]?.args.scope).toBe('this');
+  });
+
+  it('changes or clears the repeat rule, and needs a date for it', () => {
+    const before = draftFromItem(gym);
+    const weekly = buildChanges(
+      { ...before, repeat: 'FREQ=WEEKLY;BYDAY=TU' },
+      { item: gym, draft: before },
+    );
+    expect(weekly.ok && weekly.calls[0]?.args).toEqual({ id: 'g1', rrule: 'FREQ=WEEKLY;BYDAY=TU' });
+    const s = draftFromItem(occurrence);
+    const cleared = buildChanges(
+      { ...s, repeat: '' },
+      { item: occurrence, draft: s, scope: 'all' },
+    );
+    expect(cleared.ok && cleared.calls[0]?.args.rrule).toBeNull();
+    const created = buildChanges({
+      ...emptyDraft({ title: 'Bins', date: '2026-10-14' }),
+      repeat: 'FREQ=WEEKLY',
+    });
+    expect(created.ok && created.create?.rrule).toBe('FREQ=WEEKLY');
+    const noDate = buildChanges({ ...emptyDraft({ title: 'X' }), repeat: 'FREQ=DAILY' });
+    expect(noDate.ok).toBe(false);
+  });
+});

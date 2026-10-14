@@ -4,7 +4,7 @@ import { deleteSelection } from '@/actions/bulkActions';
 import { useFocus } from '@/app/focus';
 import { useOverlay } from '@/app/overlay';
 import { runOp } from '@/lib/api';
-import type { OpCallSpec } from '@/lib/itemDraft';
+import { isRecurring, type OpCallSpec } from '@/lib/itemDraft';
 import type { Item } from '@/lib/types';
 
 /** Surfaces failures until toasts land; nothing is lost because the op didn't apply. */
@@ -52,9 +52,13 @@ export function deleteFocused(): void {
   fetchItem(id)
     .then((item) =>
       useOverlay.getState().ask({
-        title: `Delete "${item.title}"?`,
-        body: 'Its reminders go with it.',
-        confirmLabel: 'Delete',
+        title: isRecurring(item)
+          ? `Delete this occurrence of "${item.title}"?`
+          : `Delete "${item.title}"?`,
+        body: isRecurring(item)
+          ? 'The rest of the series stays. Open it (Enter) to delete more occurrences.'
+          : 'Its reminders go with it.',
+        confirmLabel: isRecurring(item) ? 'Delete occurrence' : 'Delete',
         danger: true,
         onConfirm: async () => {
           await runOp('delete_item', { id: item.id });

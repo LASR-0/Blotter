@@ -63,8 +63,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 21 | 5 | `feat(ui): block-out settings and calendar shading` | committed `72a0d77` |
 | 22 | 5 | `feat: inbox auto-slot and conflict warnings` | committed `8777f83` |
 | 23 | 5 | `feat: end-of-day rollover` | committed `25f3f7a` |
-| 24 | 6 | `feat(core): recurring items with occurrence exceptions` | ready (UI split out as #24a) |
-| 24a | 6 | `feat(ui): recurring item editing` | planned |
+| 24 | 6 | `feat(core): recurring items with occurrence exceptions` | committed `6ecb88a` (UI split out as #24a) |
+| 24a | 6 | `feat(ui): recurring item editing` | ready |
 | 25 | 6 | `feat(app): reminder engine and OS notifications` | planned |
 | 26 | 6 | `feat: snooze, missed-reminder catch-up and autostart setting` | planned |
 | 27 | 7 | `feat: undo/redo from change log` | planned |
@@ -1586,7 +1586,7 @@ Notes:
     - The banner lives in memory: dismissing it is final; a rollover while the app is hidden
       shows when the window next opens.
 
-### #24 — Recurring items with occurrence exceptions (core)            [status: ready]
+### #24 — Recurring items with occurrence exceptions (core)            [status: committed 6ecb88a]
 Phase: 6
 Message:
     feat(core): recurring items with occurrence exceptions
@@ -1656,3 +1656,59 @@ Notes:
       flexible tasks aren't checked against block-outs, and auto-slot and rollover skip them,
       as before.
     - Expansion is capped at 4000 occurrences per series per read.
+
+### #24a — Recurring item editing            [status: ready]
+Phase: 6
+Message:
+    feat(ui): recurring item editing
+
+    The item dialog's recurring parts, from the design (V7):
+    - A Repeats picker: Does not repeat, Every day, Every weekday, Every
+      week on <day>, Every 2 weeks on <day>, Monthly on the <nth>, Every
+      year, and Custom (edit the RRULE as text). The rule shows in mono
+      beneath. Switching presets keeps how the series ends (COUNT or
+      UNTIL). New items can repeat too.
+    - For an occurrence, "This is a recurring item. Apply changes to:"
+      This occurrence | This and following | All occurrences. Save and
+      Delete use the choice; Delete reads "Delete occurrence", "Delete
+      this and following" or "Delete series". Changing the repeat rule
+      moves the choice off "This occurrence", since a rule belongs to
+      the series.
+    - Opening the series itself (e.g. from search) edits the whole
+      series, and an override (an occurrence changed on its own) says
+      so instead of offering a rule.
+
+    Overrides keep the recurring icon on Diary cards and Week events.
+    Del on a focused occurrence asks "Delete this occurrence of …?" and
+    leaves the rest of the series.
+Files:
+    A  src/lib/repeat.ts
+    A  src/lib/repeat.test.ts
+    M  src/lib/itemDraft.ts
+    M  src/lib/itemDraft.test.ts
+    M  src/app/ItemDialog.tsx
+    M  src/actions/itemActions.ts
+    M  src/components/ItemCard.tsx
+    M  src/views/WeekView.tsx
+    M  .claude/COMMITS.md
+    M  .claude/roadmap.md
+    Stage everything in one go:  git add -A
+Test steps:
+    - pnpm check                → clean; Vitest 143 passed (+4 repeat, +2 recurring drafts)
+    - Rust unchanged since #24.
+    - pnpm tauri dev (demo DB):
+        · n, "gym session every weekday 6pm ~45m @fixed", Enter; g w → it repeats on weekdays
+        · double-click one → Recurring badge, Repeats "Every weekday" with
+          RRULE:FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR, the Apply-changes-to bar, "Delete occurrence"
+        · All occurrences, Time 18:30, Ctrl+Enter → every occurrence moves to 18:30
+        · open Friday's, This occurrence, Time 19:30, Save → only Friday moves (still shows ↻)
+        · open Thursday's, This and following, title "gym (heavy)", Save → Thursday on renamed
+        · focus one, Del → "Delete this occurrence of …?" → Enter → only that one disappears
+        · New item, date set, Repeats "Every week on …" → Save → it repeats
+Notes:
+    - Verified here, live: the dialog (screenshot) and an "All occurrences" time change moving
+      Thursday's and Friday's sessions to 18:30. The rest are covered by the core tests (#24)
+      and the draft tests.
+    - Drags and Shift+arrow moves change only the occurrence you move (no prompt), as in
+      #24. A prompt on drag could come later if it's missed.
+    - The picker offers common rules only; anything else is Custom (RRULE text).
