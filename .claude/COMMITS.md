@@ -61,8 +61,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 20 | 5 | `feat(core): slot engine with fixed/flexible rules` | committed `73370bb` |
 | 20a | 5 | `fix(ui): give quick-add errors their own row` | committed `5f7e140` |
 | 21 | 5 | `feat(ui): block-out settings and calendar shading` | committed `72a0d77` |
-| 22 | 5 | `feat: inbox auto-slot and conflict warnings` | ready |
-| 23 | 5 | `feat: end-of-day rollover` | planned |
+| 22 | 5 | `feat: inbox auto-slot and conflict warnings` | committed `8777f83` |
+| 23 | 5 | `feat: end-of-day rollover` | ready |
 | 24 | 6 | `feat(core): recurring items with occurrence exceptions` | planned |
 | 25 | 6 | `feat(app): reminder engine and OS notifications` | planned |
 | 26 | 6 | `feat: snooze, missed-reminder catch-up and autostart setting` | planned |
@@ -1435,7 +1435,7 @@ Notes:
     - Planning hours for the day meter are still the frontend constant (core setting since #20;
       UI in #38).
 
-### #22 — Inbox auto-slot and conflict warnings            [status: ready]
+### #22 — Inbox auto-slot and conflict warnings            [status: committed 8777f83]
 Phase: 5
 Message:
     feat: inbox auto-slot and conflict warnings
@@ -1517,3 +1517,70 @@ Notes:
     - My test script's first attempt at the palette missed and typed "auto-slot inbox" as
       shortcuts, which made a stray "box" task in the demo DB. That's a harness timing
       issue, not an app bug: Ctrl+K works when sent on its own.
+
+### #23 — End-of-day rollover            [status: ready]
+Phase: 5
+Message:
+    feat: end-of-day rollover
+
+    Core: a rollover op (roadmap §4.5) moves open, flexible tasks left on
+    earlier days, timed or day-only. In inbox mode (the default) they go
+    back to the Inbox. In reslot mode they get the next free slots
+    through the same placement as auto_slot; whatever doesn't fit goes
+    to the Inbox with the reason. Fixed items, events and recurring
+    tasks never move, and tasks that are only past their deadline stay
+    where they are. It's one change-log batch, and a second run does
+    nothing.
+
+    Planner::rollover_if_due runs it as the system actor once per local
+    day, after the rollover time (default 04:00, so tasks worked on past
+    midnight aren't swept away), and records the date. New settings:
+    rollover_mode, rollover_time, last_rollover_date. auto_slot's
+    placement loop is now a shared place() used by both.
+
+    App: a background thread checks at startup and every minute, so the
+    rollover happens on the first launch of a day or while Blotter sits
+    in the tray. When something moved, it refreshes every window and
+    holds a notice until the UI takes it.
+
+    UI: a banner says what moved ("1 unfinished task from earlier days
+    went back to the Inbox: Renew car registration") with Open Inbox and
+    dismiss. The palette's "Roll over unfinished tasks now" runs it on
+    demand.
+Files:
+    A  crates/blotter-core/src/ops/rollover.rs
+    A  src-tauri/src/rollover.rs
+    A  src/app/RolloverBanner.tsx
+    A  src/app/rollover.ts
+    M  crates/blotter-core/src/ops/mod.rs
+    M  crates/blotter-core/src/ops/slots.rs        (place() shared with rollover)
+    M  crates/blotter-core/src/planner.rs          (rollover_if_due)
+    M  crates/blotter-core/src/settings.rs
+    M  src-tauri/src/lib.rs
+    M  src/actions/actions.ts
+    M  src/app/AppShell.tsx
+    M  .claude/COMMITS.md
+    M  .claude/roadmap.md
+    Stage everything in one go:  git add -A
+Test steps:
+    - cargo test --workspace    → 96 core (+3 rollover op, +1 once-a-day gate) + 6 app passed
+    - cargo clippy --workspace --all-targets -- -D warnings → clean; cargo fmt --check → clean
+    - pnpm check                → clean; Vitest 137 passed
+    - Reseed the demo DB and pnpm tauri dev (after 04:00):
+        · on launch a banner at the bottom: "1 unfinished task from earlier days went back to
+          the Inbox: Renew car registration." The Inbox shows it; Open Inbox goes there; × dismisses
+        · Ctrl+K "roll over" → "Nothing to roll over: no unfinished tasks on earlier days."
+        · quit and relaunch the same day → no banner (it already ran today)
+    - Reslot mode, until General settings (#38) has a control: set the setting by hand in
+      DB Browser (settings: key rollover_mode, value "reslot") and relaunch the next day, or
+      run the op from the palette after changing it.
+Notes:
+    - Verified here, live: the startup rollover and its banner on a fresh demo DB (screenshot),
+      and the palette's manual run. Reslot mode, the 04:00 gate and once-a-day are covered by
+      the core tests.
+    - Decisions: inbox is the default mode (it never puts things somewhere you didn't choose);
+      04:00 is the default rollover time. Both get controls with General settings in #38.
+    - Behaviour change from #12: since unfinished flexible tasks now leave past days, the
+      Diary's Overdue section mostly shows fixed items and tasks past their deadline.
+    - The banner lives in memory: dismissing it is final; a rollover while the app is hidden
+      shows when the window next opens.

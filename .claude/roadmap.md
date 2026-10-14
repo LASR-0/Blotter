@@ -472,7 +472,8 @@ Each phase states the intent, then the acceptance criteria (AC) and leads to ver
 - #20 (the slot engine, `find_free_slots`, planning hours and buffer settings, and enforcement on every path that a flexible task never lands in a block-out) is committed.
 - #21 (block-out settings page, `b l` lifting, and calendar shading from core windows) is committed.
 - #22 (`auto_slot` with a result panel, plus conflict flags in the agenda, Week and Diary) is committed.
-- #23 (end-of-day rollover) is next; it completes Phase 5.
+- #23 (end-of-day rollover: inbox or reslot mode, once a day after 04:00, startup and tray timer, banner) is committed. **Phase 5 is complete.**
+- Next: Phase 6, #24 (recurring items with occurrence exceptions).
 
 ### Phase 6 — Recurrence and reminders
 **Intent:**

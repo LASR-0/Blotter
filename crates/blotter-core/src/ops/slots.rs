@@ -218,7 +218,6 @@ fn auto_slot(ctx: &mut Ctx<'_>, a: AutoSlotArgs) -> Result<AutoSlotResult> {
         longest_gap: gap,
     };
 
-    let mut placed = Vec::new();
     let mut unplaced = Vec::new();
     let mut tasks = Vec::new();
     for item in candidates {
@@ -227,6 +226,42 @@ fn auto_slot(ctx: &mut Ctx<'_>, a: AutoSlotArgs) -> Result<AutoSlotResult> {
             None => tasks.push(item),
         }
     }
+    let (placed, missed) = place(ctx, tasks, from, until, false)?;
+    unplaced.extend(missed.into_iter().map(|(_, u)| u));
+    Ok(AutoSlotResult {
+        timezone: tz.name().to_owned(),
+        placed,
+        unplaced,
+    })
+}
+
+/// What [`place`] returns: the placed tasks, and the rest (as stored) with why.
+pub(crate) type Placement = (Vec<PlacedTask>, Vec<(Item, UnplacedTask)>);
+
+/// Places `tasks` (as stored) with the slot engine, in auto-slot order. Each
+/// placed task is written and change-logged, and blocks the next. Returns the
+/// placed tasks and, for the rest, the stored item with the reason. With
+/// `rollover`, a day-only task isn't held to its (past) day and unplaced
+/// tasks are described as going back to the Inbox.
+pub(crate) fn place(
+    ctx: &mut Ctx<'_>,
+    mut tasks: Vec<Item>,
+    from: Instant,
+    until: Instant,
+    rollover: bool,
+) -> Result<Placement> {
+    let tz = ctx.settings.tz;
+    let default_min = ctx.settings.default_task_duration_min;
+    let unplaced_entry = |item: &Item, reason: String, gap: Option<Gap>| UnplacedTask {
+        id: item.id.clone(),
+        title: item.title.clone(),
+        duration_min: item.duration_min.unwrap_or(default_min),
+        due_at: item.due_at,
+        reason,
+        longest_gap: gap,
+    };
+    let mut placed = Vec::new();
+    let mut unplaced = Vec::new();
     // Due date (none last), then priority, then longest first.
     tasks.sort_by_key(|i| {
         (
@@ -250,7 +285,7 @@ fn auto_slot(ctx: &mut Ctx<'_>, a: AutoSlotArgs) -> Result<AutoSlotResult> {
         let duration = Duration::minutes(minutes);
         let (mut lo, mut hi) = (from, until);
         let mut limit = format!("in the next {} days", (until - from).num_days().max(1));
-        if let Some(day) = item.start_date {
+        if let Some(day) = item.start_date.filter(|_| !rollover) {
             let day_start = start_of_day(tz, day);
             let day_end = day
                 .succ_opt()
@@ -266,7 +301,9 @@ fn auto_slot(ctx: &mut Ctx<'_>, a: AutoSlotArgs) -> Result<AutoSlotResult> {
                 limit = format!("before its due date ({} {})", fmt_day(due), fmt_time(due));
             }
         }
-        let stays = if item.is_inbox() {
+        let stays = if rollover {
+            "It goes back to the Inbox."
+        } else if item.is_inbox() {
             "It stays in the Inbox."
         } else {
             "It stays where it was."
@@ -279,7 +316,7 @@ fn auto_slot(ctx: &mut Ctx<'_>, a: AutoSlotArgs) -> Result<AutoSlotResult> {
             } else {
                 format!("Nothing to search {limit}. {stays}")
             };
-            unplaced.push(unplaced_entry(&item, reason, None));
+            unplaced.push((item.clone(), unplaced_entry(&item, reason, None)));
             continue;
         }
 
@@ -314,7 +351,7 @@ fn auto_slot(ctx: &mut Ctx<'_>, a: AutoSlotArgs) -> Result<AutoSlotResult> {
                 "No free {} slot {limit}.{longest} {stays}",
                 minutes_text(minutes)
             );
-            unplaced.push(unplaced_entry(&item, reason, gap));
+            unplaced.push((item.clone(), unplaced_entry(&item, reason, gap)));
             continue;
         };
 
@@ -338,12 +375,7 @@ fn auto_slot(ctx: &mut Ctx<'_>, a: AutoSlotArgs) -> Result<AutoSlotResult> {
             item,
         });
     }
-
-    Ok(AutoSlotResult {
-        timezone: tz.name().to_owned(),
-        placed,
-        unplaced,
-    })
+    Ok((placed, unplaced))
 }
 
 /// Time taken by open, timed items overlapping `[from, to)`, except `exclude`.

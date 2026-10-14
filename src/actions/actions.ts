@@ -1,5 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import {
+  ArrowBendDownRight,
   ArrowDown,
   ArrowLeft,
   ArrowRight,
@@ -36,6 +37,7 @@ import {
 } from '@phosphor-icons/react';
 import { deleteFocused, openFocused, toggleFocused } from '@/actions/itemActions';
 import { runAutoSlot } from '@/app/autoSlot';
+import { rolloverNow } from '@/app/rollover';
 import { useFocus } from '@/app/focus';
 import { useNav } from '@/app/nav';
 import { useSelection, type BulkEditor } from '@/app/selection';
@@ -269,6 +271,14 @@ export function buildActions(): Action[] {
         const ids = selected.length ? selected : focused ? [focused] : [];
         if (ids.length) void runAutoSlot(ids);
       },
+    },
+    {
+      id: 'rollover.now',
+      label: 'Roll over unfinished tasks now',
+      group: 'Actions',
+      icon: ArrowBendDownRight,
+      keywords: ['rollover', 'yesterday', 'overdue', 'unfinished', 'end of day'],
+      run: () => void rolloverNow(),
     },
     {
       id: 'inbox.autoslot',

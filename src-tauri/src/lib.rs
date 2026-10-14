@@ -4,6 +4,7 @@
 mod capture;
 mod cli;
 mod commands;
+mod rollover;
 mod shell;
 
 use std::path::PathBuf;
@@ -85,6 +86,8 @@ pub fn run() {
             let shortcut = capture::register_shortcut(app.handle());
             app.manage(shortcut);
             capture::prepare(app.handle());
+            app.manage(rollover::RolloverNotice::default());
+            rollover::start(app.handle().clone());
             // The main window starts hidden (tauri.conf.json) so `--hidden`
             // launches never flash it.
             shell::handle_launch(app.handle(), &launch);
@@ -104,6 +107,7 @@ pub fn run() {
             capture::hide_capture,
             capture::fit_capture,
             capture::capture_shortcut_status,
+            rollover::take_rollover_notice,
         ])
         .run(tauri::generate_context!());
 

@@ -1,6 +1,7 @@
 //! The facade every consumer (UI, AI loop, MCP server) holds: a database,
 //! the operation registry and a clock.
 
+use chrono::{NaiveDate, NaiveTime};
 use chrono_tz::Tz;
 use serde_json::Value;
 
@@ -8,8 +9,15 @@ use crate::db::Database;
 use crate::error::Result;
 use crate::model::Actor;
 use crate::ops::{self, OpCall, OpOutcome, Registry};
-use crate::settings::PlannerSettings;
-use crate::time::{Clock, SystemClock};
+use crate::settings::{KEY_LAST_ROLLOVER, KEY_ROLLOVER_TIME, PlannerSettings};
+use crate::store;
+use crate::time::{self, Clock, SystemClock};
+
+/// When the day's rollover may run unless the user sets another time.
+const DEFAULT_ROLLOVER_TIME: NaiveTime = match NaiveTime::from_hms_opt(4, 0, 0) {
+    Some(t) => t,
+    None => NaiveTime::MIN,
+};
 
 pub struct Planner {
     db: Database,
@@ -60,6 +68,37 @@ impl Planner {
             other => other,
         };
         Ok(outcome)
+    }
+
+    /// Runs the day's automatic rollover (roadmap §4.5) as the system actor,
+    /// once per local day and only after the rollover time (default 04:00),
+    /// so tasks worked on past midnight aren't swept away. Returns the
+    /// outcome when it ran, even if nothing needed moving.
+    pub fn rollover_if_due(&mut self) -> Result<Option<OpOutcome>> {
+        let settings = self.settings()?;
+        let now = self.clock.now();
+        let local = now.with_timezone(&settings.tz);
+        let today = local.date_naive();
+        let conn = self.db.conn();
+        let last = store::settings::get::<String>(conn, KEY_LAST_ROLLOVER)?
+            .and_then(|s| s.parse::<NaiveDate>().ok());
+        if last.is_some_and(|d| d >= today) {
+            return Ok(None);
+        }
+        let at = store::settings::get::<String>(conn, KEY_ROLLOVER_TIME)?
+            .and_then(|s| NaiveTime::parse_from_str(&s, "%H:%M").ok())
+            .unwrap_or(DEFAULT_ROLLOVER_TIME);
+        if local.time() < at {
+            return Ok(None);
+        }
+        let outcome = self.execute("rollover", Value::Null, &Actor::System)?;
+        store::settings::set(
+            self.db.conn(),
+            KEY_LAST_ROLLOVER,
+            &time::fmt_date(today),
+            now,
+        )?;
+        Ok(Some(outcome))
     }
 
     /// Runs several operations as one atomic batch sharing one batch id, so
@@ -151,6 +190,28 @@ pub(crate) mod tests {
         ] {
             assert!(names.contains(&expected), "missing {expected}");
         }
+    }
+
+    #[test]
+    fn rollover_runs_once_a_day_after_its_time() {
+        let mut p = planner();
+        p.execute(
+            "create_item",
+            json!({ "title": "Left yesterday", "start": "2026-10-13T19:00" }),
+            &Actor::User,
+        )
+        .unwrap();
+
+        // 09:00 is before a 10:00 rollover time: nothing yet.
+        store::settings::set(p.db().conn(), KEY_ROLLOVER_TIME, &"10:00", now()).unwrap();
+        assert!(p.rollover_if_due().unwrap().is_none());
+
+        // With the default 04:00 it runs, as the system, and only once today.
+        store::settings::set(p.db().conn(), KEY_ROLLOVER_TIME, &"04:00", now()).unwrap();
+        let ran = p.rollover_if_due().unwrap().expect("runs");
+        assert_eq!(ran.result["to_inbox"][0]["title"], "Left yesterday");
+        assert!(ran.changes.iter().all(|c| c.actor == Actor::System));
+        assert!(p.rollover_if_due().unwrap().is_none(), "once a day");
     }
 
     #[test]

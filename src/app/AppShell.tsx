@@ -19,6 +19,7 @@ import { useSelection } from './selection';
 import { ItemDialog } from './ItemDialog';
 import { LiftDialog } from './LiftDialog';
 import { AutoSlotPanel } from './AutoSlotPanel';
+import { RolloverBanner } from './RolloverBanner';
 import { QuickAddDialog } from './QuickAddDialog';
 import { SIDEBAR_AUTO_COLLAPSE_PX, useNav } from './nav';
 import { useOverlay } from './overlay';
@@ -85,6 +86,7 @@ export function AppShell() {
       <ConfirmDialog />
       <LiftDialog />
       <AutoSlotPanel />
+      <RolloverBanner />
       <DragLayer windows={windows} />
     </div>
   );

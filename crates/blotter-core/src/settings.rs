@@ -13,6 +13,12 @@ pub const KEY_DEFAULT_TASK_DURATION: &str = "default_task_duration_min";
 pub const KEY_DEFAULT_EVENT_DURATION: &str = "default_event_duration_min";
 pub const KEY_PLANNING_HOURS: &str = "planning_hours";
 pub const KEY_SLOT_BUFFER: &str = "slot_buffer_min";
+/// `"inbox"` (default) or `"reslot"`: where unfinished tasks from earlier days go.
+pub const KEY_ROLLOVER_MODE: &str = "rollover_mode";
+/// Local `HH:MM` after which the day's rollover may run (default 04:00).
+pub const KEY_ROLLOVER_TIME: &str = "rollover_time";
+/// The local date the last automatic rollover ran on.
+pub const KEY_LAST_ROLLOVER: &str = "last_rollover_date";
 
 #[derive(Debug, Clone)]
 pub struct PlannerSettings {
