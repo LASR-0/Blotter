@@ -3,12 +3,14 @@ import {
   CalendarCheck,
   CalendarPlus,
   Flag,
+  MagicWand,
   Timer,
   Trash,
   X,
   type Icon,
 } from '@phosphor-icons/react';
 import { deleteSelection, updateSelection } from '@/actions/bulkActions';
+import { runAutoSlot } from '@/app/autoSlot';
 import { useSelection, type BulkEditor } from '@/app/selection';
 import { Button } from '@/components/ui/button';
 import { Kbd } from '@/components/ui/kbd';
@@ -220,6 +222,15 @@ export function BulkBar() {
     >
       <span className="px-2.5 font-medium">{count} selected</span>
       <span className="h-5 w-px bg-border" />
+      <Button
+        variant="primary"
+        size="sm"
+        title="Auto-slot selected (s)"
+        onClick={() => void runAutoSlot([...useSelection.getState().ids])}
+      >
+        <MagicWand />
+        Auto-slot <Kbd onAccent>s</Kbd>
+      </Button>
       <Editor editor="schedule" icon={CalendarPlus} label="Schedule…" keyHint="d">
         <ScheduleForm />
       </Editor>

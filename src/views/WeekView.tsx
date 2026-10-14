@@ -16,7 +16,7 @@ import {
   parseISO,
   startOfWeek,
 } from 'date-fns';
-import { ArrowsClockwise, PushPin } from '@phosphor-icons/react';
+import { ArrowsClockwise, PushPin, Warning } from '@phosphor-icons/react';
 import { withFocusedItem } from '@/actions/itemActions';
 import { startPointerDrag, useDrag } from '@/app/drag';
 import { useFocus, useScrollFocusIntoView, useViewController } from '@/app/focus';
@@ -28,6 +28,7 @@ import { Kbd } from '@/components/ui/kbd';
 import { isOpError } from '@/lib/api';
 import { blockedIntervals, windowTimes } from '@/lib/availability';
 import { cn } from '@/lib/cn';
+import { conflictMap, conflictText } from '@/lib/conflicts';
 import { timeOf } from '@/lib/format';
 import { moveInWeek, STEP_MIN } from '@/lib/focusNav';
 import { moveByDays, moveByMinutes, resizeByMinutes } from '@/lib/itemMoves';
@@ -76,6 +77,7 @@ function EventBlock({
   now,
   focused,
   pinned,
+  conflict,
   onSelect,
 }: {
   item: Item;
@@ -84,6 +86,8 @@ function EventBlock({
   focused: boolean;
   /** A fixed item sitting inside a block-out. */
   pinned: boolean;
+  /** What the item conflicts with, if anything (e.g. "overlaps Dentist"). */
+  conflict: string | null;
   onSelect: (id: string) => void;
 }) {
   const done = item.status === 'done';
@@ -100,13 +104,15 @@ function EventBlock({
     left: `calc(${(placed.lane / placed.lanes) * 100}% + ${placed.lane === 0 ? 3 : 1}px)`,
     width: `calc(${100 / placed.lanes}% - ${placed.lanes > 1 ? 4 : 6}px)`,
     background: `color-mix(in srgb, ${color} ${done ? 7 : 17}%, var(--color-bg))`,
-    borderLeft: `3px solid ${color}`,
+    ...(conflict
+      ? { border: '1px solid var(--color-conflict)', borderLeft: '3px solid var(--color-conflict)' }
+      : { borderLeft: `3px solid ${color}` }),
     lineHeight: compact ? `${height - 2}px` : 1.3,
   };
 
   return (
     <div
-      title={`${item.title}${range ? ` · ${range}` : ''}`}
+      title={`${item.title}${range ? ` · ${range}` : ''}${conflict ? ` · conflict: ${conflict}` : ''}`}
       data-focus-id={item.id}
       aria-selected={focused}
       onClick={(e) => {
@@ -141,6 +147,14 @@ function EventBlock({
         >
           {item.title}
         </span>
+        {conflict && (
+          <Warning
+            size={11}
+            weight="fill"
+            aria-label={`Conflict: ${conflict}`}
+            className="flex-none text-conflict"
+          />
+        )}
         {item.rrule && <ArrowsClockwise size={10} className="flex-none text-text-muted" />}
         {pinned && (
           <PushPin
@@ -191,6 +205,8 @@ export function WeekView() {
   const items = useMemo(() => agenda.data?.items ?? [], [agenda.data]);
   const windows = useBlockoutWindows();
   const byId = useMemo(() => new Map(items.map((i) => [i.id, i])), [items]);
+  const conflicts = useMemo(() => conflictMap(agenda.data?.conflicts), [agenda.data]);
+  const titleOf = (id: string) => byId.get(id)?.title;
 
   const allDay = useMemo(
     () =>
@@ -501,6 +517,7 @@ export function WeekView() {
                     placed={p}
                     now={now}
                     focused={mode === 'item' && focusedId === p.id}
+                    conflict={conflictText(conflicts.get(p.id), titleOf)}
                     pinned={
                       item.anchoring === 'fixed' &&
                       blocks.some((b) => p.start < b.end && p.end > b.start)

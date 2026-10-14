@@ -60,8 +60,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 19 | 5 | `feat(core): block-out windows with exceptions` | committed `0ae5626` |
 | 20 | 5 | `feat(core): slot engine with fixed/flexible rules` | committed `73370bb` |
 | 20a | 5 | `fix(ui): give quick-add errors their own row` | committed `5f7e140` |
-| 21 | 5 | `feat(ui): block-out settings and calendar shading` | ready |
-| 22 | 5 | `feat: inbox auto-slot and conflict warnings` | planned |
+| 21 | 5 | `feat(ui): block-out settings and calendar shading` | committed `72a0d77` |
+| 22 | 5 | `feat: inbox auto-slot and conflict warnings` | ready |
 | 23 | 5 | `feat: end-of-day rollover` | planned |
 | 24 | 6 | `feat(core): recurring items with occurrence exceptions` | planned |
 | 25 | 6 | `feat(app): reminder engine and OS notifications` | planned |
@@ -1346,7 +1346,7 @@ Notes:
     - Verified here by screenshot. Applies to the quick-capture popup too, which uses the same panel.
     - Numbered 20a so the planned sequence keeps its numbers.
 
-### #21 — Block-out settings and calendar shading            [status: ready]
+### #21 — Block-out settings and calendar shading            [status: committed 72a0d77]
 Phase: 5
 Message:
     feat(ui): block-out settings and calendar shading
@@ -1434,3 +1434,86 @@ Notes:
       theme's block-out hatch, as in the design.
     - Planning hours for the day meter are still the frontend constant (core setting since #20;
       UI in #38).
+
+### #22 — Inbox auto-slot and conflict warnings            [status: ready]
+Phase: 5
+Message:
+    feat: inbox auto-slot and conflict warnings
+
+    Core: auto_slot(ids? | Inbox, from?, until?) places flexible tasks
+    with the slot engine. It orders them by due date, then priority, then
+    longest first, and puts each in the earliest free slot before its due
+    date, within planning hours and outside block-outs and busy time.
+    A day-only task stays on its day. Each placed task also blocks the
+    next. The whole run is one change-log batch. Nothing is dropped: each
+    task that can't be placed comes back with a readable reason and the
+    longest free gap, e.g. "No free 3h slot before its due date (Wed 14
+    Oct 18:00). The longest free gap is 1h, Wed 14 Oct 17:00–18:00. It
+    stays in the Inbox." Events, fixed, done, recurring and multi-day
+    tasks are reported as not eligible.
+
+    Conflicts (roadmap §4.5 rule 3): list_agenda and get_day_summary now
+    return, per item, the open timed items it overlaps, and the
+    block-out it sits in when that block-out warns about fixed items
+    (permits_fixed off, e.g. Sleep). Overlaps are allowed, only flagged.
+
+    UI: s auto-slots the Inbox selection or the focused task. The Inbox
+    bulk bar gets a primary Auto-slot button, and the Diary's Inbox rail
+    and the palette ("Auto-slot Inbox") do the whole Inbox. The result
+    panel (design V3) lists what was placed ("Inbox → Thu 15 Oct
+    17:00–17:30") and, for each task it couldn't place, the reason,
+    with Move due date and Shorten to <longest gap> buttons; shortening
+    re-runs that task in place. Week events with a conflict get the
+    conflict border and a warning icon (tooltip says what they overlap).
+    Diary cards get the border and an "Overlaps Dentist" line.
+Files:
+    A  src/app/AutoSlotPanel.tsx
+    A  src/app/autoSlot.ts
+    A  src/lib/conflicts.ts
+    A  src/lib/conflicts.test.ts
+    M  crates/blotter-core/src/slots.rs           (overlapping())
+    M  crates/blotter-core/src/ops/slots.rs       (auto_slot, conflicts, shared search window)
+    M  crates/blotter-core/src/ops/reads.rs       (agenda and day summary carry conflicts)
+    M  src/actions/actions.ts
+    M  src/app/AppShell.tsx
+    M  src/components/ItemCard.tsx
+    M  src/lib/types.ts
+    M  src/views/WeekView.tsx
+    M  src/views/diary/DayColumn.tsx
+    M  src/views/diary/DiaryView.tsx
+    M  src/views/diary/InboxRail.tsx
+    M  src/views/inbox/BulkBar.tsx
+    M  .claude/COMMITS.md
+    M  .claude/roadmap.md
+    Stage everything in one go:  git add -A
+Test steps:
+    - cargo test --workspace    → 92 core (+1 overlap, +4 auto-slot/conflict ops) + 6 app passed
+    - cargo clippy --workspace --all-targets -- -D warnings → clean; cargo fmt --check → clean
+    - pnpm check                → clean; Vitest 137 passed (+3 conflict text)
+    - pnpm tauri dev (fresh demo DB):
+        · g w → Dentist and Parent–teacher interview (Thu) have the orange conflict border
+          and a ⚠; hover → "· conflict: Overlaps …"
+        · g d, ] → Thursday's two cards say "⚠ Overlaps Parent–teacher interview" /
+          "⚠ Overlaps Dentist"
+        · Ctrl+K "auto-slot inbox" → side panel "7 placed …" (or 6 on a fresh seed), each
+          "Inbox → Thu 15 Oct …"; none inside Work; the first one after Thursday's Morning
+          run; Inbox shows Inbox zero; Esc or Done closes
+        · i, add "Sort receipts ~3h due tomorrow 18:00", select it (Space), s → it's listed
+          under Couldn't place with the reason and "Shorten to …"; click Shorten → it moves
+          to Placed
+Notes:
+    - Verified here: the core rules by test (ordering, due-date bound, day-only tasks, one
+      batch, unplaceable reasons, overlap and Sleep conflicts), and live by screenshot: Week
+      and Diary conflict styling, and auto-slotting the whole Inbox from the palette.
+      Also live: a 3h task due Thu 18:00 got the Couldn't place card ("… The longest free gap
+      is 15m, Thu 15 Oct 08:15–08:30 …"), and Shorten to 15m re-ran it into Placed (Thu 07:00).
+    - When several gaps tie for longest, the reason names the later one; placement still takes
+      the earliest fit.
+    - No "Undo batch" button in the panel yet: undo arrives in #27, and the run is already
+      one batch, so it will undo in one step. "Ask AI" waits for the chat (#31).
+    - Auto-slot searches 14 days ahead by default; planning hours are still the 07:00–22:00
+      default until General settings (#38).
+    - Month chips don't show conflicts (the design doesn't either).
+    - My test script's first attempt at the palette missed and typed "auto-slot inbox" as
+      shortcuts, which made a stray "box" task in the demo DB. That's a harness timing
+      issue, not an app bug: Ctrl+K works when sent on its own.

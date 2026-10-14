@@ -3,9 +3,11 @@ import {
   CaretDoubleLeft,
   CaretDoubleRight,
   DotsSixVertical,
+  MagicWand,
   Plus,
   Tray,
 } from '@phosphor-icons/react';
+import { runAutoSlot } from '@/app/autoSlot';
 import { useNav } from '@/app/nav';
 import { startPointerDrag, useDrag } from '@/app/drag';
 import { useOverlay } from '@/app/overlay';
@@ -66,6 +68,18 @@ export function InboxRail() {
         <span className="font-semibold">Inbox</span>
         <span className="font-mono text-xs text-text-muted">{items.length}</span>
         <span className="flex-1" />
+        {items.length > 0 && (
+          <Tooltip label="Auto-slot Inbox">
+            <button
+              type="button"
+              onClick={() => void runAutoSlot()}
+              aria-label="Auto-slot Inbox"
+              className="grid size-6 cursor-pointer place-items-center rounded-sm text-accent-text hover:bg-hover"
+            >
+              <MagicWand />
+            </button>
+          </Tooltip>
+        )}
         <Tooltip label="Hide Inbox">
           <button
             type="button"

@@ -1,4 +1,4 @@
-import { ArrowsClockwise, Check, PushPin } from '@phosphor-icons/react';
+import { ArrowsClockwise, Check, PushPin, Warning } from '@phosphor-icons/react';
 import { startPointerDrag, useDrag } from '@/app/drag';
 import { useFocus } from '@/app/focus';
 import { useOverlay } from '@/app/overlay';
@@ -16,11 +16,14 @@ export function ItemCard({
   item,
   large,
   overdue,
+  conflict,
   onError,
 }: {
   item: Item;
   large?: boolean;
   overdue?: boolean;
+  /** A conflict line such as "Overlaps Dentist", shown in the conflict colour. */
+  conflict?: string | null;
   onError?: (message: string) => void;
 }) {
   const done = item.status === 'done';
@@ -49,7 +52,9 @@ export function ItemCard({
         dragged && 'border-dashed border-border-strong opacity-45',
         done
           ? 'border-border bg-transparent'
-          : 'border-border bg-surface hover:border-border-strong',
+          : conflict
+            ? 'border-conflict bg-surface shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--color-conflict)_25%,transparent)]'
+            : 'border-border bg-surface hover:border-border-strong',
       )}
     >
       <div className="flex items-start gap-2.5">
@@ -100,6 +105,12 @@ export function ItemCard({
               </span>
             ))}
           </div>
+          {conflict && !done && (
+            <span className="flex items-center gap-[5px] text-[11px] text-conflict">
+              <Warning weight="fill" />
+              {conflict}
+            </span>
+          )}
           {done && item.completed_at && (
             <span className="font-mono text-[10.5px] text-text-muted">
               ✓ {timeOf(item.completed_at)}

@@ -5,6 +5,8 @@
 //! (scheduled items, padded by a buffer on both sides). Fixed items aren't
 //! placed by the engine; they go exactly where they're put.
 
+use std::collections::BTreeMap;
+
 use chrono::{Datelike, Duration, NaiveTime, Weekday};
 use chrono_tz::Tz;
 use serde::{Deserialize, Serialize};
@@ -172,6 +174,24 @@ impl SlotEngine<'_> {
         }
         merged
     }
+}
+
+/// For each id in `items` (id, start, end) that overlaps another, the ids
+/// it overlaps, in time order. Touching ends don't overlap.
+pub fn overlapping(items: &[(String, Instant, Instant)]) -> BTreeMap<String, Vec<String>> {
+    let mut sorted: Vec<&(String, Instant, Instant)> = items.iter().collect();
+    sorted.sort_by_key(|(_, s, _)| *s);
+    let mut out: BTreeMap<String, Vec<String>> = BTreeMap::new();
+    for (i, (a, _, a_end)) in sorted.iter().enumerate() {
+        for (b, b_start, _) in sorted.iter().skip(i + 1) {
+            if b_start >= a_end {
+                break;
+            }
+            out.entry(a.clone()).or_default().push(b.clone());
+            out.entry(b.clone()).or_default().push(a.clone());
+        }
+    }
+    out
 }
 
 /// Appends the parts of `open` not covered by `blocked` (sorted, merged).
@@ -388,6 +408,22 @@ mod tests {
                 (mel(2026, 10, 14, 14, 0), mel(2026, 10, 14, 22, 0)),
             ]
         );
+    }
+
+    #[test]
+    fn overlaps_are_reported_both_ways() {
+        let t = |h, m| mel(2026, 10, 15, h, m);
+        let items = vec![
+            ("dentist".to_owned(), t(15, 0), t(15, 45)),
+            ("pt".to_owned(), t(15, 30), t(15, 50)),
+            ("call".to_owned(), t(15, 45), t(16, 0)),
+            ("run".to_owned(), t(7, 0), t(7, 30)),
+        ];
+        let o = overlapping(&items);
+        assert_eq!(o["dentist"], ["pt"]);
+        assert_eq!(o["pt"], ["dentist", "call"]);
+        assert_eq!(o["call"], ["pt"], "touching Dentist's end is fine");
+        assert!(!o.contains_key("run"));
     }
 
     #[test]

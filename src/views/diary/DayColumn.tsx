@@ -19,6 +19,8 @@ export interface DayColumnProps {
   plannedMin: number;
   availableMin: number;
   loading: boolean;
+  /** The conflict line for an item, if it has one. */
+  conflictOf: (id: string) => string | null;
 }
 
 /** Design: "Insert line between cards" — 2px accent line with an end dot. */
@@ -99,6 +101,7 @@ export function DayColumn({
   plannedMin,
   availableMin,
   loading,
+  conflictOf,
 }: DayColumnProps) {
   const [error, setError] = useState<string | null>(null);
   const draggingId = useDrag((s) => s.item?.id);
@@ -191,7 +194,13 @@ export function DayColumn({
             {overdue.map((item) => (
               <div key={item.id} className="contents">
                 {lineBefore(item)}
-                <ItemCard item={item} large overdue onError={setError} />
+                <ItemCard
+                  item={item}
+                  large
+                  overdue
+                  conflict={conflictOf(item.id)}
+                  onError={setError}
+                />
               </div>
             ))}
             {items.length > 0 && <SectionLabel>Today</SectionLabel>}
@@ -211,7 +220,7 @@ export function DayColumn({
         {items.map((item) => (
           <div key={item.id} className="contents">
             {lineBefore(item)}
-            <ItemCard item={item} large={today} onError={setError} />
+            <ItemCard item={item} large={today} conflict={conflictOf(item.id)} onError={setError} />
           </div>
         ))}
         {insertAt !== null && insertAt >= cardIndex && <InsertLine />}

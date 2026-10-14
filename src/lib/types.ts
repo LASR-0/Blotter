@@ -81,9 +81,37 @@ export interface BlockoutWindows {
   windows: BlockoutWindow[];
 }
 
+/** An item that overlaps others, or sits fixed in a block-out that warns. */
+export interface Conflict {
+  item_id: string;
+  overlaps: string[];
+  blockout: string | null;
+}
+
 export interface Agenda {
   start: string;
   end: string;
   timezone: string;
   items: Item[];
+  conflicts: Conflict[];
+}
+
+/** `auto_slot`'s result. */
+export interface AutoSlotResult {
+  timezone: string;
+  placed: {
+    item: Item;
+    start: string;
+    end: string;
+    previous_start: string | null;
+    previous_date: string | null;
+  }[];
+  unplaced: {
+    id: string;
+    title: string;
+    duration_min: number;
+    due_at: string | null;
+    reason: string;
+    longest_gap: { start: string; end: string; minutes: number } | null;
+  }[];
 }

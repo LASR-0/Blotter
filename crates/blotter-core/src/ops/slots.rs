@@ -1,35 +1,52 @@
-//! Scheduling operations over the slot engine, and the rule every path that
-//! places an item must obey: a flexible task never sits in a block-out.
+//! Scheduling operations over the slot engine, and the rules every path that
+//! places an item must obey: a flexible task never sits in a block-out, and
+//! overlaps are reported as conflicts rather than prevented.
 
-use chrono::Duration;
+use std::cmp::Reverse;
+use std::collections::HashSet;
+
+use chrono::{Duration, NaiveDate};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use super::input::DateTimeInput;
+use super::input::{DateTimeInput, start_of_day};
+use super::items::{ENTITY as ITEM_ENTITY, finalize};
 use super::{Ctx, OpDef};
 use crate::error::{CoreError, Result};
-use crate::model::{Anchoring, Item, ItemStatus};
-use crate::slots::{Interval, Slot, SlotEngine};
+use crate::model::{Anchoring, Item, ItemKind, ItemStatus};
+use crate::slots::{Interval, Slot, SlotEngine, overlapping};
 use crate::store;
 use crate::store::items::ItemRange;
 use crate::time::Instant;
 use crate::windows;
 
-/// How far ahead `find_free_slots` looks when no `until` is given.
+/// How far ahead slot searches look when no `until` is given.
 const DEFAULT_SEARCH_DAYS: i64 = 14;
-/// Longest span one `find_free_slots` call searches.
+/// Longest span one search covers.
 const MAX_SEARCH_DAYS: i64 = 62;
 
 pub(super) fn defs() -> Vec<OpDef> {
-    vec![OpDef::new(
-        "find_free_slots",
-        "Find free time for a flexible task of `duration_min`: within planning hours, outside \
-         block-outs and clear of scheduled items (plus the buffer). Returns the earliest fit in \
-         each free gap, soonest first, never in the past. Defaults to the next 14 days; pass \
-         `until` (e.g. a due date) to search less.",
-        false,
-        find_free_slots,
-    )]
+    vec![
+        OpDef::new(
+            "find_free_slots",
+            "Find free time for a flexible task of `duration_min`: within planning hours, \
+             outside block-outs and clear of scheduled items (plus the buffer). Returns the \
+             earliest fit in each free gap, soonest first, never in the past. Defaults to the \
+             next 14 days; pass `until` (e.g. a due date) to search less.",
+            false,
+            find_free_slots,
+        ),
+        OpDef::new(
+            "auto_slot",
+            "Place flexible tasks into free time: the given `ids`, or every open Inbox task. \
+             Orders by due date, then priority, then longest first, and puts each in the \
+             earliest free slot before its due date (a day-only task stays on its day). Returns \
+             what was placed and, for anything that couldn't be, the reason and the longest \
+             free gap. Nothing is dropped silently; unplaced tasks stay where they were.",
+            true,
+            auto_slot,
+        ),
+    ]
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -54,15 +71,15 @@ pub struct FreeSlots {
     pub slots: Vec<Slot>,
 }
 
-fn find_free_slots(ctx: &mut Ctx<'_>, a: FindFreeSlotsArgs) -> Result<FreeSlots> {
+/// `[from, until)` for a search: never before now, 14 days by default.
+fn search_window(
+    ctx: &Ctx<'_>,
+    from: Option<DateTimeInput>,
+    until: Option<DateTimeInput>,
+) -> Result<(Instant, Instant)> {
     let tz = ctx.settings.tz;
-    let from = a
-        .from
-        .map(|f| f.resolve(tz))
-        .unwrap_or(ctx.now)
-        .max(ctx.now);
-    let until = a
-        .until
+    let from = from.map(|f| f.resolve(tz)).unwrap_or(ctx.now).max(ctx.now);
+    let until = until
         .map(|u| u.resolve(tz))
         .unwrap_or(from + Duration::days(DEFAULT_SEARCH_DAYS));
     if until <= from {
@@ -73,16 +90,21 @@ fn find_free_slots(ctx: &mut Ctx<'_>, a: FindFreeSlotsArgs) -> Result<FreeSlots>
             "search at most {MAX_SEARCH_DAYS} days at a time"
         )));
     }
-    let buffer = Duration::minutes(i64::from(ctx.settings.slot_buffer_min));
+    Ok((from, until))
+}
+
+fn buffer(ctx: &Ctx<'_>) -> Duration {
+    Duration::minutes(i64::from(ctx.settings.slot_buffer_min))
+}
+
+fn find_free_slots(ctx: &mut Ctx<'_>, a: FindFreeSlotsArgs) -> Result<FreeSlots> {
+    let (from, until) = search_window(ctx, a.from, a.until)?;
+    let buffer = buffer(ctx);
     let blockouts = windows::load(ctx.conn, from, until)?;
-    let busy = busy_time(
-        ctx,
-        from - buffer,
-        until + buffer,
-        a.exclude_item.as_deref(),
-    )?;
+    let exclude: HashSet<String> = a.exclude_item.into_iter().collect();
+    let busy = busy_time(ctx, from - buffer, until + buffer, &exclude)?;
     let engine = SlotEngine {
-        tz,
+        tz: ctx.settings.tz,
         planning: &ctx.settings.planning_hours,
         blockouts: &blockouts,
         busy: &busy,
@@ -90,7 +112,7 @@ fn find_free_slots(ctx: &mut Ctx<'_>, a: FindFreeSlotsArgs) -> Result<FreeSlots>
     };
     let limit = a.limit.unwrap_or(10) as usize;
     Ok(FreeSlots {
-        timezone: tz.name().to_owned(),
+        timezone: ctx.settings.tz.name().to_owned(),
         slots: engine.slots(
             Duration::minutes(i64::from(a.duration_min)),
             from,
@@ -100,12 +122,236 @@ fn find_free_slots(ctx: &mut Ctx<'_>, a: FindFreeSlotsArgs) -> Result<FreeSlots>
     })
 }
 
-/// Time taken by open, timed items overlapping `[from, to)`.
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AutoSlotArgs {
+    /// Tasks to place. Omit to place every open task in the Inbox.
+    pub ids: Option<Vec<String>>,
+    /// Earliest start; defaults to now and is never earlier than now.
+    pub from: Option<DateTimeInput>,
+    /// Latest end. Defaults to 14 days after `from`.
+    pub until: Option<DateTimeInput>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct PlacedTask {
+    pub item: Item,
+    pub start: Instant,
+    pub end: Instant,
+    /// Where it was before: neither set means it came from the Inbox.
+    pub previous_start: Option<Instant>,
+    pub previous_date: Option<NaiveDate>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct Gap {
+    pub start: Instant,
+    pub end: Instant,
+    pub minutes: i64,
+}
+
+#[derive(Debug, Serialize)]
+pub struct UnplacedTask {
+    pub id: String,
+    pub title: String,
+    pub duration_min: u32,
+    pub due_at: Option<Instant>,
+    /// A readable sentence, e.g. "No free 2h slot before its due date …".
+    pub reason: String,
+    /// The longest free gap in the window searched, to suggest shortening.
+    pub longest_gap: Option<Gap>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct AutoSlotResult {
+    pub timezone: String,
+    pub placed: Vec<PlacedTask>,
+    pub unplaced: Vec<UnplacedTask>,
+}
+
+/// Why `item` can't be auto-slotted at all, if it can't.
+fn ineligible(item: &Item) -> Option<&'static str> {
+    if item.kind != ItemKind::Task {
+        Some("Only tasks are auto-slotted.")
+    } else if item.anchoring == Anchoring::Fixed {
+        Some("It's fixed, so it stays where you put it.")
+    } else if item.status != ItemStatus::Open {
+        Some("It's already done.")
+    } else if item.rrule.is_some() {
+        Some("Recurring tasks aren't auto-slotted yet.")
+    } else if item.end_date.is_some() {
+        Some("It spans several days.")
+    } else {
+        None
+    }
+}
+
+/// "45m", "2h", "1h 15m".
+fn minutes_text(m: i64) -> String {
+    match (m / 60, m % 60) {
+        (0, m) => format!("{m}m"),
+        (h, 0) => format!("{h}h"),
+        (h, m) => format!("{h}h {m}m"),
+    }
+}
+
+fn auto_slot(ctx: &mut Ctx<'_>, a: AutoSlotArgs) -> Result<AutoSlotResult> {
+    let tz = ctx.settings.tz;
+    let (from, until) = search_window(ctx, a.from, a.until)?;
+    let candidates: Vec<Item> = match a.ids {
+        Some(ids) => ids
+            .iter()
+            .map(|id| store::items::require(ctx.conn, id))
+            .collect::<Result<_>>()?,
+        None => store::items::list_inbox(ctx.conn)?
+            .into_iter()
+            .filter(|i| i.status == ItemStatus::Open)
+            .collect(),
+    };
+    let default_min = ctx.settings.default_task_duration_min;
+    let unplaced_entry = |item: &Item, reason: String, gap: Option<Gap>| UnplacedTask {
+        id: item.id.clone(),
+        title: item.title.clone(),
+        duration_min: item.duration_min.unwrap_or(default_min),
+        due_at: item.due_at,
+        reason,
+        longest_gap: gap,
+    };
+
+    let mut placed = Vec::new();
+    let mut unplaced = Vec::new();
+    let mut tasks = Vec::new();
+    for item in candidates {
+        match ineligible(&item) {
+            Some(reason) => unplaced.push(unplaced_entry(&item, reason.to_owned(), None)),
+            None => tasks.push(item),
+        }
+    }
+    // Due date (none last), then priority, then longest first.
+    tasks.sort_by_key(|i| {
+        (
+            i.due_at.is_none(),
+            i.due_at,
+            Reverse(i.priority),
+            Reverse(i.duration_min.unwrap_or(default_min)),
+        )
+    });
+
+    let buffer = buffer(ctx);
+    let blockouts = windows::load(ctx.conn, from, until)?;
+    // The tasks being placed don't block each other's old spots.
+    let moving: HashSet<String> = tasks.iter().map(|i| i.id.clone()).collect();
+    let mut busy = busy_time(ctx, from - buffer, until + buffer, &moving)?;
+    let fmt_day = |t: Instant| t.with_timezone(&tz).format("%a %-d %b").to_string();
+    let fmt_time = |t: Instant| t.with_timezone(&tz).format("%H:%M").to_string();
+
+    for mut item in tasks {
+        let minutes = i64::from(item.duration_min.unwrap_or(default_min));
+        let duration = Duration::minutes(minutes);
+        let (mut lo, mut hi) = (from, until);
+        let mut limit = format!("in the next {} days", (until - from).num_days().max(1));
+        if let Some(day) = item.start_date {
+            let day_start = start_of_day(tz, day);
+            let day_end = day
+                .succ_opt()
+                .map(|d| start_of_day(tz, d))
+                .unwrap_or(day_start);
+            lo = lo.max(day_start);
+            hi = hi.min(day_end);
+            limit = format!("on {}", day.format("%a %-d %b"));
+        }
+        if let Some(due) = item.due_at {
+            if due < hi {
+                hi = due;
+                limit = format!("before its due date ({} {})", fmt_day(due), fmt_time(due));
+            }
+        }
+        let stays = if item.is_inbox() {
+            "It stays in the Inbox."
+        } else {
+            "It stays where it was."
+        };
+        if hi <= lo {
+            let reason = if item.due_at.is_some_and(|d| d <= from) {
+                format!("Its due date has passed. {stays}")
+            } else if item.start_date.is_some() {
+                format!("Its day has passed. {stays}")
+            } else {
+                format!("Nothing to search {limit}. {stays}")
+            };
+            unplaced.push(unplaced_entry(&item, reason, None));
+            continue;
+        }
+
+        let engine = SlotEngine {
+            tz,
+            planning: &ctx.settings.planning_hours,
+            blockouts: &blockouts,
+            busy: &busy,
+            buffer,
+        };
+        let Some(slot) = engine.slots(duration, lo, hi, 1).into_iter().next() else {
+            let gap = engine
+                .free(lo, hi)
+                .into_iter()
+                .max_by_key(|(s, e)| *e - *s)
+                .map(|(start, end)| Gap {
+                    start,
+                    end,
+                    minutes: (end - start).num_minutes(),
+                });
+            let longest = match &gap {
+                Some(g) if g.minutes > 0 => format!(
+                    " The longest free gap is {}, {} {}–{}.",
+                    minutes_text(g.minutes),
+                    fmt_day(g.start),
+                    fmt_time(g.start),
+                    fmt_time(g.end),
+                ),
+                _ => " There's no free time there at all.".to_owned(),
+            };
+            let reason = format!(
+                "No free {} slot {limit}.{longest} {stays}",
+                minutes_text(minutes)
+            );
+            unplaced.push(unplaced_entry(&item, reason, gap));
+            continue;
+        };
+
+        let before = item.clone();
+        item.all_day = false;
+        item.start_date = None;
+        item.end_date = None;
+        item.start_at = Some(slot.start);
+        item.end_at = Some(slot.end);
+        item.duration_min = Some(u32::try_from(minutes).unwrap_or(default_min));
+        item.updated_at = ctx.now;
+        finalize(ctx, &mut item)?;
+        store::items::update(ctx.conn, &item)?;
+        ctx.record(ITEM_ENTITY, &item.id, Some(&before), Some(&item))?;
+        busy.push((slot.start, slot.end));
+        placed.push(PlacedTask {
+            start: slot.start,
+            end: slot.end,
+            previous_start: before.start_at,
+            previous_date: before.start_date,
+            item,
+        });
+    }
+
+    Ok(AutoSlotResult {
+        timezone: tz.name().to_owned(),
+        placed,
+        unplaced,
+    })
+}
+
+/// Time taken by open, timed items overlapping `[from, to)`, except `exclude`.
 pub(crate) fn busy_time(
     ctx: &Ctx<'_>,
     from: Instant,
     to: Instant,
-    exclude: Option<&str>,
+    exclude: &HashSet<String>,
 ) -> Result<Vec<Interval>> {
     let tz = ctx.settings.tz;
     let range = ItemRange {
@@ -116,9 +362,59 @@ pub(crate) fn busy_time(
     };
     Ok(store::items::list_in_range(ctx.conn, range)?
         .into_iter()
-        .filter(|i| i.status == ItemStatus::Open && Some(i.id.as_str()) != exclude)
+        .filter(|i| i.status == ItemStatus::Open && !exclude.contains(&i.id))
         .filter_map(|i| Some((i.start_at?, i.end_at?)))
         .collect())
+}
+
+/// A scheduling problem with one item (roadmap §4.5 rule 3): it overlaps
+/// other items, or it is fixed inside a block-out that warns about fixed
+/// items (e.g. Sleep). Allowed, but shown in the UI and to the AI.
+#[derive(Debug, Clone, Serialize)]
+pub struct Conflict {
+    pub item_id: String,
+    /// Items it overlaps, in time order.
+    pub overlaps: Vec<String>,
+    /// Label of a block-out with `permits_fixed` off that it sits in.
+    pub blockout: Option<String>,
+}
+
+/// Conflicts among the open, timed `items`.
+pub(crate) fn conflicts(ctx: &Ctx<'_>, items: &[Item]) -> Result<Vec<Conflict>> {
+    let timed: Vec<(String, Instant, Instant)> = items
+        .iter()
+        .filter(|i| i.status == ItemStatus::Open)
+        .filter_map(|i| Some((i.id.clone(), i.start_at?, i.end_at?)))
+        .filter(|(_, s, e)| e > s)
+        .collect();
+    let Some(lo) = timed.iter().map(|t| t.1).min() else {
+        return Ok(Vec::new());
+    };
+    let hi = timed.iter().map(|t| t.2).max().unwrap_or(lo);
+    let strict: Vec<_> = windows::load(ctx.conn, lo, hi)?
+        .into_iter()
+        .filter(|w| !w.permits_fixed)
+        .collect();
+    let mut overlaps = overlapping(&timed);
+    let mut out = Vec::new();
+    for item in items {
+        let blockout = match (item.anchoring, item.start_at, item.end_at) {
+            (Anchoring::Fixed, Some(s), Some(e)) if item.status == ItemStatus::Open => strict
+                .iter()
+                .find(|w| w.overlaps(s, e))
+                .map(|w| w.label.clone()),
+            _ => None,
+        };
+        let with = overlaps.remove(&item.id).unwrap_or_default();
+        if !with.is_empty() || blockout.is_some() {
+            out.push(Conflict {
+                item_id: item.id.clone(),
+                overlaps: with,
+                blockout,
+            });
+        }
+    }
+    Ok(out)
 }
 
 /// Refuses to put a flexible, open item inside a block-out (roadmap §4.5
@@ -358,5 +654,155 @@ mod tests {
             "create_item",
             json!({ "title": "Day off errand", "start": "2026-10-15T11:00" }),
         );
+    }
+
+    fn titles_and_starts(out: &Value) -> Vec<(String, String)> {
+        out["placed"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|p| {
+                (
+                    p["item"]["title"].as_str().unwrap().to_owned(),
+                    p["start"].as_str().unwrap().to_owned(),
+                )
+            })
+            .collect()
+    }
+
+    #[test]
+    fn auto_slot_orders_by_due_then_priority_then_length() {
+        let mut p = with_work();
+        for args in [
+            json!({ "title": "Shopping", "duration_min": 90 }),
+            json!({ "title": "Email", "duration_min": 10, "priority": 2 }),
+            json!({ "title": "Tax", "duration_min": 120, "due": "2026-10-16T17:00" }),
+        ] {
+            run(&mut p, "create_item", args);
+        }
+        let out = p.execute("auto_slot", json!({}), &Actor::User).unwrap();
+        let batch = out.batch_id.clone().unwrap();
+        assert_eq!(out.changes.len(), 3);
+        assert!(
+            out.changes.iter().all(|c| c.batch_id == batch),
+            "one undoable batch"
+        );
+        // Now is Wed 09:00, inside Work, so everything goes in after 17:00.
+        assert_eq!(
+            titles_and_starts(&out.result),
+            [
+                ("Tax".to_owned(), "2026-10-14T06:00:00Z".to_owned()), // 17:00
+                ("Email".to_owned(), "2026-10-14T08:00:00Z".to_owned()), // 19:00
+                ("Shopping".to_owned(), "2026-10-14T08:10:00Z".to_owned()), // 19:10
+            ]
+        );
+        assert!(
+            out.result["placed"][0]["previous_start"].is_null(),
+            "came from the Inbox"
+        );
+        assert_eq!(
+            run(&mut p, "list_inbox", json!({}))
+                .as_array()
+                .unwrap()
+                .len(),
+            0
+        );
+    }
+
+    #[test]
+    fn auto_slot_explains_what_it_cannot_place() {
+        let mut p = with_work();
+        let big = run(
+            &mut p,
+            "create_item",
+            json!({ "title": "Sort receipts", "duration_min": 180, "due": "2026-10-14T18:00" }),
+        );
+        let event = run(
+            &mut p,
+            "create_item",
+            json!({ "title": "Dentist", "kind": "event", "start": "2026-10-15T15:00" }),
+        );
+        let out = run(
+            &mut p,
+            "auto_slot",
+            json!({ "ids": [big["id"], event["id"]] }),
+        );
+        assert!(out["placed"].as_array().unwrap().is_empty());
+        let reasons: Vec<&str> = out["unplaced"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|u| u["reason"].as_str().unwrap())
+            .collect();
+        assert_eq!(
+            reasons,
+            [
+                "Only tasks are auto-slotted.",
+                "No free 3h slot before its due date (Wed 14 Oct 18:00). The longest free gap is \
+                 1h, Wed 14 Oct 17:00–18:00. It stays in the Inbox.",
+            ]
+        );
+        assert_eq!(out["unplaced"][1]["longest_gap"]["minutes"], 60);
+        // Unplaced means untouched.
+        assert!(run(&mut p, "get_item", json!({ "id": big["id"] }))["start_at"].is_null());
+    }
+
+    #[test]
+    fn auto_slot_keeps_a_day_task_on_its_day() {
+        let mut p = with_work();
+        let task = run(
+            &mut p,
+            "create_item",
+            json!({ "title": "Call bank", "date": "2026-10-15", "duration_min": 20 }),
+        );
+        let out = run(&mut p, "auto_slot", json!({ "ids": [task["id"]] }));
+        // Thursday's first free time is 07:00, before Work.
+        assert_eq!(
+            titles_and_starts(&out),
+            [("Call bank".to_owned(), "2026-10-14T20:00:00Z".to_owned())]
+        );
+        assert_eq!(out["placed"][0]["previous_date"], "2026-10-15");
+    }
+
+    #[test]
+    fn agenda_reports_conflicts() {
+        let mut p = crate::planner::tests::planner();
+        run(
+            &mut p,
+            "create_blockout",
+            json!({ "label": "Sleep", "weekdays": ["mon","tue","wed","thu","fri","sat","sun"],
+                    "start_time": "23:00", "end_time": "06:30", "permits_fixed": false }),
+        );
+        let dentist = run(
+            &mut p,
+            "create_item",
+            json!({ "title": "Dentist", "kind": "event", "start": "2026-10-15T15:00", "duration_min": 45 }),
+        );
+        let pt = run(
+            &mut p,
+            "create_item",
+            json!({ "title": "Interview", "kind": "event", "start": "2026-10-15T15:30", "duration_min": 20 }),
+        );
+        let flight = run(
+            &mut p,
+            "create_item",
+            json!({ "title": "Flight", "kind": "event", "start": "2026-10-15T23:30" }),
+        );
+        let agenda = run(&mut p, "list_agenda", json!({ "start": "2026-10-15" }));
+        let conflicts = agenda["conflicts"].as_array().unwrap();
+        let find = |id: &Value| {
+            conflicts
+                .iter()
+                .find(|c| c["item_id"] == *id)
+                .unwrap()
+                .clone()
+        };
+        assert_eq!(find(&dentist["id"])["overlaps"], json!([pt["id"]]));
+        assert_eq!(find(&pt["id"])["overlaps"], json!([dentist["id"]]));
+        assert_eq!(find(&flight["id"])["blockout"], "Sleep");
+        assert_eq!(conflicts.len(), 3);
+
+        let summary = run(&mut p, "get_day_summary", json!({ "date": "2026-10-15" }));
+        assert_eq!(summary["conflicts"].as_array().unwrap().len(), 3);
     }
 }

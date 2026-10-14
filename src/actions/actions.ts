@@ -17,6 +17,7 @@ import {
   Gear,
   Keyboard,
   Lightning,
+  MagicWand,
   MagnifyingGlass,
   NotePencil,
   Moon,
@@ -34,6 +35,7 @@ import {
   type Icon,
 } from '@phosphor-icons/react';
 import { deleteFocused, openFocused, toggleFocused } from '@/actions/itemActions';
+import { runAutoSlot } from '@/app/autoSlot';
 import { useFocus } from '@/app/focus';
 import { useNav } from '@/app/nav';
 import { useSelection, type BulkEditor } from '@/app/selection';
@@ -251,6 +253,30 @@ export function buildActions(): Action[] {
       binding: 'e',
       context: NAV_CONTEXT,
       run: () => void openFocused(),
+    },
+    {
+      id: 'item.autoslot',
+      label: 'Auto-slot the selected or focused task',
+      group: 'Focused item',
+      icon: MagicWand,
+      binding: 's',
+      context: NAV_CONTEXT,
+      keywords: ['schedule', 'slot', 'place', 'plan'],
+      paletteHidden: true,
+      run: () => {
+        const selected = [...useSelection.getState().ids];
+        const focused = useFocus.getState().itemId;
+        const ids = selected.length ? selected : focused ? [focused] : [];
+        if (ids.length) void runAutoSlot(ids);
+      },
+    },
+    {
+      id: 'inbox.autoslot',
+      label: 'Auto-slot Inbox',
+      group: 'Actions',
+      icon: MagicWand,
+      keywords: ['schedule', 'slot', 'place', 'plan', 'inbox'],
+      run: () => void runAutoSlot(),
     },
     {
       id: 'item.toggle',

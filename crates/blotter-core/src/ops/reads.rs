@@ -6,6 +6,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use super::input::{DateInput, NoArgs, start_of_day};
+use super::slots::{Conflict, conflicts};
 use super::{Ctx, OpDef};
 use crate::error::{CoreError, Result};
 use crate::model::{Blockout, BlockoutException, Item, ItemStatus, Reminder};
@@ -91,6 +92,8 @@ pub struct Agenda {
     pub end: NaiveDate,
     pub timezone: String,
     pub items: Vec<Item>,
+    /// Items that overlap others, or sit fixed in a block-out that warns.
+    pub conflicts: Vec<Conflict>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -158,6 +161,7 @@ pub struct DaySummary {
     /// Open tasks left on earlier days or past their deadline (see list_overdue).
     pub overdue_count: usize,
     pub inbox_count: usize,
+    pub conflicts: Vec<Conflict>,
 }
 
 /// `[start of first day, start of the day after last)` in the user's zone.
@@ -200,6 +204,7 @@ fn list_agenda(ctx: &mut Ctx<'_>, a: ListAgendaArgs) -> Result<Agenda> {
         start,
         end,
         timezone: ctx.settings.tz.name().to_owned(),
+        conflicts: conflicts(ctx, &items)?,
         items,
     })
 }
@@ -270,6 +275,7 @@ fn get_day_summary(ctx: &mut Ctx<'_>, a: DaySummaryArgs) -> Result<DaySummary> {
             .iter()
             .filter(|i| i.status == ItemStatus::Open)
             .count(),
+        conflicts: conflicts(ctx, &items)?,
         items,
     })
 }

@@ -10,6 +10,7 @@ import { dayKey, itemsByDay } from '@/lib/days';
 import { moveInColumns, STEP_MIN } from '@/lib/focusNav';
 import { moveByDays, moveByMinutes, resizeByMinutes } from '@/lib/itemMoves';
 import { isoDate } from '@/lib/period';
+import { conflictMap, conflictText, titles } from '@/lib/conflicts';
 import { useOp } from '@/lib/queries';
 import type { Agenda, Item } from '@/lib/types';
 import { useBlockoutWindows } from '@/lib/useBlockoutWindows';
@@ -47,6 +48,9 @@ export function DiaryView() {
   });
   const overdue = useOp<Item[]>('list_overdue');
   const windows = useBlockoutWindows();
+  const conflicts = useMemo(() => conflictMap(agenda.data?.conflicts), [agenda.data]);
+  const titleOf = titles(agenda.data?.items ?? []);
+  const conflictOf = (id: string) => conflictText(conflicts.get(id), titleOf);
   const byDay = useMemo(() => itemsByDay(agenda.data?.items ?? []), [agenda.data]);
   const scheduledIds = useMemo(
     () => new Set((agenda.data?.items ?? []).map((i) => i.id)),
@@ -102,6 +106,7 @@ export function DiaryView() {
               plannedMin={plannedMinutes(items, day)}
               availableMin={availableMinutes(windows, day)}
               loading={agenda.isPending}
+              conflictOf={conflictOf}
             />
           );
         })}
