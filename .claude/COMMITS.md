@@ -48,8 +48,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 07 | 2 | `feat(ui): shadcn/ui setup, theme tokens and built-in presets` | committed `7051ac3` (CI green) |
 | 08 | 2 | `feat(ui): app layout, routing and action/keymap registry` | committed `0fbe467` |
 | 09 | 2 | `feat(ui): command palette` | committed `bd6509b` |
-| 10 | 3 | `feat(ui): week view time grid` | ready |
-| 11 | 3 | `feat(ui): month and year views` | planned |
+| 10 | 3 | `feat(ui): week view time grid` | committed `9de2693` |
+| 11 | 3 | `feat(ui): month and year views` | ready |
 | 12 | 3 | `feat(ui): diary view with day columns and timeline rail` | planned |
 | 13 | 3 | `feat(ui): item dialog and completion with timestamps` | planned |
 | 14 | 3 | `feat(ui): keyboard navigation and keyboard move/resize` | planned |
@@ -605,7 +605,7 @@ Notes:
       Snapshot and Toggle chat; they join the registry with their features (#17, #33,
       #22, #27, #28, #31). "Rebind in Settings → Keybindings" on the sheet comes with #36.
 
-### #10 — Week view time grid            [status: ready]
+### #10 — Week view time grid            [status: committed 9de2693]
 Phase: 3
 Message:
     feat(ui): week view time grid
@@ -665,3 +665,61 @@ Notes:
     - The grid assumes 24-hour days; on the two DST-change days an hour is drawn slightly off
       (items still sit on the correct day). Revisit if it matters in practice.
     - Week starts on Monday (WEEK_STARTS_ON); it becomes a setting with General in #38.
+
+### #11 — Month and Year views            [status: ready]
+Phase: 3
+Message:
+    feat(ui): month and year views
+
+    Month: a 6×7 grid from the design with up to three chips per day (mono
+    time or "all day", tag-tinted, done items struck through), "+N more"
+    opening a day popover that lists every item with its time range and an
+    Open in Week link. Out-of-month days use the surface tone, weekends a
+    half tint, the first of a month reads "Oct 1", today gets the accent
+    pill, and clicking a day number opens its week.
+
+    Year: twelve mini-months that fill the window, each day a heatmap cell
+    (design thresholds 0 / <3 / <5 / <7 / 7+), with a Scheduled load |
+    Completed toggle, a Less–More legend, per-month counts and a yearly
+    total. Today is outlined, the current month is accented, and clicking a
+    day (tooltip: "Tue 20 Oct · 6 items, 4h 10m") opens its week.
+
+    Shared, tested day bucketing places timed items on every local day they
+    touch and all-day items on each of their dates. Adds a Radix popover
+    component and an openWeek(date) navigation action.
+Files:
+    A  src/views/MonthView.tsx
+    A  src/views/YearView.tsx
+    A  src/lib/days.ts
+    A  src/lib/days.test.ts
+    A  src/components/ui/popover.tsx
+    M  src/app/AppShell.tsx
+    M  src/app/nav.ts
+    M  src/views/SettingsView.tsx
+    M  .claude/COMMITS.md
+    Stage everything in one go:  git add -A
+Test steps:
+    - pnpm check                → clean; Vitest 43 passed (+4 days)
+    - With the demo database from #10 (export BLOTTER_DATA_DIR=..., pnpm tauri dev):
+        · g m → October grid; this week's days show chips; "Oct 1" and "Nov 1" labelled;
+          today in an accent circle; 28–30 Sep and 2–8 Nov dimmed
+        · click "+3 more" on Tuesday → popover lists all 6 items with time ranges;
+          "Open in Week" jumps to that week; Esc or × closes it
+        · click a day number → that week opens
+        · [ / ] → previous/next month
+        · g y → 12 mini-months; this week's cells shaded; today outlined; October accented;
+          "30 scheduled in 2026" top right
+        · toggle Completed → only days with completions stay shaded
+        · hover a day → tooltip with count and planned time; click → its week
+        · maximise the window → the year grid grows to fill it
+    - Settings → About: the "B" tile is the full 24px size again.
+Notes:
+    - Verified here by screenshot (Month, Year, and the day popover via a posted click).
+    - Fixed while testing: today's pill pushed its cell's chips 5px lower than its
+      neighbours (cell headers now have a fixed height); `text-2xl` silently did nothing
+      because Blotter's type scale replaces Tailwind's, which also affected the About
+      logo tile from #08 — both now use the design's explicit 24px.
+    - Completed mode counts items scheduled in the shown year by their completion day;
+      completions of unscheduled Inbox items join when History (#39) adds its query.
+    - Keyboard navigation of days (arrows, Enter → Week) comes with #14; block-out strips
+      and conflict icons in Month with #21/#22.

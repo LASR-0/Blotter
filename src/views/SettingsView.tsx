@@ -144,7 +144,7 @@ function AboutPage() {
   return (
     <div className="flex max-w-[720px] flex-col gap-[22px] p-8">
       <div className="flex items-center gap-3.5">
-        <span className="text-2xl grid size-12 place-items-center rounded-[12px] bg-accent font-heading font-semibold text-on-accent">
+        <span className="grid size-12 place-items-center rounded-[12px] bg-accent font-heading text-[24px] font-semibold text-on-accent">
           B
         </span>
         <div className="flex flex-col gap-0.5">

@@ -7,7 +7,9 @@ import { DiaryView } from '@/views/DiaryView';
 import { InboxView } from '@/views/InboxView';
 import { PendingView } from '@/views/PendingView';
 import { SettingsView } from '@/views/SettingsView';
+import { MonthView } from '@/views/MonthView';
 import { WeekView } from '@/views/WeekView';
+import { YearView } from '@/views/YearView';
 import { CommandPalette } from './CommandPalette';
 import { SIDEBAR_AUTO_COLLAPSE_PX, useNav } from './nav';
 import { useOverlay } from './overlay';
@@ -52,9 +54,9 @@ export function AppShell() {
           {view === 'inbox' && <InboxView />}
           {view === 'settings' && <SettingsView />}
           {view === 'week' && <WeekView />}
-          {(view === 'month' || view === 'year' || view === 'history') && (
-            <PendingView view={view} />
-          )}
+          {view === 'month' && <MonthView />}
+          {view === 'year' && <YearView />}
+          {view === 'history' && <PendingView view="history" />}
         </main>
       </div>
       <CommandPalette actions={actions} />

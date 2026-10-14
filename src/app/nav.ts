@@ -24,6 +24,8 @@ interface NavState {
   today: () => void;
   /** Shows `date` in the Diary (or the current calendar view if one is open). */
   goToDate: (date: Date) => void;
+  /** Opens the Week view on the week containing `date`. */
+  openWeek: (date: Date) => void;
   toggleSidebar: () => void;
   setNarrow: (narrow: boolean) => void;
   openSettings: (page?: SettingsPage) => void;
@@ -49,6 +51,7 @@ export const useNav = create<NavState>()(
       today: () => set({ anchor: midnight() }),
       goToDate: (date) =>
         set((s) => ({ anchor: midnight(date), view: isCalendarView(s.view) ? s.view : 'diary' })),
+      openWeek: (date) => set({ anchor: midnight(date), view: 'week', calView: 'week' }),
       toggleSidebar: () => set((s) => ({ sidebarCollapsed: !isSidebarCollapsed(s) })),
       setNarrow: (narrow) => set({ narrow }),
       openSettings: (page) =>
