@@ -12,6 +12,7 @@ import { cn } from '@/lib/cn';
 import { formatDuration } from '@/lib/duration';
 import { moveInColumns } from '@/lib/focusNav';
 import { addedAgo } from '@/lib/format';
+import { parseQuick, toCreateArgs } from '@/lib/quickParse';
 import { useOp } from '@/lib/queries';
 import { tagColor } from '@/lib/tags';
 import type { Item } from '@/lib/types';
@@ -93,7 +94,8 @@ export function InboxView() {
       useFocus.getState().setItem(moveInColumns([items.map((i) => i.id)], focusedId, dir)),
   });
 
-  // Enter adds every line as its own task, in one batch; Shift+Enter is a newline.
+  // Enter adds every line as its own item, in one batch; Shift+Enter is a
+  // newline. Each line takes the quick-add grammar, so "~45m #home" works here too.
   const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key !== 'Enter' || e.shiftKey) return;
     e.preventDefault();
@@ -102,7 +104,8 @@ export function InboxView() {
       .map((l) => l.trim())
       .filter(Boolean);
     if (!lines.length) return;
-    runBatch(lines.map((title) => ({ name: 'create_item', args: { title } })))
+    const now = new Date();
+    runBatch(lines.map((l) => ({ name: 'create_item', args: toCreateArgs(parseQuick(l, now)) })))
       .then(() => {
         setDraft('');
         setError(null);
@@ -129,6 +132,10 @@ export function InboxView() {
             className="resize-none bg-transparent px-3 py-2.5 text-md text-text outline-none"
           />
           <div className="flex items-center gap-3 border-t border-border px-2.5 py-1.5 text-xs text-text-muted">
+            <span className="font-mono">~45m</span>
+            <span className="font-mono">#tag</span>
+            <span className="font-mono">!1–!3</span>
+            <span className="font-mono">due fri</span>
             <span className="flex-1" />
             <span className="flex items-center gap-1.5">
               <Kbd>↵</Kbd>add lines

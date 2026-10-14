@@ -54,8 +54,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 13 | 3 | `feat(ui): item dialog and completion with timestamps` | committed `9c17d90` |
 | 14 | 3 | `feat(ui): keyboard navigation and keyboard move/resize` | committed `a5913b0` |
 | 15 | 3 | `feat(ui): drag-and-drop rescheduling in week view` | committed `e883650` (scope widened: Diary + Inbox rail too) |
-| 16 | 4 | `feat(ui): inbox panel and view` | ready |
-| 17 | 4 | `feat: natural-language quick add with live preview` | planned |
+| 16 | 4 | `feat(ui): inbox panel and view` | committed `48863c5` |
+| 17 | 4 | `feat: natural-language quick add with live preview` | ready |
 | 18 | 4 | `feat(app): quick-capture window, global shortcut and --capture flag` | planned |
 | 19 | 5 | `feat(core): block-out windows with exceptions` | planned |
 | 20 | 5 | `feat(core): slot engine with fixed/flexible rules` | planned |
@@ -1007,7 +1007,7 @@ Notes:
     - Core enforcement of "flexible never in a block-out" for every path (AI, MCP, keyboard)
       arrives with the slot engine in #20.
 
-### #16 — Inbox view with multi-select and bulk actions            [status: ready]
+### #16 — Inbox view with multi-select and bulk actions            [status: committed 48863c5]
 Phase: 4
 Message:
     feat(ui): inbox panel and view
@@ -1056,3 +1056,59 @@ Notes:
       token hints under the box (~45m #tag !2 due fri) arrive with the parser in #17; until
       then each line is a plain title.
     - Completed Inbox tasks are hidden here; they'll show in History (#39).
+
+### #17 — Natural-language quick add with live preview            [status: ready]
+Phase: 4
+Message:
+    feat: natural-language quick add with live preview
+
+    A quick-add bar on n (design V8). Type a line such as
+    "dentist tue 3pm ~45m @fixed" and chips show what was understood
+    (date, time, duration, priority, tags, anchoring, repeat, due), with a
+    preview of the item and where it will land (Inbox, Diary or Calendar).
+    Enter creates, Ctrl+Enter creates and opens the details, Alt+Enter
+    creates and keeps the bar open. Esc closes.
+
+    The parser (src/lib/quickParse.ts) is pure and offline: a token layer
+    reads ~duration, !1-!3, #tag, @fixed/@flex and "every ..." (mapped to an
+    RRULE), then chrono-node (en-GB, day first) reads dates and times from
+    the rest. "due <date>" sets the deadline (17:00 when no time is given).
+    Fixed rule: @fixed/@flex always win; otherwise an explicit time on an
+    event-like phrase (dentist, meeting, lunch, interview...) makes a fixed
+    event, and anything else stays a flexible task.
+
+    The Inbox brain-dump uses the same grammar per line and shows the token
+    hints under the box.
+Files:
+    A  src/lib/quickParse.ts
+    A  src/lib/quickParse.test.ts
+    A  src/components/QuickAddPanel.tsx
+    A  src/app/QuickAddDialog.tsx
+    M  src/app/overlay.ts
+    M  src/app/AppShell.tsx
+    M  src/actions/actions.ts
+    M  src/views/inbox/InboxView.tsx
+    M  package.json             (chrono-node 2.10.3)
+    M  pnpm-lock.yaml
+    M  .claude/COMMITS.md
+    M  .claude/roadmap.md
+    Stage everything in one go:  git add -A
+Test steps:
+    - pnpm check                → clean; Vitest 126 passed (+11 parser)
+    - pnpm tauri dev (demo DB):
+        · n → the quick-add bar opens with the hint line and an "Untitled · Inbox" preview
+        · type: dentist tue 3pm ~45m @fixed #health → chips for duration, anchoring, tag,
+          date, time; preview "Fixed event · Tue 20 Oct 15:00–15:45", pill Calendar
+        · Enter → it appears on Tuesday at 15:00
+        · n, "call plumber" → pill Inbox; Alt+Enter → created, bar stays open and clears
+        · n, "pay rent fri !2", Ctrl+Enter → created and the item dialog opens on it
+        · i → in the brain-dump type "fix gate ~30m #home" + Enter → row shows 30m and home
+Notes:
+    - Verified here: pnpm check clean, the parser tests, and the n bar opening with the
+      empty state matching the design.
+    - STILL TO VERIFY (next session, before #18): typing a line into the live bar and
+      checking chips/preview, plus Ctrl+Enter and Alt+Enter. My test script sent "~" as
+      Enter, so the live run went wrong. post.ps1 now has -Literal for that.
+    - A date without a time becomes an all-day item on that day; auto-slotting it into
+      free time arrives with #22.
+    - A recurring line with no date starts today. Recurrence expansion arrives with #24.

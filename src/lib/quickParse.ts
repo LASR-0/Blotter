@@ -1,0 +1,251 @@
+// Natural-language quick add: "dentist tue 3pm ~45m @fixed #health".
+//
+// A custom token layer runs first (so chrono never mistakes "~45m" for a
+// time), then chrono-node reads dates and times from what remains. It
+// works offline and is pure, so it is fully unit-tested.
+//
+// Grammar
+//   ~45m  ~1h30  ~1.5h  ~90     duration
+//   !1 !2 !3                    priority
+//   #tag                        tag (letters, digits, - and _)
+//   @fixed  @flex               anchoring
+//   every day | weekday | weekend | week | month | year
+//   every monday[, wed and fri] | every 2 weeks | every other week
+//                               recurrence (RFC 5545 RRULE)
+//   due <date [time]>           deadline
+//   <date> <time>               when (chrono: tue, tomorrow, 20/10, next friday, 3pm, 18:30, noon…)
+//
+// Fixed anchoring rule: @fixed / @flex always win. Otherwise an explicit
+// time on an event-like phrase (dentist, meeting, appointment, lunch,
+// interview, class, flight…) makes it a fixed event; any other timed entry
+// stays a flexible task.
+
+import * as chrono from 'chrono-node';
+import { format } from 'date-fns';
+import { parseDuration } from './duration';
+import type { Anchoring, ItemKind } from './types';
+
+export type ChipKind =
+  'date' | 'time' | 'duration' | 'priority' | 'tag' | 'anchoring' | 'repeat' | 'due';
+
+export interface Chip {
+  kind: ChipKind;
+  label: string;
+  value: string;
+  /** The text it came from. */
+  source: string;
+}
+
+export interface QuickParse {
+  title: string;
+  kind: ItemKind;
+  anchoring: Anchoring;
+  /** YYYY-MM-DD */
+  date?: string;
+  /** HH:MM */
+  time?: string;
+  durationMin?: number;
+  priority?: number;
+  tags: string[];
+  /** YYYY-MM-DDTHH:MM (local) */
+  due?: string;
+  rrule?: string;
+  chips: Chip[];
+}
+
+/** Words that make a timed entry an event (fixed) rather than a task. */
+const EVENT_WORDS =
+  /\b(appointment|appt|meeting|meet|dentist|doctor|dr|gp|physio|vet|interview|lunch|dinner|breakfast|brunch|coffee|drinks|class|lesson|flight|train|concert|party|wedding|birthday|game|match|session|consult|consultation|telehealth|haircut|call with|catch[- ]up|standup|stand-up|webinar|conference)\b/i;
+
+const WEEKDAYS: [RegExp, string, string][] = [
+  [/^mon(day)?s?$/i, 'MO', 'Monday'],
+  [/^tue(s(day)?)?s?$/i, 'TU', 'Tuesday'],
+  [/^wed(nesday)?s?$/i, 'WE', 'Wednesday'],
+  [/^thu(r(s(day)?)?)?s?$/i, 'TH', 'Thursday'],
+  [/^fri(day)?s?$/i, 'FR', 'Friday'],
+  [/^sat(urday)?s?$/i, 'SA', 'Saturday'],
+  [/^sun(day)?s?$/i, 'SU', 'Sunday'],
+];
+const DAY_WORD = '(?:mon|tue|tues|wed|thu|thur|thurs|fri|sat|sun)[a-z]*';
+
+function parseRecurrence(phrase: string): { rrule: string; label: string } | null {
+  const p = phrase.toLowerCase().trim();
+  const simple: Record<string, [string, string]> = {
+    day: ['FREQ=DAILY', 'every day'],
+    weekday: ['FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR', 'every weekday'],
+    weekend: ['FREQ=WEEKLY;BYDAY=SA,SU', 'every weekend'],
+    week: ['FREQ=WEEKLY', 'every week'],
+    'other week': ['FREQ=WEEKLY;INTERVAL=2', 'every other week'],
+    fortnight: ['FREQ=WEEKLY;INTERVAL=2', 'every fortnight'],
+    month: ['FREQ=MONTHLY', 'every month'],
+    year: ['FREQ=YEARLY', 'every year'],
+  };
+  const hit = simple[p];
+  if (hit) return { rrule: hit[0], label: hit[1] };
+
+  const n = /^(\d+)\s+(day|week|month|year)s?$/.exec(p);
+  if (n) {
+    const freq = { day: 'DAILY', week: 'WEEKLY', month: 'MONTHLY', year: 'YEARLY' }[n[2] as 'day'];
+    return { rrule: `FREQ=${freq};INTERVAL=${n[1]}`, label: `every ${n[1]} ${n[2]}s` };
+  }
+
+  const days = p.split(/\s*(?:,|\band\b|&)\s*/).filter(Boolean);
+  const codes: string[] = [];
+  const names: string[] = [];
+  for (const d of days) {
+    const w = WEEKDAYS.find(([re]) => re.test(d));
+    if (!w) return null;
+    codes.push(w[1]);
+    names.push(w[2]);
+  }
+  return codes.length
+    ? { rrule: `FREQ=WEEKLY;BYDAY=${codes.join(',')}`, label: `every ${names.join(', ')}` }
+    : null;
+}
+
+const fmtDay = (d: Date) => format(d, 'yyyy-MM-dd');
+const fmtTime = (d: Date) => format(d, 'HH:mm');
+const showDay = (d: Date) => format(d, 'EEE d MMM');
+
+/** Parses one quick-add line relative to `now` (the user's local time). */
+export function parseQuick(input: string, now: Date = new Date()): QuickParse {
+  let rest = ` ${input} `;
+  const chips: Chip[] = [];
+  const out: QuickParse = { title: '', kind: 'task', anchoring: 'flexible', tags: [], chips };
+  let anchoringSet: Anchoring | null = null;
+
+  // Removes a token from the text only when `fn` accepts it, so an
+  // unreadable "~soon" stays part of the title.
+  const take = (re: RegExp, fn: (m: RegExpExecArray) => boolean) => {
+    const m = re.exec(rest);
+    if (!m || !fn(m)) return;
+    rest = rest.slice(0, m.index) + ' ' + rest.slice(m.index + m[0].length);
+  };
+
+  // Recurrence first: its weekday names would otherwise be read as dates.
+  take(
+    new RegExp(
+      `\\severy\\s+((?:other\\s+week|fortnight|weekday|weekend|day|week|month|year)|\\d+\\s+(?:days?|weeks?|months?|years?)|${DAY_WORD}(?:\\s*(?:,|and|&)\\s*${DAY_WORD})*)(?=\\s)`,
+      'i',
+    ),
+    (m) => {
+      const r = parseRecurrence(m[1] as string);
+      if (!r) return false;
+      out.rrule = r.rrule;
+      chips.push({ kind: 'repeat', label: 'Repeats', value: r.label, source: m[0].trim() });
+      return true;
+    },
+  );
+  take(/\s~(\S+)(?=\s)/, (m) => {
+    const minutes = parseDuration(m[1] as string);
+    if (!minutes) return false;
+    out.durationMin = minutes;
+    const h = Math.floor(minutes / 60);
+    const mm = minutes % 60;
+    chips.push({
+      kind: 'duration',
+      label: 'Duration',
+      value: h ? `${h}h${mm ? ` ${mm}m` : ''}` : `${mm}m`,
+      source: m[0].trim(),
+    });
+    return true;
+  });
+  take(/\s!([1-3])(?=\s)/, (m) => {
+    out.priority = Number(m[1]);
+    chips.push({ kind: 'priority', label: 'Priority', value: `!${m[1]}`, source: m[0].trim() });
+    return true;
+  });
+  take(/\s@(fixed|flex|flexible)(?=\s)/i, (m) => {
+    anchoringSet = (m[1] as string).toLowerCase() === 'fixed' ? 'fixed' : 'flexible';
+    chips.push({ kind: 'anchoring', label: 'Anchoring', value: anchoringSet, source: m[0].trim() });
+    return true;
+  });
+  for (let m = /\s#([\w-]+)(?=\s)/.exec(rest); m; m = /\s#([\w-]+)(?=\s)/.exec(rest)) {
+    const tag = (m[1] as string).toLowerCase();
+    if (!out.tags.includes(tag)) out.tags.push(tag);
+    chips.push({ kind: 'tag', label: 'Tag', value: tag, source: m[0].trim() });
+    rest = rest.slice(0, m.index) + ' ' + rest.slice(m.index + m[0].length);
+  }
+
+  // Dates and times. A match right after "due" is the deadline.
+  // "weekend" on its own is almost always part of a title ("weekend
+  // shopping"), not a date, so chrono's reading of it is ignored.
+  const results = chrono.en.GB.parse(rest, now, { forwardDate: true }).filter(
+    (r) => !/^(?:this\s+|the\s+)?weekend$/i.test(r.text.trim()),
+  );
+  const removals: [number, number][] = [];
+  let when: chrono.ParsedResult | undefined;
+  for (const r of results) {
+    const before = rest.slice(0, r.index);
+    const dueWord = /\bdue\s*(?:on|by)?\s*$/i.exec(before);
+    if (dueWord && !out.due) {
+      const d = r.start.date();
+      const time = r.start.isCertain('hour') ? fmtTime(d) : '17:00';
+      out.due = `${fmtDay(d)}T${time}`;
+      chips.push({
+        kind: 'due',
+        label: 'Due',
+        value: `${showDay(d)}${r.start.isCertain('hour') ? ` ${time}` : ''}`,
+        source: `${dueWord[0]}${r.text}`.trim(),
+      });
+      removals.push([dueWord.index, r.index + r.text.length]);
+    } else if (!when) {
+      when = r;
+      removals.push([r.index, r.index + r.text.length]);
+    }
+  }
+  for (const [a, b] of removals.sort((x, y) => y[0] - x[0]))
+    rest = rest.slice(0, a) + ' ' + rest.slice(b);
+
+  if (when) {
+    const d = when.start.date();
+    // A bare time ("9am") has already landed on today or tomorrow via forwardDate.
+    const hasTime = when.start.isCertain('hour');
+    out.date = fmtDay(d);
+    chips.push({ kind: 'date', label: 'Date', value: showDay(d), source: when.text });
+    if (hasTime) {
+      out.time = fmtTime(d);
+      chips.push({ kind: 'time', label: 'Time', value: out.time, source: when.text });
+    }
+  }
+
+  // A recurring item needs a start; default to today.
+  if (out.rrule && !out.date) {
+    out.date = fmtDay(now);
+  }
+
+  out.title = rest
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/\s+(?:at|on|by|for|from|due)$/i, '')
+    .replace(/^(?:at|on)\s+/i, '');
+
+  const eventLike = Boolean(out.time && EVENT_WORDS.test(out.title));
+  if (eventLike) out.kind = 'event';
+  out.anchoring = anchoringSet ?? (eventLike ? 'fixed' : 'flexible');
+  return out;
+}
+
+/** `create_item` arguments for a parsed line. */
+export function toCreateArgs(p: QuickParse): Record<string, unknown> {
+  const args: Record<string, unknown> = {
+    title: p.title || 'Untitled',
+    kind: p.kind,
+    anchoring: p.anchoring,
+  };
+  if (p.date && p.time) args.start = `${p.date}T${p.time}`;
+  else if (p.date) args.date = p.date;
+  if (p.durationMin) args.duration_min = p.durationMin;
+  if (p.priority) args.priority = p.priority;
+  if (p.tags.length) args.tags = p.tags;
+  if (p.due) args.due = p.due;
+  if (p.rrule) args.rrule = p.rrule;
+  return args;
+}
+
+/** Where a parsed line will land, for the preview pill. */
+export function destination(p: QuickParse): 'inbox' | 'day' | 'calendar' {
+  if (p.date && p.time) return 'calendar';
+  if (p.date) return 'day';
+  return 'inbox';
+}

@@ -17,6 +17,7 @@ import { DragLayer } from './DragLayer';
 import { useFocus } from './focus';
 import { useSelection } from './selection';
 import { ItemDialog } from './ItemDialog';
+import { QuickAddDialog } from './QuickAddDialog';
 import { SIDEBAR_AUTO_COLLAPSE_PX, useNav } from './nav';
 import { useOverlay } from './overlay';
 import { ShortcutSheet } from './ShortcutSheet';
@@ -77,6 +78,7 @@ export function AppShell() {
       </div>
       <CommandPalette actions={actions} />
       <ShortcutSheet actions={actions} />
+      <QuickAddDialog />
       <ItemDialog />
       <ConfirmDialog />
       <DragLayer blockouts={blockouts.data ?? []} />

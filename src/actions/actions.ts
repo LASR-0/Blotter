@@ -21,6 +21,7 @@ import {
   Moon,
   Notebook,
   Palette,
+  Plus,
   Power,
   Scroll,
   SidebarSimple,
@@ -331,6 +332,15 @@ export function buildActions(): Action[] {
       binding: 'Ctrl+K',
       inOverlay: true,
       run: () => overlay().toggle('palette'),
+    },
+    {
+      id: 'quick.add',
+      label: 'Quick add',
+      group: 'Actions',
+      icon: Plus,
+      binding: 'n',
+      keywords: ['create', 'add', 'task', 'capture', 'natural'],
+      run: () => overlay().open('quickadd'),
     },
     {
       id: 'item.new',

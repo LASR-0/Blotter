@@ -447,6 +447,11 @@ Each phase states the intent, then the acceptance criteria (AC) and leads to ver
 - `blotter --capture` works from a Hyprland bind.
 - Parser tests cover the token grammar.
 
+**Progress (2026-10-14):**
+- #16 (Inbox) is committed.
+- #17 (quick add) is ready to commit. Left over: a live check of typing into the `n` bar (chips and preview), plus Ctrl+Enter and Alt+Enter.
+- #18 (the quick-capture window, global shortcut and `--capture`) hasn't started. The `app:cli` event and the capture-mode panel variant already exist.
+
 ### Phase 5 — Block-outs and scheduling
 **Intent:**
 - block-outs with exceptions and their settings page,
