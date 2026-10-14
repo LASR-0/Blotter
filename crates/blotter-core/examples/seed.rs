@@ -4,7 +4,7 @@
 //!
 //! Dates are relative to the current week (Monday start) in the OS timezone,
 //! so the demo always lands on screen. Tasks dated before today are marked
-//! done. Run it against a scratch database (BLOTTER_DATA_DIR), not your
+//! done, except "Renew car registration", which is left overdue. Run it against a scratch database (BLOTTER_DATA_DIR), not your
 //! real one.
 
 use std::path::PathBuf;
@@ -16,6 +16,7 @@ use serde_json::{Value, json};
 /// (day offset from Monday, kind, title, start HH:MM, minutes, tag)
 const TIMED: &[(i64, &str, &str, &str, u32, &str)] = &[
     (0, "task", "Groceries", "17:30", 45, "shopping"),
+    (0, "task", "Renew car registration", "19:30", 20, "home"),
     (1, "task", "Pay electricity bill", "07:45", 15, "home"),
     (1, "event", "Telehealth consult", "11:30", 45, "health"),
     (1, "task", "Gym", "17:30", 45, "health"),
@@ -39,6 +40,9 @@ const TIMED: &[(i64, &str, &str, &str, u32, &str)] = &[
     (6, "task", "Long run", "10:00", 90, "personal"),
     (6, "task", "Weekly review", "16:00", 30, "work"),
 ];
+
+/// Left undone on a past day so the Diary shows an Overdue section.
+const LEFT_OVERDUE: &str = "Renew car registration";
 
 const INBOX: &[&str] = &[
     "Call plumber",
@@ -77,7 +81,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             json!({ "title": title, "kind": kind, "start": format!("{}T{hm}", day(d)),
                     "duration_min": minutes, "tags": [tag] }),
         )?;
-        if kind == "task" && day(d) < today {
+        if kind == "task" && day(d) < today && title != LEFT_OVERDUE {
             run("complete_item", json!({ "id": item["id"] }))?;
         }
     }

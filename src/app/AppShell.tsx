@@ -3,7 +3,7 @@ import { buildActions } from '@/actions/actions';
 import { useKeymap } from '@/keymap/useKeymap';
 import { usePlannerSync } from '@/lib/queries';
 import { useTheme } from '@/theme/theme';
-import { DiaryView } from '@/views/DiaryView';
+import { DiaryView } from '@/views/diary/DiaryView';
 import { InboxView } from '@/views/InboxView';
 import { PendingView } from '@/views/PendingView';
 import { SettingsView } from '@/views/SettingsView';

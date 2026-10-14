@@ -15,6 +15,8 @@ interface NavState {
   /** Window is narrower than SIDEBAR_AUTO_COLLAPSE_PX. */
   narrow: boolean;
   settingsPage: SettingsPage;
+  /** Whether the Diary shows its Inbox rail. */
+  diaryInbox: boolean;
   /** Keys pressed so far in an unfinished chord, for the top-bar hint. */
   chord: { prefix: string[]; continuations: string[] } | null;
 
@@ -30,6 +32,7 @@ interface NavState {
   setNarrow: (narrow: boolean) => void;
   openSettings: (page?: SettingsPage) => void;
   setChord: (chord: NavState['chord']) => void;
+  toggleDiaryInbox: () => void;
 }
 
 const midnight = (d = new Date()) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
@@ -43,6 +46,7 @@ export const useNav = create<NavState>()(
       sidebarCollapsed: null,
       narrow: false,
       settingsPage: 'theme',
+      diaryInbox: true,
       chord: null,
 
       go: (view) => set((s) => ({ view, calView: isCalendarView(view) ? view : s.calView })),
@@ -57,6 +61,7 @@ export const useNav = create<NavState>()(
       openSettings: (page) =>
         set((s) => ({ view: 'settings', settingsPage: page ?? s.settingsPage })),
       setChord: (chord) => set({ chord }),
+      toggleDiaryInbox: () => set((s) => ({ diaryInbox: !s.diaryInbox })),
     }),
     {
       name: 'blotter.nav',
@@ -65,6 +70,7 @@ export const useNav = create<NavState>()(
         view: s.view,
         calView: s.calView,
         sidebarCollapsed: s.sidebarCollapsed,
+        diaryInbox: s.diaryInbox,
       }),
     },
   ),

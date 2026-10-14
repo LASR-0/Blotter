@@ -49,6 +49,12 @@ pub(super) fn defs() -> Vec<OpDef> {
             list_blockouts,
         ),
         OpDef::new(
+            "list_overdue",
+            "List open tasks left on earlier days or past their deadline, oldest first.",
+            false,
+            list_overdue,
+        ),
+        OpDef::new(
             "get_day_summary",
             "Summarize one day: items, planned minutes, done/open counts, overdue and Inbox \
              counts. Defaults to today.",
@@ -122,7 +128,7 @@ pub struct DaySummary {
     pub planned_min: i64,
     pub open_count: usize,
     pub done_count: usize,
-    /// Open items, anywhere, whose end or due time has passed.
+    /// Open tasks left on earlier days or past their deadline (see list_overdue).
     pub overdue_count: usize,
     pub inbox_count: usize,
 }
@@ -202,12 +208,7 @@ fn get_day_summary(ctx: &mut Ctx<'_>, a: DaySummaryArgs) -> Result<DaySummary> {
         .filter(|i| i.status != ItemStatus::Cancelled)
         .filter_map(|i| Some(clip_minutes(i.start_at?, i.end_at?, range.start, range.end)))
         .sum();
-    let overdue_count: i64 = ctx.conn.query_row(
-        "SELECT COUNT(*) FROM items WHERE status = 'open' \
-           AND ((end_at IS NOT NULL AND end_at < ?1) OR (due_at IS NOT NULL AND due_at < ?1))",
-        [crate::time::fmt_instant(ctx.now)],
-        |r| r.get(0),
-    )?;
+    let overdue_count = overdue(ctx)?.len();
     Ok(DaySummary {
         date,
         timezone: ctx.settings.tz.name().to_owned(),
@@ -220,13 +221,27 @@ fn get_day_summary(ctx: &mut Ctx<'_>, a: DaySummaryArgs) -> Result<DaySummary> {
             .iter()
             .filter(|i| i.status == ItemStatus::Done)
             .count(),
-        overdue_count: usize::try_from(overdue_count).unwrap_or(0),
+        overdue_count,
         inbox_count: store::items::list_inbox(ctx.conn)?
             .iter()
             .filter(|i| i.status == ItemStatus::Open)
             .count(),
         items,
     })
+}
+
+fn overdue(ctx: &Ctx<'_>) -> Result<Vec<Item>> {
+    let today = today(ctx);
+    store::items::list_overdue(
+        ctx.conn,
+        ctx.now,
+        start_of_day(ctx.settings.tz, today),
+        today,
+    )
+}
+
+fn list_overdue(ctx: &mut Ctx<'_>, _: NoArgs) -> Result<Vec<Item>> {
+    overdue(ctx)
 }
 
 fn clip_minutes(start: Instant, end: Instant, lo: Instant, hi: Instant) -> i64 {
@@ -373,6 +388,59 @@ mod tests {
         assert_eq!(s["done_count"], 1);
         assert_eq!(s["overdue_count"], 1);
         assert_eq!(s["inbox_count"], 1);
+    }
+
+    #[test]
+    fn overdue_means_left_on_an_earlier_day_or_past_deadline() {
+        let mut p = crate::planner::tests::planner();
+        // NOW is 2026-10-14 09:00 local.
+        let titles = |p: &mut crate::Planner| -> Vec<String> {
+            run(p, "list_overdue", json!({}))
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|i| i["title"].as_str().unwrap().to_owned())
+                .collect()
+        };
+        run(
+            &mut p,
+            "create_item",
+            json!({ "title": "Renew rego", "start": "2026-10-12T19:30", "duration_min": 20 }),
+        );
+        run(
+            &mut p,
+            "create_item",
+            json!({ "title": "Old all-day", "date": "2026-10-13" }),
+        );
+        run(
+            &mut p,
+            "create_item",
+            json!({ "title": "Deadline passed", "due": "2026-10-14T08:00" }),
+        );
+        run(
+            &mut p,
+            "create_item",
+            json!({ "title": "Earlier today", "start": "2026-10-14T07:00" }),
+        );
+        run(
+            &mut p,
+            "create_item",
+            json!({ "title": "Past party", "kind": "event", "start": "2026-10-12T19:00" }),
+        );
+        run(&mut p, "create_item", json!({ "title": "Someday" }));
+        let done = run(
+            &mut p,
+            "create_item",
+            json!({ "title": "Done late", "start": "2026-10-11T10:00" }),
+        );
+        run(&mut p, "complete_item", json!({ "id": done["id"] }));
+
+        assert_eq!(
+            titles(&mut p),
+            ["Renew rego", "Old all-day", "Deadline passed"]
+        );
+        let summary = run(&mut p, "get_day_summary", json!({}));
+        assert_eq!(summary["overdue_count"], 3);
     }
 
     #[test]

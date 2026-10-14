@@ -49,8 +49,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 08 | 2 | `feat(ui): app layout, routing and action/keymap registry` | committed `0fbe467` |
 | 09 | 2 | `feat(ui): command palette` | committed `bd6509b` |
 | 10 | 3 | `feat(ui): week view time grid` | committed `9de2693` |
-| 11 | 3 | `feat(ui): month and year views` | ready |
-| 12 | 3 | `feat(ui): diary view with day columns and timeline rail` | planned |
+| 11 | 3 | `feat(ui): month and year views` | committed `e63069b` |
+| 12 | 3 | `feat(ui): diary view with day columns and timeline rail` | ready |
 | 13 | 3 | `feat(ui): item dialog and completion with timestamps` | planned |
 | 14 | 3 | `feat(ui): keyboard navigation and keyboard move/resize` | planned |
 | 15 | 3 | `feat(ui): drag-and-drop rescheduling in week view` | planned |
@@ -666,7 +666,7 @@ Notes:
       (items still sit on the correct day). Revisit if it matters in practice.
     - Week starts on Monday (WEEK_STARTS_ON); it becomes a setting with General in #38.
 
-### #11 — Month and Year views            [status: ready]
+### #11 — Month and Year views            [status: committed e63069b]
 Phase: 3
 Message:
     feat(ui): month and year views
@@ -723,3 +723,67 @@ Notes:
       completions of unscheduled Inbox items join when History (#39) adds its query.
     - Keyboard navigation of days (arrows, Enter → Week) comes with #14; block-out strips
       and conflict icons in Month with #21/#22.
+
+### #12 — Diary view with day columns and timeline rail            [status: ready]
+Phase: 3
+Message:
+    feat(ui): diary view with day columns and timeline rail
+
+    The home view from the design. A collapsible Inbox rail with a
+    brain-dump input and the open Inbox tasks. Day columns from the anchor
+    day onwards, scrolling sideways: today is first and widest with a 44px
+    accent date, a Today badge and a raised ground; each column has a
+    planned-vs-free meter (free = planning hours 07:00–22:00 minus that
+    day's block-outs, red above 90%), design cards and an inline "Add task"
+    that creates a task on that day. Today's column opens with an Overdue
+    section. A timeline rail shows the anchor day's hours with block-out
+    hatching and labels, timed items (pinned when fixed inside a block-out)
+    and the now-line.
+
+    Core: new list_overdue read op (open tasks left on an earlier day or
+    past their deadline); get_day_summary's overdue_count now uses the same
+    definition. Free-time maths (block-outs wrapping midnight, lifted dates,
+    active ranges) is a pure, tested module. Cards now follow the design's
+    meta grammar (07:15 · 30m, 09:00–09:15, due Mon 12 · 20m, pin,
+    recurring, tag dots). The seed leaves one task overdue for the demo.
+Files:
+    A  src/views/diary/DiaryView.tsx
+    A  src/views/diary/DayColumn.tsx
+    A  src/views/diary/InboxRail.tsx
+    A  src/views/diary/TimelineRail.tsx
+    D  src/views/DiaryView.tsx
+    A  src/lib/availability.ts
+    A  src/lib/availability.test.ts
+    M  src/lib/format.ts
+    M  src/components/ItemCard.tsx
+    M  src/app/AppShell.tsx
+    M  src/app/nav.ts
+    M  crates/blotter-core/src/ops/reads.rs
+    M  crates/blotter-core/src/store/items.rs
+    M  crates/blotter-core/examples/seed.rs
+    M  .claude/COMMITS.md
+    Stage everything in one go:  git add -A
+Test steps:
+    - pnpm check                → clean; Vitest 48 passed (+5 availability)
+    - cargo test --workspace    → 63 core (+1 overdue rules) + 3 app passed; clippy clean
+    - Reseed the demo database (the seed changed):
+          export BLOTTER_DATA_DIR="$TEMP/blotter-demo"; rm -rf "$BLOTTER_DATA_DIR"
+          cargo run -p blotter-core --example seed -- "$BLOTTER_DATA_DIR/blotter.db"
+          pnpm tauri dev      then  g d
+        · today's column: Today badge, OVERDUE "Renew car registration · due Mon 12 · 20m" in red,
+          then TODAY cards; meter reads planned vs free (a weekday shows ≤ 6h 30m free)
+        · following days scroll horizontally; ] moves the start day forward, . back to today
+        · Timeline rail: Sleep hatched at both ends, Work 08:30–17:00 hatched and labelled,
+          Standup has a pin, red now-line on today
+        · "Add task" under a column → type → Enter → card appears in that column
+        · Inbox rail: type in "Brain-dump a task…" → appears in the rail and the sidebar count;
+          « hides the rail to a slim strip (stays hidden after restart), click it to reopen
+        · tick a card → struck through with ✓ time; untick restores it
+Notes:
+    - Verified here by screenshot with the demo data (it also showed the Light theme
+      correctly): overdue section, meters matching the design's demo numbers, rail hatching.
+    - Dragging cards between days / onto the timeline joins drag and drop in #15;
+      card focus, x/e/Enter keys in #14; "in Work" pin labels and conflict lines in #21/#22;
+      the rail's Auto-slot button arrives with auto-slot in #22.
+    - "Add task" makes an all-day task on that day (no time yet), which is how a day-only
+      task is stored. Planning hours are fixed at 07:00–22:00 until the General settings (#38).

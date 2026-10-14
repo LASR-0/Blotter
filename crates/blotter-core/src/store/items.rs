@@ -203,6 +203,29 @@ pub fn search(conn: &Connection, query: &str, limit: u32) -> Result<Vec<Item>> {
     collect(conn, &sql, named_params! { ":p": pattern, ":limit": limit })
 }
 
+/// Open tasks left behind: scheduled on a day before `today` (timed items
+/// ending at or before `today_start`, all-day items ending before `today`),
+/// or past their deadline at `now`. Oldest first.
+pub fn list_overdue(
+    conn: &Connection,
+    now: Instant,
+    today_start: Instant,
+    today: NaiveDate,
+) -> Result<Vec<Item>> {
+    let sql = format!(
+        "SELECT {COLUMNS} FROM items WHERE status = 'open' AND kind = 'task' AND (            (all_day = 0 AND end_at IS NOT NULL AND end_at <= :today_start)            OR (all_day = 1 AND COALESCE(end_date, start_date) < :today)            OR (due_at IS NOT NULL AND due_at < :now))          ORDER BY COALESCE(end_at, end_date, start_date, due_at), sort_order"
+    );
+    collect(
+        conn,
+        &sql,
+        named_params! {
+            ":now": time::fmt_instant(now),
+            ":today_start": time::fmt_instant(today_start),
+            ":today": time::fmt_date(today),
+        },
+    )
+}
+
 /// Occurrence overrides of a recurring series.
 pub fn list_children(conn: &Connection, parent_id: &str) -> Result<Vec<Item>> {
     let sql = format!("SELECT {COLUMNS} FROM items WHERE parent_id = ?1 ORDER BY recurrence_id");
