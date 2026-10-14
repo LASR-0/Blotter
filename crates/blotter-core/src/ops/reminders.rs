@@ -141,7 +141,7 @@ mod tests {
         let item: Item = serde_json::from_value(
             p.execute(
                 "create_item",
-                json!({ "title": "Dentist", "kind": "event", "start": "2026-10-20T15:00" }),
+                json!({ "title": "Dentist", "kind": "event", "start": "2026-10-20T15:00", "reminders": [] }),
                 &Actor::User,
             )
             .unwrap()

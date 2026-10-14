@@ -411,7 +411,7 @@ mod tests {
         let i = run(
             &mut p,
             "create_item",
-            json!({ "title": "Dentist", "kind": "event", "start": "2026-10-20T15:00" }),
+            json!({ "title": "Dentist", "kind": "event", "start": "2026-10-20T15:00", "reminders": [] }),
         );
         run(
             &mut p,

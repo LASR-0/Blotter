@@ -149,14 +149,7 @@ function ItemForm({
     setSaving(true);
     try {
       if (result.create) {
-        const created = await runOp<Item>('create_item', result.create);
-        if (result.newReminders.length)
-          await runBatch(
-            result.newReminders.map((offset_min) => ({
-              name: 'set_reminder',
-              args: { item_id: created.id, offset_min },
-            })),
-          );
+        await runOp<Item>('create_item', result.create);
       } else if (result.calls.length) {
         await runBatch(result.calls);
       }
@@ -244,6 +237,11 @@ function ItemForm({
                 kind,
                 // Events default to fixed; switching to one pins it.
                 anchoring: kind === 'event' ? 'fixed' : d.anchoring,
+                // New events start with the default 10-minute reminder.
+                reminders:
+                  !item && kind === 'event' && d.reminders.length === 0
+                    ? [{ offset_min: 10, at: null }]
+                    : d.reminders,
               }))
             }
             options={[

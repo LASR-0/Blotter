@@ -64,8 +64,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 22 | 5 | `feat: inbox auto-slot and conflict warnings` | committed `8777f83` |
 | 23 | 5 | `feat: end-of-day rollover` | committed `25f3f7a` |
 | 24 | 6 | `feat(core): recurring items with occurrence exceptions` | committed `6ecb88a` (UI split out as #24a) |
-| 24a | 6 | `feat(ui): recurring item editing` | ready |
-| 25 | 6 | `feat(app): reminder engine and OS notifications` | planned |
+| 24a | 6 | `feat(ui): recurring item editing` | committed `afb6690` |
+| 25 | 6 | `feat(app): reminder engine and OS notifications` | ready |
 | 26 | 6 | `feat: snooze, missed-reminder catch-up and autostart setting` | planned |
 | 27 | 7 | `feat: undo/redo from change log` | planned |
 | 28 | 7 | `feat: snapshots, restore UI and JSON export/import` | planned |
@@ -1657,7 +1657,7 @@ Notes:
       as before.
     - Expansion is capped at 4000 occurrences per series per read.
 
-### #24a — Recurring item editing            [status: ready]
+### #24a — Recurring item editing            [status: committed afb6690]
 Phase: 6
 Message:
     feat(ui): recurring item editing
@@ -1712,3 +1712,74 @@ Notes:
     - Drags and Shift+arrow moves change only the occurrence you move (no prompt), as in
       #24. A prompt on drag could come later if it's missed.
     - The picker offers common rules only; anything else is Custom (RRULE text).
+
+### #25 — Reminder engine and OS notifications            [status: ready]
+Phase: 6
+Message:
+    feat(app): reminder engine and OS notifications
+
+    Core: a new alerts module answers "which reminders fall due between A
+    and B" (roadmap §4.7). It covers:
+    - offset reminders (before the start) and absolute ones;
+    - recurring series, where an offset reminder fires for every
+      occurrence (an override's own time wins; cancelled and done
+      occurrences stay quiet);
+    - all-day items, which count from 09:00 local;
+    - snoozes, which replace the next firing.
+    fired_at records the last firing's due time, so a restart never
+    fires one twice and a rescheduled item fires again at its new time.
+
+    App: a reminder thread sleeps until the next reminder is due (at
+    most a minute), wakes early on every planner change, and shows an OS
+    notification through tauri-plugin-notification 2.4: the title is the
+    item, the body like "15:00–15:45 · in 10 min". The process stays in
+    the tray, so reminders fire with the window closed. Each firing is
+    also sent to the UI as a reminder:fired event (the in-app toast with
+    snooze comes in #26). Reminders missed while Blotter wasn't running
+    are left for #26's grouped catch-up rather than all firing at once.
+
+    Default reminder: events get one 10 minutes before
+    (default_event_reminder_min; 0 turns it off). create_item takes an
+    explicit reminders list (minutes before), and [] means none. The item
+    dialog now sends its list with the create (no follow-up batch, so no
+    duplicate default), and a new item switched to Event starts with
+    "10m before".
+Files:
+    A  crates/blotter-core/src/alerts.rs
+    A  src-tauri/src/reminders.rs
+    M  crates/blotter-core/src/lib.rs
+    M  crates/blotter-core/src/settings.rs
+    M  crates/blotter-core/src/store/reminders.rs   (list_all, set_fired)
+    M  crates/blotter-core/src/ops/items.rs         (create_item reminders + default)
+    M  crates/blotter-core/src/ops/reads.rs         (tests opt out of the default)
+    M  crates/blotter-core/src/ops/reminders.rs     (tests opt out of the default)
+    M  src-tauri/Cargo.toml                         (tauri-plugin-notification 2.4.0)
+    M  src-tauri/src/lib.rs
+    M  Cargo.lock
+    M  src/lib/itemDraft.ts
+    M  src/lib/itemDraft.test.ts
+    M  src/app/ItemDialog.tsx
+    M  .claude/COMMITS.md
+    M  .claude/roadmap.md
+    Stage everything in one go:  git add -A
+Test steps:
+    - cargo test --workspace    → 112 core (+3 alerts) + 7 app (+1 notification text) passed
+    - cargo clippy --workspace --all-targets -- -D warnings → clean; cargo fmt --check → clean
+    - pnpm check                → clean; Vitest 143 passed
+    - pnpm tauri dev: n, "team meeting <a time 12 minutes from now>", Enter → about two minutes
+      later a Windows notification: "team meeting · HH:MM–HH:MM · in 10 min"
+    - Close the window to the tray first and repeat → it still appears
+    - Quit and relaunch after it fired → it doesn't fire again
+Notes:
+    - Verified here: the engine logic by test (offsets, absolute, every occurrence of a
+      series with a cancelled and a moved one, all-day from 09:00, done items quiet, no
+      re-firing), the notification text by test, and live that a quick-added meeting got its
+      default 10-minute reminder.
+    - NOT verified live: I didn't see the Windows toast appear at 23:03 when the test
+      reminder was due, and nothing was logged as an error. The likely causes are Focus
+      Assist / Do Not Disturb, or Windows treating the unpackaged dev build as an unknown
+      app. Please check this step yourself first; if no toast shows, check Settings →
+      System → Notifications, and tell me what you see so I can add a fix entry.
+    - Notification click and action buttons aren't available on desktop through the plugin;
+      the in-app toast with snooze (#26) is the fallback the roadmap planned.
+    - Missed reminders older than 2 minutes are deliberately left for #26's catch-up.

@@ -5,6 +5,7 @@
 //! crate has no Tauri dependency so it can be unit-tested on its own and
 //! shared by the desktop app and the MCP server.
 
+pub mod alerts;
 pub mod db;
 pub mod error;
 pub mod id;

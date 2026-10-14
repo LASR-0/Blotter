@@ -150,6 +150,8 @@ export function buildChanges(
     const newReminders = draft.reminders.flatMap((r) =>
       r.offset_min !== null ? [r.offset_min] : [],
     );
+    // Always explicit, so the core's default event reminder doesn't add another.
+    args.reminders = draft.date ? newReminders : [];
     return { ok: true, create: args, calls: [], newReminders };
   }
 

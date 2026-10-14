@@ -10,7 +10,7 @@ use super::occurrences::{self, Scope, Target};
 use super::{Ctx, OpDef, require_item};
 use crate::error::{CoreError, Result};
 use crate::id::new_id;
-use crate::model::{Actor, Anchoring, Item, ItemKind, ItemStatus, Source};
+use crate::model::{Actor, Anchoring, Item, ItemKind, ItemStatus, Reminder, Source};
 use crate::recurrence::{self, Slot};
 use crate::store;
 use crate::time::Instant;
@@ -103,6 +103,9 @@ pub struct CreateItemArgs {
     pub rrule: Option<String>,
     /// IANA timezone for a fixed item; defaults to the user's.
     pub tz: Option<String>,
+    /// Reminders, as minutes before the start. Omitted: events get the default
+    /// reminder (10 minutes unless changed in settings); `[]` means none.
+    pub reminders: Option<Vec<u32>>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -230,6 +233,31 @@ fn create_item(ctx: &mut Ctx<'_>, a: CreateItemArgs) -> Result<Item> {
     super::slots::check_placement(ctx, None, &item)?;
     store::items::insert(ctx.conn, &item)?;
     ctx.record(ENTITY, &item.id, None, Some(&item))?;
+    let offsets =
+        a.reminders.unwrap_or_else(
+            || match (item.kind, ctx.settings.default_event_reminder_min) {
+                (ItemKind::Event, Some(m)) if item.is_scheduled() => vec![m],
+                _ => Vec::new(),
+            },
+        );
+    if !offsets.is_empty() && !item.is_scheduled() {
+        return Err(CoreError::invalid(
+            "reminders before the start need the item to have a `start` or `date`",
+        ));
+    }
+    for offset in offsets {
+        let r = Reminder {
+            id: new_id(),
+            item_id: item.id.clone(),
+            offset_min: Some(offset),
+            at: None,
+            fired_at: None,
+            snoozed_until: None,
+            created_at: ctx.now,
+        };
+        store::reminders::upsert(ctx.conn, &r)?;
+        ctx.record(super::reminders::ENTITY, &r.id, None, Some(&r))?;
+    }
     Ok(item)
 }
 
@@ -974,7 +1002,7 @@ mod tests {
         let i = item(run(
             &mut p,
             "create_item",
-            json!({ "title": "Dentist", "kind": "event", "start": "2026-10-20T15:00" }),
+            json!({ "title": "Dentist", "kind": "event", "start": "2026-10-20T15:00", "reminders": [] }),
         ));
         run(
             &mut p,

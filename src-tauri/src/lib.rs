@@ -4,6 +4,7 @@
 mod capture;
 mod cli;
 mod commands;
+mod reminders;
 mod rollover;
 mod shell;
 
@@ -88,11 +89,13 @@ pub fn run() {
             capture::prepare(app.handle());
             app.manage(rollover::RolloverNotice::default());
             rollover::start(app.handle().clone());
+            reminders::start(app.handle().clone());
             // The main window starts hidden (tauri.conf.json) so `--hidden`
             // launches never flash it.
             shell::handle_launch(app.handle(), &launch);
             Ok(())
         })
+        .plugin(tauri_plugin_notification::init())
         .on_window_event(shell::on_window_event)
         .invoke_handler(tauri::generate_handler![
             commands::app_version,

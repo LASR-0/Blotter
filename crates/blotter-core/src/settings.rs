@@ -13,6 +13,8 @@ pub const KEY_DEFAULT_TASK_DURATION: &str = "default_task_duration_min";
 pub const KEY_DEFAULT_EVENT_DURATION: &str = "default_event_duration_min";
 pub const KEY_PLANNING_HOURS: &str = "planning_hours";
 pub const KEY_SLOT_BUFFER: &str = "slot_buffer_min";
+/// Minutes before an event its default reminder fires (0 = none; default 10).
+pub const KEY_DEFAULT_EVENT_REMINDER: &str = "default_event_reminder_min";
 /// `"inbox"` (default) or `"reslot"`: where unfinished tasks from earlier days go.
 pub const KEY_ROLLOVER_MODE: &str = "rollover_mode";
 /// Local `HH:MM` after which the day's rollover may run (default 04:00).
@@ -33,6 +35,8 @@ pub struct PlannerSettings {
     pub planning_hours: PlanningHours,
     /// Minutes kept free before and after scheduled items when slotting.
     pub slot_buffer_min: u32,
+    /// The reminder new events get unless told otherwise (`None` = none).
+    pub default_event_reminder_min: Option<u32>,
 }
 
 impl PlannerSettings {
@@ -50,6 +54,10 @@ impl PlannerSettings {
                 .unwrap_or(60),
             planning_hours: store::settings::get(conn, KEY_PLANNING_HOURS)?.unwrap_or_default(),
             slot_buffer_min: store::settings::get(conn, KEY_SLOT_BUFFER)?.unwrap_or(0),
+            default_event_reminder_min: Some(
+                store::settings::get(conn, KEY_DEFAULT_EVENT_REMINDER)?.unwrap_or(10u32),
+            )
+            .filter(|m| *m > 0),
         })
     }
 }

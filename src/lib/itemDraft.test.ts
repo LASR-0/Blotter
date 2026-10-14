@@ -73,11 +73,14 @@ describe('buildChanges (create)', () => {
     const inbox = buildChanges(
       emptyDraft({ title: 'Someday', reminders: [{ offset_min: 10, at: null }] }),
     );
+    // Offset reminders need a start; an Inbox item can't keep them.
     expect(inbox.ok && inbox.create).toEqual({
       title: 'Someday',
       kind: 'task',
       anchoring: 'flexible',
+      reminders: [],
     });
+    expect(timed.ok && timed.create?.reminders).toEqual([]);
     expect(inbox.ok && inbox.newReminders).toEqual([10]);
   });
 

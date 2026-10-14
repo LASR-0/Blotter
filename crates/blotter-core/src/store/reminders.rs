@@ -69,6 +69,29 @@ pub fn list_for_item(conn: &Connection, item_id: &str) -> Result<Vec<Reminder>> 
     Ok(out)
 }
 
+/// Every reminder, oldest first (the engine checks them all; there are few).
+pub fn list_all(conn: &Connection) -> Result<Vec<Reminder>> {
+    let mut stmt = conn.prepare(&format!(
+        "SELECT {COLUMNS} FROM reminders ORDER BY created_at, id"
+    ))?;
+    let mut rows = stmt.query([])?;
+    let mut out = Vec::new();
+    while let Some(row) = rows.next()? {
+        out.push(read(row)?);
+    }
+    Ok(out)
+}
+
+/// Records that a reminder fired for the occurrence due at `fired_at`, and
+/// ends any snooze. Engine bookkeeping, not a user change: not logged.
+pub fn set_fired(conn: &Connection, id: &str, fired_at: time::Instant) -> Result<()> {
+    conn.execute(
+        "UPDATE reminders SET fired_at = ?2, snoozed_until = NULL WHERE id = ?1",
+        rusqlite::params![id, time::fmt_instant(fired_at)],
+    )?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
