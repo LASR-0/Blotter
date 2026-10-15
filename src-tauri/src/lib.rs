@@ -1,6 +1,7 @@
 //! The Blotter desktop app: windows, tray, notifications, keychain and AI
 //! HTTP on top of `blotter-core`.
 
+mod autostart;
 mod capture;
 mod cli;
 mod commands;
@@ -96,6 +97,7 @@ pub fn run() {
             Ok(())
         })
         .plugin(tauri_plugin_notification::init())
+        .plugin(autostart::plugin())
         .on_window_event(shell::on_window_event)
         .invoke_handler(tauri::generate_handler![
             commands::app_version,
@@ -111,6 +113,10 @@ pub fn run() {
             capture::fit_capture,
             capture::capture_shortcut_status,
             rollover::take_rollover_notice,
+            reminders::take_reminder_notices,
+            reminders::send_test_notification,
+            autostart::get_autostart,
+            autostart::set_autostart,
         ])
         .run(tauri::generate_context!());
 

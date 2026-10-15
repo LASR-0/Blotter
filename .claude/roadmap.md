@@ -477,7 +477,7 @@ Each phase states the intent, then the acceptance criteria (AC) and leads to ver
 
 ### Phase 6 — Recurrence and reminders
 
-**Progress (2026-10-14):** #24 (recurrence core) and #24a (the editing UI: Repeats picker, this/following/all) are committed; #25 (reminder engine and OS notifications) is committed; #26 (snooze toast, missed-reminder catch-up, Notifications settings with autostart) is next.
+**Progress (2026-10-15):** #24, #24a and #25 are committed; #25a–#25d (logo and wordmark, themed pickers, scrollbars, pnpm dev:demo) are committed; #26 (snooze toast, missed-reminder catch-up, Notifications settings with autostart) is ready. Phase 6 is complete once #26 is committed.
 **Intent:**
 - RRULE items with occurrence editing,
 - the reminder engine,

@@ -43,6 +43,16 @@ impl From<CoreError> for CommandError {
     }
 }
 
+impl CommandError {
+    pub fn internal(message: impl Into<String>) -> Self {
+        Self {
+            code: "internal",
+            message: message.into(),
+            details: Vec::new(),
+        }
+    }
+}
+
 fn lock_error() -> CommandError {
     CommandError {
         code: "internal",

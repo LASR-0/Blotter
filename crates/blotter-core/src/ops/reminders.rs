@@ -1,5 +1,6 @@
 //! Reminder mutations.
 
+use chrono::Duration;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -27,6 +28,13 @@ pub(super) fn defs() -> Vec<OpDef> {
             true,
             clear_reminder,
         ),
+        OpDef::new(
+            "snooze_reminder",
+            "Snooze a reminder: it fires again `minutes` from now, or at `until`. The snooze \
+             replaces its next firing.",
+            true,
+            snooze_reminder,
+        ),
     ]
 }
 
@@ -48,6 +56,17 @@ pub struct SetReminderArgs {
 pub struct ClearReminderArgs {
     pub reminder_id: Option<String>,
     pub item_id: Option<String>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct SnoozeReminderArgs {
+    pub reminder_id: String,
+    /// Minutes from now. Give this or `until`.
+    #[schemars(range(min = 1, max = 10080))]
+    pub minutes: Option<u32>,
+    /// When to fire again. Give this or `minutes`.
+    pub until: Option<DateTimeInput>,
 }
 
 #[derive(Debug, Serialize)]
@@ -128,6 +147,29 @@ fn clear_reminder(ctx: &mut Ctx<'_>, a: ClearReminderArgs) -> Result<Cleared> {
         cleared.push(r.id);
     }
     Ok(Cleared { cleared })
+}
+
+fn snooze_reminder(ctx: &mut Ctx<'_>, a: SnoozeReminderArgs) -> Result<Reminder> {
+    let until = match (a.minutes, a.until) {
+        (Some(m), None) => ctx.now + Duration::minutes(i64::from(m)),
+        (None, Some(at)) => at.resolve(ctx.settings.tz),
+        _ => {
+            return Err(CoreError::invalid(
+                "give exactly one of `minutes` or `until`",
+            ));
+        }
+    };
+    if until <= ctx.now {
+        return Err(CoreError::invalid("a snooze must end in the future"));
+    }
+    let before = store::reminders::require(ctx.conn, &a.reminder_id)?;
+    let after = Reminder {
+        snoozed_until: Some(until),
+        ..before.clone()
+    };
+    store::reminders::upsert(ctx.conn, &after)?;
+    ctx.record(ENTITY, &after.id, Some(&before), Some(&after))?;
+    Ok(after)
 }
 
 #[cfg(test)]

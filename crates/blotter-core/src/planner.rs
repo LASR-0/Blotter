@@ -163,6 +163,23 @@ pub(crate) mod tests {
         )
     }
 
+    struct AtClock(Instant);
+
+    impl Clock for AtClock {
+        fn now(&self) -> Instant {
+            self.0
+        }
+    }
+
+    /// A Melbourne planner whose clock reads `at`.
+    pub fn planner_at(at: Instant) -> Planner {
+        Planner::with_clock(
+            Database::open_in_memory().unwrap(),
+            chrono_tz::Australia::Melbourne,
+            Box::new(AtClock(at)),
+        )
+    }
+
     #[test]
     fn registry_has_every_phase_one_operation() {
         let p = planner();

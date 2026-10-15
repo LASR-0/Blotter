@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { isCalendarView, stepPeriod, type CalendarView, type View } from '@/lib/period';
 
-export type SettingsPage = 'blockouts' | 'theme' | 'about';
+export type SettingsPage = 'blockouts' | 'notifications' | 'theme' | 'about';
 
 interface NavState {
   view: View;

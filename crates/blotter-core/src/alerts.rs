@@ -125,11 +125,23 @@ fn due_for(
         snoozed,
     };
     if let Some(at) = r.snoozed_until {
-        return Ok(if from < at && at <= to {
-            vec![due(&item, at, true)]
-        } else {
-            Vec::new()
-        });
+        if !(from < at && at <= to) {
+            return Ok(Vec::new());
+        }
+        // A snooze comes back for what it was snoozed from: on a series, the
+        // occurrence whose offset firing was last recorded. Done or cancelled
+        // since? Then it stays quiet.
+        let instance = match (item.rrule.is_some(), r.offset_min, r.fired_at) {
+            (true, Some(offset), Some(fired)) => {
+                let start = fired + Duration::minutes(i64::from(offset));
+                instances(conn, &item, tz, start - Duration::seconds(1), start)?
+                    .into_iter()
+                    .next()
+            }
+            (true, _, _) => Some(item.clone()),
+            (false, _, _) => (item.status == ItemStatus::Open).then(|| item.clone()),
+        };
+        return Ok(instance.map(|i| due(&i, at, true)).into_iter().collect());
     }
     let after_last = |at: Instant| r.fired_at.is_none_or(|f| at > f);
     if let Some(at) = r.at {
@@ -255,6 +267,70 @@ mod tests {
         mark_fired(conn, &due[1]).unwrap();
         let later = due_between(conn, Melbourne, at(11, 13, 0), at(15, 13, 0)).unwrap();
         assert_eq!(later.len(), 1, "Mon and Wed are behind the last firing");
+    }
+
+    #[test]
+    fn a_snooze_returns_once_for_its_occurrence() {
+        let mut p = crate::planner::tests::planner_at(at(14, 21, 56));
+        let s = run(
+            &mut p,
+            "create_item",
+            json!({ "title": "Standup", "kind": "event", "start": "2026-10-12T09:00",
+                    "rrule": "FREQ=DAILY", "reminders": [5] }),
+        );
+        let s = s["id"].as_str().unwrap().to_owned();
+        // Thursday's 08:55 reminder (21:55Z Wed) fires, then is snoozed 10 minutes.
+        let fired = due_between(p.db().conn(), Melbourne, at(14, 21, 50), at(14, 21, 56)).unwrap();
+        assert_eq!(fired.len(), 1);
+        mark_fired(p.db().conn(), &fired[0]).unwrap();
+        let r = run(
+            &mut p,
+            "snooze_reminder",
+            json!({ "reminder_id": fired[0].reminder_id, "minutes": 10 }),
+        );
+        assert_eq!(r["snoozed_until"], "2026-10-14T22:06:00Z");
+
+        let conn = p.db().conn();
+        let back = due_between(conn, Melbourne, at(14, 21, 56), at(14, 22, 10)).unwrap();
+        assert_eq!(back.len(), 1);
+        assert!(back[0].snoozed);
+        assert_eq!(back[0].due, at(14, 22, 6));
+        assert_eq!(
+            back[0].start,
+            Some(at(14, 22, 0)),
+            "Thursday's occurrence, not Monday's"
+        );
+        assert_eq!(back[0].item_id, format!("{s}@2026-10-14T22:00:00Z"));
+
+        // Once it fires the snooze is cleared, and Thursday doesn't come back.
+        mark_fired(conn, &back[0]).unwrap();
+        let after = due_between(conn, Melbourne, at(14, 22, 6), at(15, 21, 0)).unwrap();
+        assert!(after.is_empty(), "{after:?}");
+    }
+
+    #[test]
+    fn snoozing_needs_a_future_time() {
+        let mut p = crate::planner::tests::planner_at(at(14, 0, 0));
+        let t = run(&mut p, "create_item", json!({ "title": "Call bank" }));
+        let r = run(
+            &mut p,
+            "set_reminder",
+            json!({ "item_id": t["id"], "at": "2026-10-14T12:00" }),
+        );
+        let bad = p.execute(
+            "snooze_reminder",
+            json!({ "reminder_id": r["id"], "until": "2026-10-14T10:00" }),
+            &Actor::User,
+        );
+        assert!(bad.is_err(), "10:00 Melbourne is in the past");
+        assert!(
+            p.execute(
+                "snooze_reminder",
+                json!({ "reminder_id": r["id"], "minutes": 5, "until": "2026-10-14T12:00" }),
+                &Actor::User
+            )
+            .is_err()
+        );
     }
 
     #[test]

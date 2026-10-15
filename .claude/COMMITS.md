@@ -66,11 +66,11 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 24 | 6 | `feat(core): recurring items with occurrence exceptions` | committed `6ecb88a` (UI split out as #24a) |
 | 24a | 6 | `feat(ui): recurring item editing` | committed `afb6690` |
 | 25 | 6 | `feat(app): reminder engine and OS notifications` | committed `7ba84fe` |
-| 25a | 6 | `feat(ui): Blotter logo and wordmark` | ready |
-| 25b | 6 | `feat(ui): themed select, date and time pickers` | ready |
-| 25c | 6 | `feat(ui): theme-coloured scrollbars` | ready |
-| 25d | 6 | `chore: add pnpm dev:demo for testing against demo data` | ready |
-| 26 | 6 | `feat: snooze, missed-reminder catch-up and autostart setting` | planned |
+| 25a | 6 | `feat(ui): Blotter logo and wordmark` | committed `980e5cf` (#25a–#25d as one commit) |
+| 25b | 6 | `feat(ui): themed select, date and time pickers` | committed `980e5cf` (#25a–#25d as one commit) |
+| 25c | 6 | `feat(ui): theme-coloured scrollbars` | committed `980e5cf` (#25a–#25d as one commit) |
+| 25d | 6 | `chore: add pnpm dev:demo for testing against demo data` | committed `980e5cf` (#25a–#25d as one commit) |
+| 26 | 6 | `feat: snooze, missed-reminder catch-up and autostart setting` | ready |
 | 27 | 7 | `feat: undo/redo from change log` | planned |
 | 28 | 7 | `feat: snapshots, restore UI and JSON export/import` | planned |
 | 29 | 8 | `feat(ai): provider adapters and keychain credentials` | planned |
@@ -1788,7 +1788,7 @@ Notes:
       the in-app toast with snooze (#26) is the fallback the roadmap planned.
     - Missed reminders older than 2 minutes are deliberately left for #26's catch-up.
 
-### #25a — Blotter logo and wordmark            [status: ready]
+### #25a — Blotter logo and wordmark            [status: committed 980e5cf]
 Phase: 6 (out-of-sequence brand work, requested before #26)
 Message:
     feat(ui): Blotter logo and wordmark
@@ -1866,7 +1866,7 @@ Notes:
     - The design prototypes in .claude/Prototype Screens still show the "B" tile; they're
       reference only and weren't changed.
 
-### #25b — Themed select, date and time pickers            [status: ready]
+### #25b — Themed select, date and time pickers            [status: committed 980e5cf]
 Phase: 6 (housekeeping, requested before #26)
 Message:
     feat(ui): themed select, date and time pickers
@@ -1919,7 +1919,7 @@ Notes:
     - Block-out start/end times are plain text fields (no date beside them) and were
       left as they are; say if you want the slot list there too.
 
-### #25c — Theme-coloured scrollbars            [status: ready]
+### #25c — Theme-coloured scrollbars            [status: committed 980e5cf]
 Phase: 6 (housekeeping, requested before #26)
 Message:
     feat(ui): theme-coloured scrollbars
@@ -1940,7 +1940,7 @@ Notes:
     - Don't add `scrollbar-color` to the CSS: Chromium then ignores the ::-webkit-scrollbar
       rules.
 
-### #25d — pnpm dev:demo            [status: ready]
+### #25d — pnpm dev:demo            [status: committed 980e5cf]
 Phase: 6 (housekeeping, requested before #26)
 Message:
     chore: add pnpm dev:demo for testing against demo data
@@ -1972,3 +1972,104 @@ Notes:
     - The WebView's localStorage (last view, theme cache) is shared between the demo and
       your real data, so a theme picked in the demo flashes briefly on your next normal
       launch before your own setting loads.
+
+### #26 — Snooze, missed-reminder catch-up and autostart            [status: ready]
+Phase: 6
+Message:
+    feat: snooze, missed-reminder catch-up and autostart setting
+
+    Core:
+    - snooze_reminder: fires a reminder again `minutes` from now or at
+      `until`; the snooze replaces its next firing and is change-logged.
+      A snoozed firing on a series now reports the occurrence it was
+      snoozed from (not the series' first), and stays quiet if that
+      occurrence was completed or cancelled meanwhile.
+    - get_settings / update_settings: the settings as the user sees them,
+      and typed, validated changes to the notification ones (default event
+      reminder, rollover time, notifications on/off, snooze options,
+      catch-up on/off and lookback). Each changed key is change-logged as
+      a `setting`. #38 extends these for the General page.
+
+    App:
+    - The engine now checks the time since its last check (saved), not a
+      fixed two minutes. Reminders more than two minutes late were missed:
+      those within the lookback (default 24h) arrive as one grouped
+      notification, "3 reminders missed while Blotter was closed" (or
+      "while your computer was asleep"); older ones are skipped quietly.
+    - With notifications off, reminders still fire inside Blotter.
+    - Firings before the window loads wait until the UI collects them
+      (take_reminder_notices), so a catch-up at startup isn't lost.
+    - Launch at login (tauri-plugin-autostart 2.7): the login launch
+      passes --hidden, so Blotter starts in the tray. Plus a "Send test"
+      notification command.
+
+    UI:
+    - Reminder toasts (design: Reminder Toast): title and "in 10 min ·
+      11:30–12:15"; Snooze with the configured lengths on keys 1–n and
+      Custom… ("25m", "2h" or "14:00"); Open (↵), Mark done (x), Esc to
+      dismiss. A toast takes focus only when nothing else has it.
+    - A missed toast lists what was missed with "Review in Diary" and
+      "Mark all seen".
+    - Settings → Notifications: notifications, default event reminder,
+      snooze options (chips), catch-up and lookback, rollover time, launch
+      at login, and Send test. Desktop notifications can't carry buttons
+      here, so the page explains that snoozing happens on the toast.
+Files:
+    A  crates/blotter-core/src/ops/settings.rs
+    A  src-tauri/src/autostart.rs
+    A  src/app/ReminderToasts.tsx
+    A  src/app/reminders.ts
+    A  src/app/reminders.test.ts
+    A  src/views/settings/NotificationsPage.tsx
+    M  crates/blotter-core/src/alerts.rs
+    M  crates/blotter-core/src/ops/mod.rs
+    M  crates/blotter-core/src/ops/reminders.rs
+    M  crates/blotter-core/src/planner.rs        (planner_at test helper)
+    M  crates/blotter-core/src/settings.rs
+    M  src-tauri/Cargo.toml                      (tauri-plugin-autostart 2.7.0)
+    M  Cargo.lock
+    M  src-tauri/src/commands.rs                 (CommandError::internal)
+    M  src-tauri/src/lib.rs
+    M  src-tauri/src/reminders.rs
+    M  src/app/AppShell.tsx
+    M  src/app/nav.ts
+    M  src/views/SettingsView.tsx
+    M  .claude/COMMITS.md
+    M  .claude/roadmap.md
+    Stage everything in one go:  git add -A
+Test steps:
+    - cargo test --workspace    → 116 core (+4: snooze, settings) + 9 app (+2: catch-up, missed text)
+    - cargo clippy --workspace --all-targets -- -D warnings → clean; cargo fmt --check → clean
+    - pnpm check                → clean; Vitest 153 passed (+10)
+    - pnpm dev:demo (close any other Blotter first):
+        · Settings → Notifications → Send test → a Windows notification appears
+        · Quick-add "test ping <a time 11 minutes from now>" → a minute later a notification
+          and a toast bottom-right: "in 10 min · …"; press 1 → "Snoozed 5m · fires again
+          HH:MM", it closes; 5 minutes later it's back, "· snoozed"
+        · On a toast: x marks it done; ↵ opens the item; Esc dismisses
+        · Custom… → "2m" → Snooze → back in 2 minutes
+        · Quit from the tray; quick-add another event 12 minutes ahead first; wait until
+          its reminder time has passed by 3+ minutes; relaunch → one "1 reminder missed
+          while Blotter was closed" notification and the missed toast
+        · Notifications off → reminders still show as toasts, no Windows notification
+        · Launch at login on → Task Manager → Startup apps lists Blotter; turn it off again
+          (in dev it points at target\debug\blotter.exe)
+Notes:
+    - Verified live here (pnpm dev:demo, Windows): Settings → Notifications renders and
+      saves; Send test reached Windows; an event's reminder fired as a notification and a
+      toast; 1 snoozed 5m and it came back on time marked "snoozed"; Custom… 2m snoozed
+      and returned; 1h snoozed; x marked the item done; quit before a reminder, relaunch
+      after → one "1 reminder missed while Blotter was closed" notification and the
+      missed toast (since the quit time); Mark all seen cleared it; notifications off →
+      toast only, nothing sent to Windows; Launch at login on wrote the Run key
+      (blotter.exe --hidden) and off removed it. Checked via the database and Windows'
+      notification history.
+    - Not checked live: "while your computer was asleep" (same code path, unit-tested).
+    - The daily-briefing time on the design's Notifications page arrives with the briefing
+      in Phase 8.
+    - "Launch at login" sits on Notifications until the General page (#38), where the
+      design puts it.
+    - Flatpak: autostart and notifications need the Background and Notification portals;
+      checked in Phase 13 as planned.
+    - New operations beyond the roadmap's minimum set: snooze_reminder, get_settings,
+      update_settings (all in the registry, so the AI and MCP can use them).

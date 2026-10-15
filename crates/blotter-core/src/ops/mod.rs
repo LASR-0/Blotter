@@ -13,6 +13,7 @@ mod occurrences;
 mod reads;
 mod reminders;
 mod rollover;
+mod settings;
 mod slots;
 
 use std::collections::BTreeMap;
@@ -189,6 +190,7 @@ impl Registry {
             .chain(reminders::defs())
             .chain(slots::defs())
             .chain(rollover::defs())
+            .chain(settings::defs())
         {
             let previous = ops.insert(def.name, def);
             debug_assert!(previous.is_none(), "duplicate operation name");

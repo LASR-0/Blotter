@@ -3,6 +3,7 @@
 
 use chrono_tz::Tz;
 use rusqlite::Connection;
+use serde::Serialize;
 
 use crate::error::Result;
 use crate::slots::PlanningHours;
@@ -21,6 +22,16 @@ pub const KEY_ROLLOVER_MODE: &str = "rollover_mode";
 pub const KEY_ROLLOVER_TIME: &str = "rollover_time";
 /// The local date the last automatic rollover ran on.
 pub const KEY_LAST_ROLLOVER: &str = "last_rollover_date";
+/// Whether reminders show OS notifications (default on; in-app toasts always show).
+pub const KEY_NOTIFICATIONS: &str = "notifications_enabled";
+/// The snooze lengths offered on a reminder, in minutes (default 5, 15, 60).
+pub const KEY_SNOOZE_OPTIONS: &str = "snooze_options_min";
+/// Whether reminders missed while closed or asleep are caught up (default on).
+pub const KEY_CATCH_UP: &str = "catch_up_enabled";
+/// How far back the catch-up looks, in hours (default 24).
+pub const KEY_CATCH_UP_HOURS: &str = "catch_up_hours";
+/// When the reminder engine last checked (internal; the catch-up starts here).
+pub const KEY_LAST_REMINDER_CHECK: &str = "last_reminder_check";
 
 #[derive(Debug, Clone)]
 pub struct PlannerSettings {
@@ -58,6 +69,32 @@ impl PlannerSettings {
                 store::settings::get(conn, KEY_DEFAULT_EVENT_REMINDER)?.unwrap_or(10u32),
             )
             .filter(|m| *m > 0),
+        })
+    }
+}
+
+pub const DEFAULT_SNOOZE_OPTIONS: [u32; 3] = [5, 15, 60];
+pub const DEFAULT_CATCH_UP_HOURS: u32 = 24;
+
+/// How reminders are delivered (roadmap §4.7, §5.6).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct NotifySettings {
+    /// OS notifications on or off.
+    pub enabled: bool,
+    pub snooze_options_min: Vec<u32>,
+    pub catch_up_enabled: bool,
+    pub catch_up_hours: u32,
+}
+
+impl NotifySettings {
+    pub fn load(conn: &Connection) -> Result<Self> {
+        Ok(Self {
+            enabled: store::settings::get(conn, KEY_NOTIFICATIONS)?.unwrap_or(true),
+            snooze_options_min: store::settings::get(conn, KEY_SNOOZE_OPTIONS)?
+                .unwrap_or_else(|| DEFAULT_SNOOZE_OPTIONS.to_vec()),
+            catch_up_enabled: store::settings::get(conn, KEY_CATCH_UP)?.unwrap_or(true),
+            catch_up_hours: store::settings::get(conn, KEY_CATCH_UP_HOURS)?
+                .unwrap_or(DEFAULT_CATCH_UP_HOURS),
         })
     }
 }
