@@ -1,7 +1,8 @@
 //! Undo and redo from the change log (roadmap §4.9).
 //!
-//! Undo reverses the newest batch of edits that hasn't been undone, from
-//! any actor, by writing each entity back to its `before` state; redo
+//! Undo reverses the newest batch of edits that hasn't been undone, by the
+//! user or the AI (automatic system changes such as the rollover are
+//! skipped), by writing each entity back to its `before` state; redo
 //! re-applies the batch the latest undo reversed, as long as nothing has
 //! been edited since. Both write their own change rows (op `undo` / `redo`,
 //! `reverts` naming the batch), so the log stays append-only.
@@ -407,6 +408,29 @@ mod tests {
         assert_eq!(
             item(&p, &id).unwrap().status,
             crate::model::ItemStatus::Open
+        );
+    }
+
+    #[test]
+    fn system_changes_are_skipped() {
+        let mut p = crate::planner::tests::planner();
+        run(&mut p, "create_item", json!({ "title": "Mine" }));
+        // An automatic change after it, e.g. the rollover.
+        p.execute(
+            "create_item",
+            json!({ "title": "Automatic" }),
+            &Actor::System,
+        )
+        .unwrap();
+        let state = run(&mut p, "get_undo_state", json!({}));
+        assert_eq!(state["undo"]["summary"], "Create item “Mine”");
+        run(&mut p, "undo", json!({}));
+        // A system change after an undo doesn't clear redo either.
+        p.execute("create_item", json!({ "title": "Later" }), &Actor::System)
+            .unwrap();
+        assert_eq!(
+            run(&mut p, "get_undo_state", json!({}))["redo"]["summary"],
+            "Create item “Mine”"
         );
     }
 

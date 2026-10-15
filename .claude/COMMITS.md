@@ -72,7 +72,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 25d | 6 | `chore: add pnpm dev:demo for testing against demo data` | committed `980e5cf` (#25a–#25d as one commit) |
 | 26 | 6 | `feat: snooze, missed-reminder catch-up and autostart setting` | committed `67206ac` |
 | 27 | 7 | `feat: undo/redo from change log` | committed `575b2c9` |
-| 27a | 7 | `fix(ui): rank exact palette matches first` | committed (hash in the next entry) |
+| 27a | 7 | `fix(ui): rank exact palette matches first` | committed `53ee35a` |
+| 27b | 7 | `fix(core): undo skips automatic system changes` | committed (hash in the next entry) |
 | 28 | 7 | `feat: snapshots, restore UI and JSON export/import` | planned |
 | 29 | 8 | `feat(ai): provider adapters and keychain credentials` | planned |
 | 30 | 8 | `feat(ai): tool-calling loop over the operation registry` | planned |
@@ -2142,7 +2143,7 @@ Notes:
       is one timeline.
     - Undo of theme changes isn't covered: the theme is a UI setting outside the change log.
 
-### #27a — Palette ranks exact matches first            [status: committed — hash in the next entry]
+### #27a — Palette ranks exact matches first            [status: committed 53ee35a]
 Phase: 7 (fix found while testing #27)
 Message:
     fix(ui): rank exact palette matches first
@@ -2165,3 +2166,27 @@ Test steps:
 Notes:
     - Verified live: "redo" now lists Redo, then "Roll over unfinished tasks now" (a low,
       word-start match); the View rows no longer appear.
+
+### #27b — Undo skips automatic system changes            [status: committed — hash in the next entry]
+Phase: 7 (Luke's call on #27, D24)
+Message:
+    fix(core): undo skips automatic system changes
+
+    Ctrl+Z now undoes the user's and the AI's changes only; automatic
+    system batches such as the rollover are skipped, and one made after
+    an undo no longer clears redo. If a system change touched the same
+    entity, undo's "changed since" check still refuses rather than
+    overwriting it.
+
+    Also confirms decisions D15–D19 and D23, and records D24–D28 (undo
+    scope, snapshots, JSON import, AI keys and models, daily briefing).
+Files:
+    M  crates/blotter-core/src/store/changes.rs
+    M  crates/blotter-core/src/ops/undo.rs
+    M  .claude/roadmap.md
+    M  .claude/COMMITS.md
+Test steps:
+    - cargo test --workspace    → 124 core (+1: system changes skipped) + 9 app
+    - cargo clippy --workspace --all-targets -- -D warnings → clean
+Notes:
+    - Unit-tested only: the change is two SQL conditions.

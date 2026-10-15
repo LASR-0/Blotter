@@ -615,12 +615,17 @@ The Claude Design prompt (`design-prompt.md`, which also sets the visual directi
 | D12 | Wayland: CLI-flag quick capture via compositor bind instead of a global shortcut | Confirmed |
 | D13 | Packaging: NSIS/MSI, AppImage, .deb, Flatpak, AUR | Confirmed |
 | D14 | MCP server in v1 (Phase 12) | Confirmed |
-| D15 | Planning hours concept (default 07:00–22:00) to bound flexible slotting | **Proposed — confirm** |
-| D16 | One slot per task in v1 (no splitting) | **Proposed — confirm** |
-| D17 | No Tauri updater or code signing in v1 | **Proposed — confirm** |
-| D18 | MIT licence | **Proposed — confirm** |
-| D19 | Name: **Blotter** | **Proposed — confirm** |
+| D15 | Planning hours concept (default 07:00–22:00) to bound flexible slotting | Confirmed |
+| D16 | One slot per task in v1 (no splitting) | Confirmed |
+| D17 | No Tauri updater or code signing in v1 | Confirmed |
+| D18 | MIT licence | Confirmed |
+| D19 | Name: **Blotter** | Confirmed |
 | D20 | Diary view (day columns of task cards + today timeline rail) replaces the Today agenda as the home view | Confirmed |
 | D21 | Visual direction: Linear's base design language, Notion Calendar's colour coordination and calendar layout, Sunsama-style diary view | Confirmed |
 | D22 | No glass/translucent theme or window effects in v1 | Confirmed |
-| D23 | Dark as default theme; monospace for times, durations and keyhints; AI proposals drawn "in pencil" | **Proposed — confirm** |
+| D23 | Dark as default theme; monospace for times, durations and keyhints; AI proposals drawn "in pencil" | Confirmed |
+| D24 | Ctrl+Z undoes the user's and the AI's changes, newest first; automatic system changes (rollover) are skipped. Theme changes aren't undoable (display preference, outside the change log) | Confirmed |
+| D25 | Snapshots: keep the last 20 automatic plus all manual; stored in a `snapshots` folder next to the database by default, relocatable in settings | Confirmed |
+| D26 | JSON import replaces everything, after an automatic snapshot (merge is post-v1) | Confirmed |
+| D27 | AI providers authenticate with API keys (Anthropic Console, OpenAI), not consumer-app sign-in; Anthropic defaults to Claude Sonnet 5.5; other defaults picked from each provider's live model list at implementation. GitHub Models can be offered as an OpenAI-compatible preset | Confirmed |
+| D28 | Daily briefing off by default; 07:30 when turned on | Confirmed |

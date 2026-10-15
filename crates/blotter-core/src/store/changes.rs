@@ -91,12 +91,14 @@ pub fn list_for_entity(conn: &Connection, entity: &str, entity_id: &str) -> Resu
 const REVERSAL_OPS: &str = "('undo', 'redo')";
 
 /// The newest batch of edits that hasn't been undone: what undo reverses.
+/// Automatic system changes (the rollover) are skipped: undo is for the
+/// user's and the AI's edits.
 pub fn newest_undoable(conn: &Connection) -> Result<Option<String>> {
     Ok(conn
         .query_row(
             &format!(
                 "SELECT batch_id FROM changes WHERE op NOT IN {REVERSAL_OPS} \
-                 AND undone_at IS NULL ORDER BY rowid DESC LIMIT 1"
+                 AND actor <> 'system' AND undone_at IS NULL ORDER BY rowid DESC LIMIT 1"
             ),
             [],
             |r| r.get(0),
@@ -105,7 +107,7 @@ pub fn newest_undoable(conn: &Connection) -> Result<Option<String>> {
 }
 
 /// The batch redo re-applies: the one the most recent undo reversed, if
-/// it's still undone and no edit has been made since that undo.
+/// it's still undone and no edit (by the user or the AI) has been made since.
 pub fn newest_redoable(conn: &Connection) -> Result<Option<String>> {
     let last_undo: Option<(i64, String)> = conn
         .query_row(
@@ -123,7 +125,7 @@ pub fn newest_redoable(conn: &Connection) -> Result<Option<String>> {
     let edited_since: bool = conn.query_row(
         &format!(
             "SELECT EXISTS (SELECT 1 FROM changes WHERE op NOT IN {REVERSAL_OPS} \
-             AND rowid > ?1)"
+             AND actor <> 'system' AND rowid > ?1)"
         ),
         [undo_row],
         |r| r.get(0),
