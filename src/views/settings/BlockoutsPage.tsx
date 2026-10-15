@@ -225,7 +225,9 @@ export function BlockoutsPage() {
       {(creating || selected) && (
         <div className="grid grid-cols-2 gap-5 rounded-lg border border-border bg-surface p-[18px]">
           <BlockoutEditor
-            key={selected?.id ?? 'new'}
+            // Keyed per block-out so its form resets; prefixed because the
+            // Exceptions panel beside it is keyed by the same id.
+            key={`editor-${selected?.id ?? 'new'}`}
             blockout={selected}
             onSaved={(id) => {
               setCreating(false);
@@ -235,7 +237,7 @@ export function BlockoutsPage() {
             onDeleted={() => select(null)}
           />
           {selected ? (
-            <Exceptions key={selected.id} blockout={selected} />
+            <Exceptions key={`exceptions-${selected.id}`} blockout={selected} />
           ) : (
             <p className="m-0 self-center text-sm text-text-muted">
               Save the block-out to add exceptions.

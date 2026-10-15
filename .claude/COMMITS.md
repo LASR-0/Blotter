@@ -73,7 +73,9 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 26 | 6 | `feat: snooze, missed-reminder catch-up and autostart setting` | committed `67206ac` |
 | 27 | 7 | `feat: undo/redo from change log` | committed `575b2c9` |
 | 27a | 7 | `fix(ui): rank exact palette matches first` | committed `53ee35a` |
-| 27b | 7 | `fix(core): undo skips automatic system changes` | committed (hash in the next entry) |
+| 27b | 7 | `fix(core): undo skips automatic system changes` | committed `b5b6341` |
+| 27c | 7 | `fix(ui): unique keys on the block-out editor panels` | committed (hash in the next entry) |
+| 27d | 7 | `feat(ui): error boundaries instead of a blank window` | committed (hash in the next entry) |
 | 28 | 7 | `feat: snapshots, restore UI and JSON export/import` | planned |
 | 29 | 8 | `feat(ai): provider adapters and keychain credentials` | planned |
 | 30 | 8 | `feat(ai): tool-calling loop over the operation registry` | planned |
@@ -2167,7 +2169,7 @@ Notes:
     - Verified live: "redo" now lists Redo, then "Roll over unfinished tasks now" (a low,
       word-start match); the View rows no longer appear.
 
-### #27b — Undo skips automatic system changes            [status: committed — hash in the next entry]
+### #27b — Undo skips automatic system changes            [status: committed b5b6341]
 Phase: 7 (Luke's call on #27, D24)
 Message:
     fix(core): undo skips automatic system changes
@@ -2190,3 +2192,47 @@ Test steps:
     - cargo clippy --workspace --all-targets -- -D warnings → clean
 Notes:
     - Unit-tested only: the change is two SQL conditions.
+
+### #27c — Unique keys on the block-out editor panels            [status: committed — hash in the next entry]
+Phase: 7 (parked fix, found 2026-10-15)
+Message:
+    fix(ui): unique keys on the block-out editor panels
+
+    Settings → Block-outs keyed both the editor and the Exceptions panel
+    beside it by the selected block-out's id. React needs sibling keys to
+    be unique, so it logged "two children with the same key" whenever
+    the page showed a block-out (and could mix up their state). The keys
+    are now "editor-<id>" and "exceptions-<id>"; each panel still resets
+    when another block-out is picked.
+Files:
+    M  src/views/settings/BlockoutsPage.tsx
+    M  .claude/COMMITS.md
+Test steps:
+    - pnpm check → clean
+    - pnpm dev:demo → Settings → Block-outs: no "same key" warning in the dev log
+Notes:
+    - Verified live: the page with editor and exceptions logged no warnings (it logged one
+      per visit before).
+
+### #27d — Error boundaries instead of a blank window            [status: committed — hash in the next entry]
+Phase: 7 (parked follow-up from #25b)
+Message:
+    feat(ui): error boundaries instead of a blank window
+
+    A rendering error used to blank the whole window. Now the view
+    area has its own boundary, keyed by view: a crash shows "This view
+    hit an error and couldn't be shown" with the message and Retry, while
+    the sidebar and top bar keep working, and switching views starts the
+    broken one fresh. An outer boundary around the whole app offers
+    Reload window as the last resort. Errors are logged to the console
+    with their component stack.
+Files:
+    A  src/app/ErrorBoundary.tsx
+    M  src/app/AppShell.tsx
+    M  src/main.tsx
+    M  .claude/COMMITS.md
+Test steps:
+    - pnpm check → clean; Vitest 158 passed
+Notes:
+    - Verified live by making the Year view throw (temporarily, reverted): the panel showed,
+      navigation kept working, and returning to Year after the fix rendered it normally.
