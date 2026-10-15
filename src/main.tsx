@@ -4,6 +4,7 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { AppShell } from './app/AppShell';
 import { CaptureApp } from './app/CaptureApp';
+import { ErrorBoundary } from './app/ErrorBoundary';
 import { TooltipProvider } from './components/ui/tooltip';
 import { queryClient } from './lib/queries';
 import { bootTheme } from './theme/theme';
@@ -21,7 +22,11 @@ const isCapture = getCurrentWindow().label === 'capture';
 createRoot(root).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>{isCapture ? <CaptureApp /> : <AppShell />}</TooltipProvider>
+      <TooltipProvider>
+        <ErrorBoundary what="Blotter" reload>
+          {isCapture ? <CaptureApp /> : <AppShell />}
+        </ErrorBoundary>
+      </TooltipProvider>
     </QueryClientProvider>
   </StrictMode>,
 );

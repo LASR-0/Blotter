@@ -22,6 +22,7 @@ import { AutoSlotPanel } from './AutoSlotPanel';
 import { RolloverBanner } from './RolloverBanner';
 import { ReminderToasts } from './ReminderToasts';
 import { Notice } from './Notice';
+import { ErrorBoundary } from './ErrorBoundary';
 import { QuickAddDialog } from './QuickAddDialog';
 import { SIDEBAR_AUTO_COLLAPSE_PX, useNav } from './nav';
 import { useOverlay } from './overlay';
@@ -72,13 +73,17 @@ export function AppShell() {
       <div className="flex min-w-0 flex-1 flex-col">
         <TopBar />
         <main className="relative min-h-0 flex-1">
-          {view === 'diary' && <DiaryView />}
-          {view === 'inbox' && <InboxView />}
-          {view === 'settings' && <SettingsView />}
-          {view === 'week' && <WeekView />}
-          {view === 'month' && <MonthView />}
-          {view === 'year' && <YearView />}
-          {view === 'history' && <PendingView view="history" />}
+          {/* Keyed by view: a crash in one view doesn't take the app down, and
+              navigating elsewhere starts it fresh. */}
+          <ErrorBoundary key={view} what="This view">
+            {view === 'diary' && <DiaryView />}
+            {view === 'inbox' && <InboxView />}
+            {view === 'settings' && <SettingsView />}
+            {view === 'week' && <WeekView />}
+            {view === 'month' && <MonthView />}
+            {view === 'year' && <YearView />}
+            {view === 'history' && <PendingView view="history" />}
+          </ErrorBoundary>
         </main>
       </div>
       <CommandPalette actions={actions} />
