@@ -18,8 +18,11 @@ import {
 } from '@phosphor-icons/react';
 import { ErrorPanel } from '@/components/EmptyState';
 import { Button } from '@/components/ui/button';
+import { DatePicker } from '@/components/ui/date-picker';
 import { Kbd } from '@/components/ui/kbd';
+import { Select } from '@/components/ui/select';
 import { Segmented } from '@/components/ui/segmented';
+import { TimeField } from '@/components/ui/time-field';
 import { isOpError, runBatch, runOp } from '@/lib/api';
 import { cn } from '@/lib/cn';
 import { formatDuration } from '@/lib/duration';
@@ -310,31 +313,21 @@ function ItemForm({
         </Row>
 
         <Row label="When">
-          <label className={FIELD}>
-            <CalendarBlank className="text-text-muted" />
-            <input
-              type="date"
-              value={draft.date}
-              onChange={(e) => set('date', e.target.value)}
-              aria-label="Date"
-              className="bg-transparent outline-none"
-            />
-          </label>
-          <label className={cn(FIELD, !draft.date && 'opacity-50')}>
-            <Clock className="text-text-muted" />
-            <input
-              value={draft.time}
-              disabled={!draft.date}
-              onChange={(e) => set('time', e.target.value)}
-              onBlur={(e) => {
-                const t = parseTime(e.target.value);
-                if (t) set('time', t);
-              }}
-              placeholder="--:--"
-              aria-label="Time"
-              className="w-12 bg-transparent outline-none placeholder:text-text-muted"
-            />
-          </label>
+          <DatePicker
+            value={draft.date}
+            onChange={(v) => set('date', v)}
+            ariaLabel="Date"
+            placeholder="No date"
+            clearable
+            icon={<CalendarBlank className="text-text-muted" />}
+          />
+          <TimeField
+            value={draft.time}
+            disabled={!draft.date}
+            onChange={(v) => set('time', v)}
+            ariaLabel="Time"
+            icon={<Clock className="text-text-muted" />}
+          />
           <label className={FIELD}>
             <Timer className="text-text-muted" />
             <input
@@ -365,31 +358,19 @@ function ItemForm({
 
         {showDue && (
           <Row label="Due">
-            <label className={FIELD}>
-              <FlagCheckered className="text-text-muted" />
-              <input
-                type="date"
-                value={draft.dueDate}
-                onChange={(e) => set('dueDate', e.target.value)}
-                aria-label="Due date"
-                className="bg-transparent outline-none"
-              />
-            </label>
-            <label className={cn(FIELD, !draft.dueDate && 'opacity-50')}>
-              <Clock className="text-text-muted" />
-              <input
-                value={draft.dueTime}
-                disabled={!draft.dueDate}
-                onChange={(e) => set('dueTime', e.target.value)}
-                onBlur={(e) => {
-                  const t = parseTime(e.target.value);
-                  if (t) set('dueTime', t);
-                }}
-                placeholder="--:--"
-                aria-label="Due time"
-                className="w-12 bg-transparent outline-none placeholder:text-text-muted"
-              />
-            </label>
+            <DatePicker
+              value={draft.dueDate}
+              onChange={(v) => set('dueDate', v)}
+              ariaLabel="Due date"
+              icon={<FlagCheckered className="text-text-muted" />}
+            />
+            <TimeField
+              value={draft.dueTime}
+              disabled={!draft.dueDate}
+              onChange={(v) => set('dueTime', v)}
+              ariaLabel="Due time"
+              icon={<Clock className="text-text-muted" />}
+            />
             <Button
               variant="bare"
               size="icon-sm"
@@ -464,28 +445,22 @@ function ItemForm({
             </span>
           ))}
           {addingReminder ? (
-            <select
-              autoFocus
-              aria-label="Remind me"
-              defaultValue=""
-              onBlur={() => setAddingReminder(false)}
-              onChange={(e) => {
-                const offset = Number(e.target.value);
-                if (!Number.isNaN(offset))
-                  set('reminders', [...draft.reminders, { offset_min: offset, at: null }]);
+            <Select
+              defaultOpen
+              ariaLabel="Remind me"
+              placeholder="Remind me…"
+              value=""
+              onOpenChange={(open) => !open && setAddingReminder(false)}
+              onValueChange={(v) => {
+                set('reminders', [...draft.reminders, { offset_min: Number(v), at: null }]);
                 setAddingReminder(false);
               }}
-              className="h-[26px] rounded-md border border-accent bg-bg px-1.5 text-sm text-text"
-            >
-              <option value="" disabled>
-                Remind me…
-              </option>
-              {REMINDER_OFFSETS.map((m) => (
-                <option key={m} value={m}>
-                  {formatDuration(m)} before
-                </option>
-              ))}
-            </select>
+              options={REMINDER_OFFSETS.map((m) => ({
+                value: String(m),
+                label: `${formatDuration(m)} before`,
+              }))}
+              className="h-[26px] border-accent text-sm"
+            />
           ) : (
             <button
               type="button"
@@ -603,24 +578,18 @@ function RepeatPicker({
   ];
   return (
     <div className="flex min-w-0 flex-wrap items-center gap-2.5">
-      <select
-        aria-label="Repeats"
+      <Select
+        ariaLabel="Repeats"
         value={custom ? 'custom' : preset}
-        onChange={(e) => {
-          const next = e.target.value as RepeatPreset;
+        onValueChange={(next) => {
           setCustom(next === 'custom');
           if (next === 'custom') return;
           const r = ruleFor(next, date);
           onChange(r ? withEnd(r, rule) : '');
         }}
-        className="h-[30px] min-w-[150px] rounded-md border border-border-strong bg-bg px-2 text-base text-text"
-      >
-        {options.map(([v, label]) => (
-          <option key={v} value={v}>
-            {label}
-          </option>
-        ))}
-      </select>
+        options={options.map(([value, label]) => ({ value, label }))}
+        className="min-w-[150px]"
+      />
       {custom ? (
         <input
           value={rule}

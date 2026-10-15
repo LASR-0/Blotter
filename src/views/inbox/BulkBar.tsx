@@ -13,10 +13,11 @@ import { deleteSelection, updateSelection } from '@/actions/bulkActions';
 import { runAutoSlot } from '@/app/autoSlot';
 import { useSelection, type BulkEditor } from '@/app/selection';
 import { Button } from '@/components/ui/button';
+import { DatePicker } from '@/components/ui/date-picker';
 import { Kbd } from '@/components/ui/kbd';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { TimeField } from '@/components/ui/time-field';
 import { isOpError } from '@/lib/api';
-import { cn } from '@/lib/cn';
 import { parseDuration } from '@/lib/duration';
 import { parseTime } from '@/lib/format';
 
@@ -105,21 +106,8 @@ function ScheduleForm() {
         Put the selected tasks on a day, at a time if you like.
       </span>
       <div className="flex gap-1.5">
-        <input
-          autoFocus
-          type="date"
-          value={date}
-          onChange={(e) => setDate(e.target.value)}
-          aria-label="Date"
-          className={cn(FIELD, 'flex-1')}
-        />
-        <input
-          value={time}
-          onChange={(e) => setTime(e.target.value)}
-          placeholder="--:--"
-          aria-label="Time"
-          className={cn(FIELD, 'w-16')}
-        />
+        <DatePicker autoFocus value={date} onChange={setDate} ariaLabel="Date" className="flex-1" />
+        <TimeField value={time} onChange={setTime} ariaLabel="Time" />
       </div>
     </PatchForm>
   );
@@ -189,21 +177,16 @@ function DueForm() {
     >
       <span className="text-sm text-text-muted">Leave the date empty to clear it.</span>
       <div className="flex gap-1.5">
-        <input
+        <DatePicker
           autoFocus
-          type="date"
           value={date}
-          onChange={(e) => setDate(e.target.value)}
-          aria-label="Due date"
-          className={cn(FIELD, 'flex-1')}
+          onChange={setDate}
+          ariaLabel="Due date"
+          placeholder="No due date"
+          clearable
+          className="flex-1"
         />
-        <input
-          value={time}
-          onChange={(e) => setTime(e.target.value)}
-          placeholder="17:00"
-          aria-label="Due time"
-          className={cn(FIELD, 'w-16')}
-        />
+        <TimeField value={time} onChange={setTime} ariaLabel="Due time" placeholder="17:00" />
       </div>
     </PatchForm>
   );

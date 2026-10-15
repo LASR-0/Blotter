@@ -15,11 +15,14 @@ export interface Theme {
 const FONT_UI = '"Geist Variable", "Geist", "Segoe UI", system-ui, sans-serif';
 const FONT_MONO = '"Geist Mono Variable", "Geist Mono", "JetBrains Mono", ui-monospace, monospace';
 const FONT_SERIF = '"Newsreader Variable", "Newsreader", Georgia, serif';
+const FONT_BRAND = '"Playfair Display Variable", "Playfair Display", Georgia, serif';
 
 const shared: ThemeVars = {
   '--font-ui': FONT_UI,
   '--font-heading': FONT_UI,
   '--font-mono': FONT_MONO,
+  '--font-brand': FONT_BRAND,
+  '--brand-weight': '800',
   '--radius-sm': '4px',
   '--radius-md': '6px',
   '--radius-lg': '10px',
@@ -69,6 +72,8 @@ const dark: ThemeVars = {
   '--tag-shopping': '#e77aa9',
   '--tag-personal': '#a48ef2',
   '--tag-ics': '#55bdca',
+  '--logo-page': '#e6e7ea',
+  '--logo-outline': 'transparent',
   '--shadow-overlay': '0 0 0 1px #3a3b44, 0 12px 32px rgba(0,0,0,.5)',
   '--heading-weight': '600',
 };
@@ -103,6 +108,8 @@ const light: ThemeVars = {
   '--tag-shopping': '#c63f7c',
   '--tag-personal': '#7655d6',
   '--tag-ics': '#13889a',
+  '--logo-page': '#ffffff',
+  '--logo-outline': '#d3d3da',
   '--shadow-overlay': '0 0 0 1px #d3d3da, 0 12px 32px rgba(20,20,40,.14)',
   '--heading-weight': '600',
 };
@@ -137,6 +144,8 @@ const paper: ThemeVars = {
   '--tag-shopping': '#a6446a',
   '--tag-personal': '#6a4e9a',
   '--tag-ics': '#2c777e',
+  '--logo-page': '#fbf8f1',
+  '--logo-outline': '#c7bba2',
   '--font-heading': FONT_SERIF,
   '--shadow-overlay': '0 0 0 1px #c7bba2, 0 12px 28px rgba(60,45,20,.16)',
   '--heading-weight': '500',
@@ -172,6 +181,8 @@ const gruvbox: ThemeVars = {
   '--tag-shopping': '#d3869b',
   '--tag-personal': '#8ec07c',
   '--tag-ics': '#76b0b4',
+  '--logo-page': '#ebdbb2',
+  '--logo-outline': 'transparent',
   '--shadow-overlay': '0 0 0 1px #5a524c, 0 12px 32px rgba(0,0,0,.45)',
   '--heading-weight': '600',
 };
@@ -224,4 +235,5 @@ export const TOKEN_GROUPS: readonly (readonly [string, readonly TokenName[]])[] 
     'Tag palette',
     ['--tag-work', '--tag-health', '--tag-home', '--tag-shopping', '--tag-personal', '--tag-ics'],
   ],
+  ['Logo', ['--logo-page']],
 ];

@@ -14,6 +14,7 @@ import {
 import { useNav } from '@/app/nav';
 import { EmptyState, ErrorPanel } from '@/components/EmptyState';
 import { Button } from '@/components/ui/button';
+import { DatePicker } from '@/components/ui/date-picker';
 import { Kbd } from '@/components/ui/kbd';
 import { Switch } from '@/components/ui/switch';
 import { isOpError, runBatch, runOp } from '@/lib/api';
@@ -515,21 +516,22 @@ function Exceptions({ blockout }: { blockout: Blockout }) {
         }}
       >
         <div className="flex items-center gap-1.5">
-          <input
-            type="date"
-            aria-label="Lift from"
+          <DatePicker
+            ariaLabel="Lift from"
             value={from}
-            onChange={(e) => setFrom(e.target.value)}
-            className={cn(FIELD, 'min-w-0 flex-1 font-mono text-sm')}
+            onChange={setFrom}
+            placeholder="From"
+            className="min-w-0 flex-1"
           />
           <span className="text-sm text-text-muted">to</span>
-          <input
-            type="date"
-            aria-label="Lift until (optional)"
+          <DatePicker
+            ariaLabel="Lift until (optional)"
             value={to}
             min={from || undefined}
-            onChange={(e) => setTo(e.target.value)}
-            className={cn(FIELD, 'min-w-0 flex-1 font-mono text-sm')}
+            onChange={setTo}
+            placeholder="Same day"
+            clearable
+            className="min-w-0 flex-1"
           />
         </div>
         <div className="flex items-center gap-1.5">

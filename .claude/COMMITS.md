@@ -65,7 +65,11 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 23 | 5 | `feat: end-of-day rollover` | committed `25f3f7a` |
 | 24 | 6 | `feat(core): recurring items with occurrence exceptions` | committed `6ecb88a` (UI split out as #24a) |
 | 24a | 6 | `feat(ui): recurring item editing` | committed `afb6690` |
-| 25 | 6 | `feat(app): reminder engine and OS notifications` | ready |
+| 25 | 6 | `feat(app): reminder engine and OS notifications` | committed `7ba84fe` |
+| 25a | 6 | `feat(ui): Blotter logo and wordmark` | ready |
+| 25b | 6 | `feat(ui): themed select, date and time pickers` | ready |
+| 25c | 6 | `feat(ui): theme-coloured scrollbars` | ready |
+| 25d | 6 | `chore: add pnpm dev:demo for testing against demo data` | ready |
 | 26 | 6 | `feat: snooze, missed-reminder catch-up and autostart setting` | planned |
 | 27 | 7 | `feat: undo/redo from change log` | planned |
 | 28 | 7 | `feat: snapshots, restore UI and JSON export/import` | planned |
@@ -170,7 +174,7 @@ Files:
     M  src-tauri/Cargo.toml
     M  src-tauri/src/lib.rs
     M  package.json
-    M  pnpm-lock.yaml
+    M  pnpm-lock.yaml                (everything #25a left)
     M  tsconfig.node.json
     A  .editorconfig
     A  .prettierrc.json
@@ -264,7 +268,7 @@ Files:
     A  crates/blotter-core/src/store/settings.rs
     M  src-tauri/src/lib.rs
     M  src/App.tsx
-    M  src/styles.css
+    M  src/styles.css                (the scrollbar hunk #25a left)
     M  Cargo.lock
     M  .claude/COMMITS.md
     Stage everything in one go:  git add -A
@@ -331,7 +335,7 @@ Files:
     A  src-tauri/src/commands.rs
     A  src/lib/api.ts
     M  src/App.tsx
-    M  src/styles.css
+    M  src/styles.css                (the scrollbar hunk #25a left)
     M  Cargo.lock
     M  .claude/COMMITS.md
     Stage everything in one go:  git add -A
@@ -429,10 +433,10 @@ Message:
     Button, Kbd/KeyHint and Tooltip on Radix.
 Files:
     M  package.json
-    M  pnpm-lock.yaml
+    M  pnpm-lock.yaml                (everything #25a left)
     M  vite.config.ts
     M  .prettierrc.json
-    M  src/styles.css
+    M  src/styles.css                (the scrollbar hunk #25a left)
     M  src/main.tsx
     M  src/App.tsx
     A  src/lib/cn.ts
@@ -497,7 +501,7 @@ Files:
     D  src/App.tsx
     M  src/main.tsx
     M  package.json
-    M  pnpm-lock.yaml
+    M  pnpm-lock.yaml                (everything #25a left)
     A  src/app/AppShell.tsx
     A  src/app/Sidebar.tsx
     A  src/app/TopBar.tsx
@@ -575,7 +579,7 @@ Files:
     M  src-tauri/src/commands.rs
     M  src-tauri/src/lib.rs
     M  package.json
-    M  pnpm-lock.yaml
+    M  pnpm-lock.yaml                (everything #25a left)
     M  .claude/COMMITS.md
     Stage everything in one go:  git add -A
 Test steps:
@@ -1091,7 +1095,7 @@ Files:
     M  src/actions/actions.ts
     M  src/views/inbox/InboxView.tsx
     M  package.json             (chrono-node 2.10.3)
-    M  pnpm-lock.yaml
+    M  pnpm-lock.yaml                (everything #25a left)
     M  .claude/COMMITS.md
     M  .claude/roadmap.md
     Stage everything in one go:  git add -A
@@ -1713,7 +1717,7 @@ Notes:
       #24. A prompt on drag could come later if it's missed.
     - The picker offers common rules only; anything else is Custom (RRULE text).
 
-### #25 — Reminder engine and OS notifications            [status: ready]
+### #25 — Reminder engine and OS notifications            [status: committed 7ba84fe]
 Phase: 6
 Message:
     feat(app): reminder engine and OS notifications
@@ -1783,3 +1787,188 @@ Notes:
     - Notification click and action buttons aren't available on desktop through the plugin;
       the in-app toast with snooze (#26) is the fallback the roadmap planned.
     - Missed reminders older than 2 minutes are deliberately left for #26's catch-up.
+
+### #25a — Blotter logo and wordmark            [status: ready]
+Phase: 6 (out-of-sequence brand work, requested before #26)
+Message:
+    feat(ui): Blotter logo and wordmark
+
+    The placeholder icon is replaced by the Blotter logo, a calendar page
+    whose right edge forms a "B", redrawn as a vector from
+    .claude/Blotter-logo-reference.png, and the name is set in Playfair
+    Display.
+
+    - public/blotter.svg is the brand icon in its fixed colours (navy
+      tile, indigo, green "done" cell). It is the favicon and the source
+      for the app, taskbar and tray icons, regenerated with
+      `pnpm tauri icon public/blotter.svg` (only the existing desktop
+      sizes are kept).
+    - BlotterMark is the same geometry drawn inline without the tile and
+      coloured from the theme: accent for the header and bowls,
+      --logo-page for the page and rings, an accent tint for the cells,
+      tag-health for the done cell. The ring holes are cut out, so the
+      background shows through.
+    - Presets set --logo-page (the text colour on Dark and Gruvbox, a
+      light page on Light and Paper) and --logo-outline, a thin edge that
+      keeps a light page visible on a light sidebar. --logo-page is in a
+      new "Logo" token group for the theme editor (#37).
+    - Wordmark: Playfair Display (OFL, @fontsource-variable 5.3.0) at
+      weight 800, from new --font-brand and --brand-weight tokens, so the
+      theme engine can change it later. A solid offset shadow in the
+      accent (wordmark-shadow; --brand-shadow overrides the colour) gives
+      it a stamped, two-colour look.
+    - The sidebar header (mark 24px, name 19px) and Settings → About
+      (mark 48px, name 30px, version beside it) use both in place of the
+      "B" tile, with the name on the mark's baseline.
+Files:
+    A  .claude/Blotter-logo-reference.png
+    A  src/components/BlotterMark.tsx
+    M  public/blotter.svg
+    M  src-tauri/icons/32x32.png
+    M  src-tauri/icons/64x64.png
+    M  src-tauri/icons/128x128.png
+    M  src-tauri/icons/128x128@2x.png
+    M  src-tauri/icons/icon.png
+    M  src-tauri/icons/icon.ico
+    M  src-tauri/icons/icon.icns
+    M  src/app/Sidebar.tsx
+    M  src/views/SettingsView.tsx
+    M  src/theme/presets.ts
+    M  src/styles.css                (Playfair hunks only; the scrollbar hunk is #25c)
+    M  package.json                  (the playfair-display hunk only)
+    M  pnpm-lock.yaml                (the three playfair-display hunks only)
+    #25a–#25d are all in the working tree. Stage this one with:
+      git add .claude/Blotter-logo-reference.png src/components/BlotterMark.tsx public/blotter.svg src-tauri/icons src/app/Sidebar.tsx src/views/SettingsView.tsx src/theme/presets.ts
+      git add -p src/styles.css package.json pnpm-lock.yaml
+        → "y" for every hunk that mentions playfair, --font-brand, --brand-weight,
+          wordmark-shadow or
+          font-brand-weight; "n" for everything else (scrollbars, react-day-picker and
+          its date-fns/tz, hijri, jalali deps, dev:demo)
+      (VS Code: open each file's diff and "Stage Selected Ranges" on those lines.)
+Test steps:
+    - pnpm check                → clean; Vitest 143 passed
+    - pnpm tauri dev:
+        · the window title bar and taskbar show the new icon
+        · sidebar header: the calendar-B mark beside "Blotter" in heavy Playfair with
+          an accent-coloured offset shadow
+        · the word sits level with the bottom of the mark, not centred on it
+        · Settings → About: the same lockup at 48px / 30px, version on the same line
+        · Theme → Light and Paper: white / cream page with a thin edge;
+          Gruvbox: yellow header, cream page; Dark: light page
+    - Tray icon shows the new logo (it uses the default window icon).
+Notes:
+    - Verified here by screenshot on all four presets (mark) and in the running app on Dark
+      (Playfair wordmark), and by rendering public/blotter.svg next to the reference.
+    - Boheld was considered; it's free for personal use only, so it can't ship in Blotter.
+    - Playfair's licence reserves the name "Playfair Display": fine as-is; a modified
+      font file would need a different name.
+    - BlotterMark mirrors public/blotter.svg's paths (minus the tile); change both together.
+    - The design prototypes in .claude/Prototype Screens still show the "B" tile; they're
+      reference only and weren't changed.
+
+### #25b — Themed select, date and time pickers            [status: ready]
+Phase: 6 (housekeeping, requested before #26)
+Message:
+    feat(ui): themed select, date and time pickers
+
+    Native <select> and <input type="date"> are replaced by components
+    in the app's own style, built on Radix like the tooltips:
+
+    - Select: Radix Select with a field-style trigger and a raised list
+      (Repeats and "Remind me…" in the item dialog).
+    - DatePicker: a field-style trigger ("Thu 15 Oct"; the year only
+      when it isn't this one) opening a Radix popover with a
+      react-day-picker 9.14 calendar, styled only with our tokens. Weeks
+      start on Monday like the views; Today and (where the date is
+      optional) Clear buttons; arrow keys move the day, Esc closes just
+      the calendar. Used in the item dialog (date, due date), the Inbox
+      bulk bar (schedule, due) and block-out exceptions (from, until).
+    - TimeField: typing still works ("9", "930", "2pm", tidied on blur);
+      clicking opens a list of 15-minute slots centred on the current
+      time, and Up/Down step by 15 minutes. Used for every time beside
+      a date picker.
+Files:
+    A  src/components/ui/select.tsx
+    A  src/components/ui/date-picker.tsx
+    A  src/components/ui/time-field.tsx
+    M  src/app/ItemDialog.tsx
+    M  src/views/inbox/BulkBar.tsx
+    M  src/views/settings/BlockoutsPage.tsx
+    M  package.json                  (react-day-picker 9.14.0 — this hunk only)
+    M  pnpm-lock.yaml                (everything #25a left)
+      git add src/components/ui/select.tsx src/components/ui/date-picker.tsx src/components/ui/time-field.tsx src/app/ItemDialog.tsx src/views/inbox/BulkBar.tsx src/views/settings/BlockoutsPage.tsx pnpm-lock.yaml
+      git add -p package.json     → "y" for "react-day-picker", "n" for "dev:demo" (that is #25d)
+      (or in VS Code: select the react-day-picker line → right-click → Stage Selected Ranges)
+Test steps:
+    - pnpm install; pnpm check  → clean; Vitest 143 passed
+    - pnpm tauri dev, open an item (Enter on a card):
+        · When: the date shows "Thu 15 Oct"; click → calendar with the day selected,
+          Mon-first; pick another day → field updates, calendar closes; Esc closes only
+          the calendar
+        · Time: click → slot list centred on the time; ↓/↑ step 15 min; type "2pm",
+          Tab → 14:00
+        · Repeats → themed list with a check on the current option
+        · Event + "Reminder" → the "Remind me…" list opens straight away
+    - Inbox: select tasks → Schedule / Due use the same pickers; Due has Clear
+    - Settings → Block-outs → a block-out → Exceptions: From / "Same day" pickers
+Notes:
+    - Verified here by screenshot (item dialog date, time and Repeats on Paper and Light,
+      block-out exception fields) and by keyboard (Esc, ↓).
+    - react-day-picker 10 is out; 9.14 is the line shadcn's calendar uses. Moving to 10
+      later is small.
+    - Block-out start/end times are plain text fields (no date beside them) and were
+      left as they are; say if you want the slot list there too.
+
+### #25c — Theme-coloured scrollbars            [status: ready]
+Phase: 6 (housekeeping, requested before #26)
+Message:
+    feat(ui): theme-coloured scrollbars
+
+    Scrollbars are now a slim rounded thumb in the theme's strong border
+    colour (muted text on hover) on a clear track, with no arrow
+    buttons. ::-webkit-scrollbar covers WebView2 and WebKitGTK.
+Files:
+    M  src/styles.css                (the scrollbar hunk #25a left)
+      git add src/styles.css
+Test steps:
+    - pnpm check                → clean
+    - pnpm tauri dev: Week view and the time slot list show the slim thumb on every
+      preset; hovering darkens it
+Notes:
+    - Verified here by screenshot on Light (Week view, slot list).
+    - Commit #25a → #25d in order; #25d carries the ledger.
+    - Don't add `scrollbar-color` to the CSS: Chromium then ignores the ::-webkit-scrollbar
+      rules.
+
+### #25d — pnpm dev:demo            [status: ready]
+Phase: 6 (housekeeping, requested before #26)
+Message:
+    chore: add pnpm dev:demo for testing against demo data
+
+    `pnpm dev:demo` runs `pnpm tauri dev` with BLOTTER_DATA_DIR pointing
+    at a demo database in <OS temp>/blotter-demo (BLOTTER_DEMO_DIR
+    overrides it), so the real database is never touched. The demo is
+    seeded with the seed example when it doesn't exist yet or was seeded
+    in an earlier week (the seed is relative to the current week), and
+    is otherwise kept between runs; --fresh reseeds it.
+Files:
+    A  scripts/dev-demo.mjs
+    M  package.json                  (the "dev:demo" script — the hunk #25b left unstaged)
+    M  .claude/COMMITS.md
+      git add scripts/dev-demo.mjs package.json .claude/COMMITS.md
+Test steps:
+    - pnpm check                → clean
+    - Close any running Blotter, then pnpm dev:demo
+        → "seeding a new demo database (no demo database yet)", then the app opens with the
+          demo week, 7 Inbox tasks and the Work / Sleep block-outs
+    - Quit, pnpm dev:demo again → "reusing this week's demo database"
+    - pnpm dev:demo --fresh     → "seeding a new demo database (--fresh)"
+    - Plain pnpm tauri dev still opens your own (empty) database
+Notes:
+    - Verified here: all three paths (first seed, reuse, --fresh) on Windows, and the app
+      showing the seeded data.
+    - Only one Blotter can run at a time (single-instance): a running copy, including one
+      in the tray, receives the launch and keeps its own database.
+    - The WebView's localStorage (last view, theme cache) is shared between the demo and
+      your real data, so a theme picked in the demo flashes briefly on your next normal
+      launch before your own setting loads.

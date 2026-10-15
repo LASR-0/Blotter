@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { Check, Info, Palette, Prohibit, type Icon } from '@phosphor-icons/react';
 import { useNav, type SettingsPage } from '@/app/nav';
+import { BlotterMark } from '@/components/BlotterMark';
 import { Kbd } from '@/components/ui/kbd';
 import { cn } from '@/lib/cn';
 import { PRESETS, type Theme } from '@/theme/presets';
@@ -152,14 +153,13 @@ function AboutPage() {
 
   return (
     <div className="flex max-w-[720px] flex-col gap-[22px] p-8">
-      <div className="flex items-center gap-3.5">
-        <span className="grid size-12 place-items-center rounded-[12px] bg-accent font-heading text-[24px] font-semibold text-on-accent">
-          B
+      {/* Baseline lockup like the sidebar's: word and version sit on the mark's bottom edge. */}
+      <div className="flex items-baseline gap-3.5">
+        <BlotterMark className="size-12 flex-none" />
+        <span className="wordmark-shadow font-brand text-[30px] leading-none font-brand-weight">
+          Blotter
         </span>
-        <div className="flex flex-col gap-0.5">
-          <span className="font-heading text-xl font-heading-weight">Blotter</span>
-          <span className="font-mono text-sm text-text-muted">{version ? `v${version}` : ''}</span>
-        </div>
+        <span className="font-mono text-sm text-text-muted">{version ? `v${version}` : ''}</span>
       </div>
       <p className="m-0 max-w-[520px] leading-relaxed text-text-muted">
         A keyboard-first daily planner. Your data stays on this device. MIT licence.

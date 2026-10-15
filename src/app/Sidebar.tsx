@@ -11,6 +11,7 @@ import {
   Tray,
   type Icon,
 } from '@phosphor-icons/react';
+import { BlotterMark } from '@/components/BlotterMark';
 import { Kbd } from '@/components/ui/kbd';
 import { Tooltip } from '@/components/ui/tooltip';
 import { cn } from '@/lib/cn';
@@ -133,12 +134,13 @@ export function Sidebar() {
         )}
       >
         {!collapsed && (
-          <>
-            <span className="grid size-6 flex-none place-items-center rounded-md bg-accent text-base font-semibold text-on-accent">
-              B
+          // Baseline lockup: the word sits on the mark's bottom edge.
+          <span className="flex flex-1 items-baseline gap-2">
+            <BlotterMark className="size-6 flex-none" />
+            <span className="wordmark-shadow font-brand text-[19px] leading-none font-brand-weight">
+              Blotter
             </span>
-            <span className="flex-1 font-heading font-semibold">Blotter</span>
-          </>
+          </span>
         )}
         <Tooltip
           label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
