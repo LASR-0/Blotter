@@ -18,6 +18,8 @@ import { Button } from '@/components/ui/button';
 import { Select } from '@/components/ui/select';
 import { isOpError } from '@/lib/api';
 import { cn } from '@/lib/cn';
+import { AI_SETTINGS_KEY, type AiSettings } from '@/lib/aiSettings';
+import { ClaudeCodeCard } from './ClaudeCodeCard';
 import { McpSection } from './McpSection';
 
 type Kind = 'anthropic' | 'openai' | 'openai_compatible';
@@ -52,7 +54,18 @@ const NEW: Record<Kind, { name: string; base_url: string | null; model: string }
 const FIELD =
   'h-[30px] min-w-0 rounded-md border border-border-strong bg-bg px-2.5 font-mono text-sm text-text outline-none focus:border-accent';
 
-function ProviderCard({ p, onChanged }: { p: ProviderView; onChanged: () => void }) {
+function ProviderCard({
+  p,
+  inUse,
+  onUse,
+  onChanged,
+}: {
+  p: ProviderView;
+  /** The chat uses this provider (it is the default and the API route is on). */
+  inUse: boolean;
+  onUse: () => Promise<void>;
+  onChanged: () => void;
+}) {
   const ask = useOverlay((s) => s.ask);
   const [name, setName] = useState(p.name);
   const [baseUrl, setBaseUrl] = useState(p.base_url ?? '');
@@ -111,7 +124,7 @@ function ProviderCard({ p, onChanged }: { p: ProviderView; onChanged: () => void
     <div
       className={cn(
         'flex flex-col gap-3 rounded-lg border p-4',
-        p.is_default ? 'border-border-strong' : 'border-border',
+        inUse ? 'border-border-strong' : 'border-border',
       )}
     >
       <div className="flex flex-wrap items-center gap-2">
@@ -121,7 +134,7 @@ function ProviderCard({ p, onChanged }: { p: ProviderView; onChanged: () => void
           aria-label="Provider name"
           className="min-w-0 flex-1 bg-transparent text-md font-semibold outline-none"
         />
-        {p.is_default && (
+        {inUse && (
           <span className="rounded-full bg-accent-tint px-2 text-xs text-accent-text">In use</span>
         )}
         {p.experimental && (
@@ -223,17 +236,15 @@ function ProviderCard({ p, onChanged }: { p: ProviderView; onChanged: () => void
           Load models
         </Button>
         <span className="flex-1" />
-        {!p.is_default && (
+        {!inUse && (
           <Button
             size="sm"
             variant="ghost"
             onClick={() =>
-              invoke('set_default_provider', { id: p.id })
-                .then(onChanged)
-                .catch((e: unknown) => setStatus({ ok: false, text: errorText(e) }))
+              onUse().catch((e: unknown) => setStatus({ ok: false, text: errorText(e) }))
             }
           >
-            Use this one
+            Use for chat
           </Button>
         )}
         <Button
@@ -268,17 +279,32 @@ export function AiProvidersPage() {
     queryFn: () => invoke<ProviderView[]>('list_providers'),
   });
   const [error, setError] = useState<string | null>(null);
+  const ai = useQuery({
+    queryKey: AI_SETTINGS_KEY,
+    queryFn: () => invoke<AiSettings>('get_ai_settings'),
+  });
   const refresh = () => void qc.invalidateQueries({ queryKey: PROVIDERS_KEY });
+  const chooseProvider = async (id: string) => {
+    await invoke('set_default_provider', { id });
+    qc.setQueryData(
+      AI_SETTINGS_KEY,
+      await invoke<AiSettings>('set_ai_settings', { input: { route: 'api' } }),
+    );
+    refresh();
+  };
 
   const add = (kind: Kind) =>
     invoke('save_provider', { input: { kind, ...NEW[kind] } })
       .then(refresh)
       .catch((e: unknown) => setError(errorText(e)));
 
-  if (providers.isError) {
+  if (providers.isError || ai.isError) {
     return (
       <div className="px-8 pt-6">
-        <ErrorPanel title="Couldn't load AI providers" message={errorText(providers.error)} />
+        <ErrorPanel
+          title="Couldn't load AI providers"
+          message={errorText(providers.error ?? ai.error)}
+        />
       </div>
     );
   }
@@ -291,16 +317,23 @@ export function AiProvidersPage() {
       <div className="flex gap-2.5 rounded-md border border-border px-3.5 py-3 text-sm leading-normal text-text-muted">
         <Flask size={15} className="mt-px flex-none text-warning" />
         <span>
-          API-key providers are <strong className="font-medium text-text">experimental</strong>:
-          they&apos;re built and tested against recorded responses, but haven&apos;t been tried
-          against the real services yet, and calls are billed by the provider. Using your signed-in
-          Claude Code instead, on your existing subscription, is coming next. Claude Code and Claude
-          Desktop can already use Blotter directly through its MCP server, below.
+          Claude Code is the tested way to chat with Blotter. API-key providers are{' '}
+          <strong className="font-medium text-text">experimental</strong>: they&apos;re built and
+          tested against recorded responses, but haven&apos;t been tried against the real services
+          yet, and calls are billed by the provider.
         </span>
       </div>
+      {ai.data && <ClaudeCodeCard settings={ai.data} />}
+      <h2 className="m-0 mt-2 text-md font-semibold">API-key providers</h2>
       {error && <p className="m-0 text-sm text-danger">{error}</p>}
       {list.map((p) => (
-        <ProviderCard key={p.id} p={p} onChanged={refresh} />
+        <ProviderCard
+          key={p.id}
+          p={p}
+          inUse={p.is_default && ai.data?.route === 'api'}
+          onUse={() => chooseProvider(p.id)}
+          onChanged={refresh}
+        />
       ))}
       {providers.isSuccess && list.length === 0 && (
         <p className="m-0 text-sm text-text-muted">No providers yet. Add one below.</p>

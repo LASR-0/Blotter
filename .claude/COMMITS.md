@@ -78,8 +78,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 27d | 7 | `feat(ui): error boundaries instead of a blank window` | committed `4c3e5b3` |
 | 28 | 7 | `feat: snapshots, restore UI and JSON export/import` | committed `92c7afe` |
 | 29 | 8 | `feat(ai): provider adapters and keychain credentials` (API providers marked experimental, D29) | committed `6d6442d` |
-| 29a | 8 | `feat(mcp): MCP server over the operation registry` | committed (hash in the next entry; brought forward from #40, D29) |
-| 30 | 8 | `feat(ai): tool-calling loop and Claude Code provider` | planned (Claude Code provider added, D29) |
+| 29a | 8 | `feat(mcp): MCP server over the operation registry` | committed `e43fd31` (brought forward from #40, D29) |
+| 30 | 8 | `feat(ai): tool-calling loop and Claude Code provider` | committed (hash in the next entry) |
 | 31 | 8 | `feat(ui): chat panel and pop-out window` | planned |
 | 32 | 8 | `feat(ai): proposal review and auto-apply mode` | planned |
 | 33 | 8 | `feat(ai): daily briefing` | planned |
@@ -2355,7 +2355,7 @@ Notes:
       add flow after that fix, and Linux CI building aws-lc-rs (reqwest's default TLS).
     - Next: #29a MCP server, then #30 tool loop with the Claude Code provider.
 
-### #29a — MCP server over the operation registry            [status: committed — hash in the next entry]
+### #29a — MCP server over the operation registry            [status: committed e43fd31]
 Phase: 8 (brought forward from #40, D29)
 Message:
     feat(mcp): MCP server over the operation registry
@@ -2432,3 +2432,90 @@ Notes:
     - Not verified: a real Claude Desktop / Claude Code session using the setup lines;
       Linux/Flatpak (`flatpak run --command=blotter io.github.lasr0.Blotter mcp`, Phase 13).
     - Next: #30 tool loop with the Claude Code provider (spawns `claude` with this server).
+
+### #30 — Tool loop, chat threads and the Claude Code provider            [status: committed — hash in the next entry]
+Phase: 8 (D29, D30)
+Message:
+    feat(ai): tool-calling loop and Claude Code provider
+
+    The chat backend. A turn runs through Claude Code (the default, D29)
+    or the default API provider, streams to the UI as chat:event, and is
+    saved in its thread. Turns can be cancelled, and a thread only runs
+    one turn at a time. The chat panel itself comes in #31.
+
+    Claude Code: Blotter runs the user's installed, signed-in `claude -p`
+    on their subscription. Blotter's MCP server is its only tool source:
+    no built-in tools, no other MCP servers, and permission for Blotter's
+    tools only. Changes are logged as ai:claude-code/<model> (new
+    BLOTTER_MCP_ACTOR), with a snapshot before the first change of each
+    turn. Each thread resumes its Claude session, starting a fresh one if
+    that session is gone. `claude` is found on PATH or in its install
+    folders (WinGet, ~/.local/bin, …), or at a path the user sets. The
+    prompt goes on stdin, and no console window flashes on Windows.
+
+    API providers (experimental): the tool loop offers the agent ops as
+    tools. Malformed or invalid calls go back as errors for a retry;
+    cut-off or refused replies don't run tools. It stops after 8 tool
+    rounds, and snapshots before a turn's first change.
+
+    Core:
+    - The system prompt: now, timezone, planning hours, block-outs,
+      today's agenda with ids, Inbox, overdue and conflict counts, and
+      the scheduling rules.
+    - Chat thread and message storage. Migration 0004 adds
+      chat_threads.external_session.
+    - AI route and Claude Code model/path settings, kept per device.
+    - CoreError::for_agent, shared with the MCP server.
+
+    UI: Settings → AI providers gets a Claude Code card (status, model,
+    program path, Use for chat). API providers show "In use" only when
+    the API route is on.
+Files:
+    A  crates/blotter-core/migrations/0004_chat_session.sql
+    A  crates/blotter-core/src/context.rs
+    A  crates/blotter-core/src/store/chat.rs
+    A  src-tauri/src/ai/agent.rs
+    A  src-tauri/src/ai/chat.rs
+    A  src-tauri/src/ai/claude_code.rs
+    A  src/lib/aiSettings.ts
+    A  src/views/settings/ClaudeCodeCard.tsx
+    M  crates/blotter-core/src/db.rs           (migration 0004, schema v4 in tests)
+    M  crates/blotter-core/src/error.rs        (for_agent)
+    M  crates/blotter-core/src/lib.rs          (context)
+    M  crates/blotter-core/src/settings.rs     (AI keys, device keys)
+    M  crates/blotter-core/src/store/mod.rs    (chat)
+    M  crates/blotter-mcp/src/lib.rs           (with_actor, for_agent, chat snapshot note)
+    M  src-tauri/Cargo.toml                    (tokio: process, io-util, time)
+    M  Cargo.lock
+    M  src-tauri/src/ai/mod.rs, ai/commands.rs (modules; ai_err pub(crate))
+    M  src-tauri/src/lib.rs                    (MCP_ACTOR_ENV, ChatRuns, commands)
+    M  src/views/settings/AiProvidersPage.tsx
+    M  .claude/COMMITS.md, .claude/roadmap.md  (D30, Phase 8 progress)
+Test steps:
+    - cargo test --workspace → 136 core (+4: system prompt ×2, chat store ×2) + 32 app
+      (+10: tool loop ×4 with a scripted model, stream-json parser ×2 on recorded lines,
+      args, MCP config, thread replay, previews) + 5 mcp (+1 actor)
+    - cargo clippy --workspace --all-targets -- -D warnings → clean; cargo fmt --check → clean
+    - pnpm check → clean; Vitest 164
+    - pnpm dev:demo, chat driven over WebView2 CDP (no panel until #31): chat_send "Add a
+      30 minute task called Water the plants…" → Claude Code calls create_item, then
+      list_inbox → "You now have 8 items"; the sidebar Inbox moved 7 → 8 live
+Notes:
+    - Verified live on Luke's subscription (D30), Claude Code 2.1.292 from WinGet, found
+      through the install-folder fallback (the app's PATH predated the install). Status:
+      "signed in with your Claude subscription". The change was logged as
+      ai:claude-code/sonnet with a before_ai_batch snapshot. The second message resumed
+      the thread's session. Cancelling mid-turn left no claude.exe or blotter mcp behind,
+      and the thread took a new message straight away.
+    - Found and fixed live: `--allowedTools blotter` doesn't match MCP tools. The rule is
+      `mcp__blotter`. Reads still worked without it; writes were refused under dontAsk.
+    - Not verified: the API route against a real provider (no key; experimental, D29).
+      Linux/Flatpak: inside the sandbox, `claude` would need `flatpak-spawn --host`
+      (Phase 13).
+    - Until #32 there are no proposals: changes apply at once (D30). Undo batch, the
+      Propose/Auto switch and proposal cards come in #32. The batch ids written by a
+      Claude Code turn aren't recorded on its message yet; #32 needs them.
+    - Dev gotcha: a Claude Code session registered with target\debug\blotter.exe keeps the
+      exe open, which blocks relinking. Rename the running exe aside (Windows allows it)
+      rather than killing the session.
+    - Next: #31 chat panel and pop-out window.

@@ -16,7 +16,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 use blotter_core::ops::OpDef;
 use blotter_core::snapshots::{self, Reason};
-use blotter_core::{Actor, CoreError, Planner};
+use blotter_core::{Actor, Planner};
 use rmcp::model::{
     CallToolRequestParams, CallToolResponse, CallToolResult, ContentBlock, Implementation,
     ListToolsResult, PaginatedRequestParams, ServerCapabilities, ServerConfig, Tool,
@@ -40,6 +40,9 @@ pub struct BlotterMcp {
     db_path: PathBuf,
     /// Set once this session's safety snapshot exists.
     snapshotted: AtomicBool,
+    /// Who changes are logged as: `mcp`, or the AI when Blotter's own chat
+    /// runs Claude Code through this server.
+    actor: Actor,
 }
 
 impl BlotterMcp {
@@ -50,7 +53,17 @@ impl BlotterMcp {
             planner: Mutex::new(planner),
             db_path: db_path.into(),
             snapshotted: AtomicBool::new(false),
+            actor: Actor::Mcp,
         }
+    }
+
+    /// Logs changes as `actor` instead of `mcp`. Only agent actors (AI or
+    /// MCP) are accepted, so the server can't act as the user or system.
+    pub fn with_actor(mut self, actor: Actor) -> Self {
+        if matches!(actor, Actor::Ai { .. } | Actor::Mcp) {
+            self.actor = actor;
+        }
+        self
     }
 
     /// Serves MCP on stdin/stdout until the client disconnects.
@@ -90,18 +103,21 @@ impl BlotterMcp {
                      ({err})."
             )));
         }
-        match planner.execute(name, args, &Actor::Mcp) {
+        match planner.execute(name, args, &self.actor) {
             Ok(outcome) => Ok(CallToolResult::success(vec![ContentBlock::text(
                 outcome.result.to_string(),
             )])),
-            Err(err) => Ok(error_result(&describe(&err))),
+            Err(err) => Ok(error_result(&err.for_agent())),
         }
     }
 
     fn snapshot(&self, planner: &Planner, client: &str) -> blotter_core::Result<()> {
         let conn = planner.db().conn();
         let dir = snapshots::dir(conn, &self.db_path)?;
-        let note = format!("Before changes from {client} (MCP)");
+        let note = match &self.actor {
+            Actor::Ai { .. } => format!("Before changes from the chat ({})", self.actor),
+            _ => format!("Before changes from {client} (MCP)"),
+        };
         snapshots::create(conn, &dir, Reason::BeforeAiBatch, Some(note), planner.now())?;
         self.snapshotted.store(true, Ordering::Release);
         Ok(())
@@ -127,17 +143,6 @@ fn unknown_tool(name: &str) -> ErrorData {
 
 fn error_result(text: &str) -> CallToolResult {
     CallToolResult::error(vec![ContentBlock::text(text.to_owned())])
-}
-
-/// An error as the model should read it, with each validation problem on
-/// its own line.
-fn describe(err: &CoreError) -> String {
-    match err {
-        CoreError::InvalidArgs { op, errors } => {
-            format!("Invalid arguments for {op}:\n- {}", errors.join("\n- "))
-        }
-        other => other.to_string(),
-    }
 }
 
 impl ServerHandler for BlotterMcp {
@@ -174,10 +179,15 @@ impl ServerHandler for BlotterMcp {
 }
 
 /// Opens the database at `db_path` (creating and migrating it if needed)
-/// and serves MCP on stdio until the client disconnects.
-pub fn run(db_path: &Path, default_tz: chrono_tz::Tz) -> Result<(), Box<dyn std::error::Error>> {
+/// and serves MCP on stdio until the client disconnects, logging changes
+/// as `actor` (see [`BlotterMcp::with_actor`]).
+pub fn run(
+    db_path: &Path,
+    default_tz: chrono_tz::Tz,
+    actor: Actor,
+) -> Result<(), Box<dyn std::error::Error>> {
     let db = blotter_core::Database::open(db_path)?;
-    let server = BlotterMcp::new(Planner::new(db, default_tz), db_path);
+    let server = BlotterMcp::new(Planner::new(db, default_tz), db_path).with_actor(actor);
     tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()?
@@ -323,6 +333,21 @@ mod tests {
 
         let missing = s.call("get_item", json!({ "id": "nope" })).await.unwrap();
         assert_eq!(missing.is_error, Some(true), "{}", text(&missing));
+    }
+
+    #[test]
+    fn only_agent_actors_are_taken() {
+        let make = || {
+            let db = blotter_core::Database::open_in_memory().unwrap();
+            BlotterMcp::new(Planner::new(db, chrono_tz::UTC), "unused.db")
+        };
+        let ai = Actor::Ai {
+            provider: "claude-code".into(),
+            model: "sonnet".into(),
+        };
+        assert_eq!(make().with_actor(ai.clone()).actor, ai);
+        assert_eq!(make().with_actor(Actor::User).actor, Actor::Mcp);
+        assert_eq!(make().with_actor(Actor::System).actor, Actor::Mcp);
     }
 
     #[tokio::test]

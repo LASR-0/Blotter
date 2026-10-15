@@ -137,7 +137,7 @@ fn load(state: &State<'_, AppState>, id: &str) -> Result<(Provider, Option<Strin
     Ok((p, key))
 }
 
-fn ai_err(e: super::AiError) -> CommandError {
+pub(crate) fn ai_err(e: super::AiError) -> CommandError {
     CommandError {
         code: "ai",
         message: e.to_string(),

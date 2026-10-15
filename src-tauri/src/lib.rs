@@ -64,11 +64,19 @@ fn open_state() -> Result<AppState, Box<dyn std::error::Error>> {
     })
 }
 
+/// Set by Blotter's own chat when it runs Claude Code, so the server logs
+/// changes as that AI (`ai:claude-code/<model>`) rather than `mcp`.
+pub(crate) const MCP_ACTOR_ENV: &str = "BLOTTER_MCP_ACTOR";
+
 /// `blotter mcp`: serves the MCP server on stdio instead of starting the
 /// app, then exits. It never touches the single-instance lock, so it runs
 /// beside an open Blotter.
 fn run_mcp() -> ! {
-    let result = db_path().and_then(|path| blotter_mcp::run(&path, system_timezone()));
+    let actor = std::env::var(MCP_ACTOR_ENV)
+        .ok()
+        .and_then(|a| a.parse().ok())
+        .unwrap_or(blotter_core::Actor::Mcp);
+    let result = db_path().and_then(|path| blotter_mcp::run(&path, system_timezone(), actor));
     match result {
         Ok(()) => std::process::exit(0),
         Err(err) => {
@@ -121,6 +129,7 @@ pub fn run() {
             app.manage(shortcut);
             capture::prepare(app.handle());
             app.manage(rollover::RolloverNotice::default());
+            app.manage(ai::chat::ChatRuns::default());
             rollover::start(app.handle().clone());
             reminders::start(app.handle().clone());
             // The main window starts hidden (tauri.conf.json) so `--hidden`
@@ -165,6 +174,14 @@ pub fn run() {
             ai::commands::set_default_provider,
             ai::commands::fetch_models,
             ai::commands::test_provider,
+            ai::chat::get_ai_settings,
+            ai::chat::set_ai_settings,
+            ai::chat::claude_code_status,
+            ai::chat::chat_threads,
+            ai::chat::chat_messages,
+            ai::chat::chat_delete_thread,
+            ai::chat::chat_cancel,
+            ai::chat::chat_send,
         ])
         .run(tauri::generate_context!());
 

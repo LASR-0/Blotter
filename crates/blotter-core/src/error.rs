@@ -45,6 +45,17 @@ impl CoreError {
     pub fn invalid(msg: impl Into<String>) -> Self {
         Self::Invalid(msg.into())
     }
+
+    /// The error as a model should read it in a tool result: validation
+    /// problems one per line, so it can fix its call and retry.
+    pub fn for_agent(&self) -> String {
+        match self {
+            CoreError::InvalidArgs { op, errors } => {
+                format!("Invalid arguments for {op}:\n- {}", errors.join("\n- "))
+            }
+            other => other.to_string(),
+        }
+    }
 }
 
 pub type Result<T, E = CoreError> = std::result::Result<T, E>;

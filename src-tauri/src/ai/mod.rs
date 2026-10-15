@@ -8,7 +8,10 @@
 //! responses but are **experimental**: nobody has run them against the
 //! real services yet (D29).
 
+pub mod agent;
 pub mod anthropic;
+pub mod chat;
+pub mod claude_code;
 pub mod commands;
 pub mod keychain;
 pub mod openai;

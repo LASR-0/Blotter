@@ -507,7 +507,7 @@ Each phase states the intent, then the acceptance criteria (AC) and leads to ver
 
 **Plan (2026-10-15, D29):** #29 provider layer and keychain (API providers experimental) → #29a MCP server (from Phase 12) → #30 tool loop with the Claude Code provider → #31 chat panel → #32 proposals and auto mode → #33 daily briefing.
 
-**Progress (2026-10-15):** #29 (providers, experimental) and #29a (MCP server, `blotter mcp`) are committed. Until #32, MCP changes apply directly, with a snapshot before the first change of each session. Next: #30.
+**Progress (2026-10-15):** #29 (providers, experimental) and #29a (MCP server, `blotter mcp`) are committed. #30 (chat backend: tool loop, threads, Claude Code provider, verified live on the subscription) is committed. Until #32, AI and MCP changes apply directly, with a snapshot before the first change of each session or turn (D30). Next: #31.
 **Intent:**
 - providers and keychain credentials,
 - the tool loop over the operation registry,
@@ -636,3 +636,4 @@ The Claude Design prompt (`design-prompt.md`, which also sets the visual directi
 | D27 | AI providers authenticate with API keys (Anthropic Console, OpenAI), not consumer-app sign-in; Anthropic defaults to Claude Sonnet 5.5; other defaults picked from each provider's live model list at implementation. GitHub Models can be offered as an OpenAI-compatible preset | Confirmed |
 | D28 | Daily briefing off by default; 07:30 when turned on | Confirmed |
 | D29 | AI runs through two routes. **Claude Code** (the user's installed, signed-in `claude` CLI, driven headless with Blotter's MCP server) is the tested, primary route and uses the user's existing subscription. **API-key providers** (Anthropic, OpenAI, OpenAI-compatible/Ollama) are built and unit-tested against recorded responses but labelled "Experimental — untested" until checked with a real key. The MCP server moves from Phase 12 into Phase 8 (#29a), since the Claude Code route needs it. Check Anthropic's terms on driving Claude Code from another app before publishing that route | Confirmed |
+| D30 | Live tests of the Claude Code route run on Luke's subscription. MCP and AI writes stay on before #32, applying directly with a snapshot before the first change of each session or turn, plus undo. Snapshot policy is the implementer's call (the test data isn't precious) | Confirmed |
