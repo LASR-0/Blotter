@@ -5,8 +5,9 @@
 //! The chat panel arrives with #31; these commands are its backend.
 
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 use blotter_core::context;
 use blotter_core::settings::{KEY_AI_ROUTE, KEY_CLAUDE_CODE_MODEL, KEY_CLAUDE_CODE_PATH};
@@ -20,7 +21,7 @@ use tauri::async_runtime::JoinHandle;
 use tauri::{AppHandle, Emitter, Manager, State};
 
 use super::agent::{self, Step};
-use super::claude_code::{self, Event};
+use super::claude_code::{self, Event, Session};
 use super::commands::ai_err;
 use super::{Block, ChatRequest, Message, Role, keychain};
 use crate::AppState;
@@ -226,6 +227,8 @@ struct Prepared {
     thread: Thread,
     text: String,
     system: String,
+    /// The planner right now, sent with each Claude Code message.
+    snapshot: String,
     settings: AiSettings,
     /// For the API route: the default provider and the thread so far.
     api: Option<(providers::Provider, Vec<Message>)>,
@@ -271,7 +274,8 @@ fn prepare(
         None,
         now,
     )?;
-    let system = context::system_prompt(&mut planner)?;
+    let snapshot = context::snapshot(&mut planner)?;
+    let system = format!("{}\n\n{snapshot}", context::instructions());
     let data_dir = state
         .db_path
         .parent()
@@ -281,6 +285,7 @@ fn prepare(
         thread,
         text: text.clone(),
         system,
+        snapshot,
         settings,
         api: provider.map(|p| {
             let mut messages = history;
@@ -515,30 +520,197 @@ async fn run_api(app: &AppHandle, p: Prepared) -> Result<Option<String>, String>
     Ok(out.notice)
 }
 
-async fn run_claude_code(app: &AppHandle, p: Prepared) -> Result<Option<String>, String> {
-    let exe = claude_code::find(Some(&p.settings.claude_code_path)).ok_or_else(|| {
-        "Claude Code isn't installed, or Blotter can't find it. Set it up in Settings → AI providers."
-            .to_owned()
-    })?;
-    let blotter =
-        std::env::current_exe().map_err(|e| format!("Couldn't find Blotter's own program: {e}"))?;
-    let work = p.data_dir.join("claude-code");
-    std::fs::create_dir_all(&work)
-        .map_err(|e| format!("Couldn't prepare a folder for Claude Code: {e}"))?;
-    let config_path = work.join("blotter-mcp.json");
-    let config = claude_code::mcp_config(&blotter, &p.data_dir, &p.settings.claude_code_model);
-    std::fs::write(&config_path, config.to_string())
-        .map_err(|e| format!("Couldn't write Claude Code's tool settings: {e}"))?;
+// ---- Claude Code processes ---------------------------------------------------
 
-    let mut resume = p.thread.external_session.clone();
-    loop {
-        let turn = claude_code::Turn {
-            prompt: &p.text,
-            system_prompt: &p.system,
-            model: &p.settings.claude_code_model,
-            resume: resume.as_deref(),
-            mcp_config: &config_path,
+/// Idle Claude Code processes are stopped after this long.
+const SESSION_IDLE: Duration = Duration::from_secs(10 * 60);
+/// Threads that keep a process running at once (plus one spare).
+const MAX_LIVE_THREADS: usize = 2;
+
+/// Claude Code processes kept running between messages (see
+/// [`claude_code::Session`]): one per thread in use, and a spare started
+/// ahead of time for the next new thread.
+#[derive(Default)]
+pub struct ClaudeSessions(tokio::sync::Mutex<Pool>);
+
+#[derive(Default)]
+struct Pool {
+    by_thread: HashMap<String, Session>,
+    spare: Option<Session>,
+}
+
+impl Pool {
+    /// Stops processes that ended, sat idle too long, or exceed the cap.
+    fn tidy(&mut self) {
+        let fresh = |s: &mut Session| s.is_alive() && s.last_used.elapsed() < SESSION_IDLE;
+        self.by_thread.retain(|_, s| fresh(s));
+        if self.spare.as_mut().is_some_and(|s| !fresh(s)) {
+            self.spare = None;
+        }
+        while self.by_thread.len() > MAX_LIVE_THREADS {
+            let oldest = self
+                .by_thread
+                .iter()
+                .min_by_key(|(_, s)| s.last_used)
+                .map(|(id, _)| id.clone());
+            match oldest {
+                Some(id) => self.by_thread.remove(&id),
+                None => break,
+            };
+        }
+    }
+}
+
+/// Stops idle Claude Code processes every minute.
+pub fn start_session_reaper(app: AppHandle) {
+    tauri::async_runtime::spawn(async move {
+        let mut tick = tokio::time::interval(Duration::from_secs(60));
+        loop {
+            tick.tick().await;
+            if let Some(sessions) = app.try_state::<ClaudeSessions>() {
+                sessions.0.lock().await.tidy();
+            }
+        }
+    });
+}
+
+/// Where and how to start `claude`: found, with Blotter's MCP config
+/// written for the current model.
+struct Launch {
+    exe: PathBuf,
+    work: PathBuf,
+    config_path: PathBuf,
+    model: String,
+}
+
+impl Launch {
+    fn new(settings: &AiSettings, data_dir: &Path) -> Result<Self, String> {
+        let exe = claude_code::find(Some(&settings.claude_code_path)).ok_or_else(|| {
+            "Claude Code isn't installed, or Blotter can't find it. Set it up in Settings → AI \
+             providers."
+                .to_owned()
+        })?;
+        let blotter = std::env::current_exe()
+            .map_err(|e| format!("Couldn't find Blotter's own program: {e}"))?;
+        let work = data_dir.join("claude-code");
+        std::fs::create_dir_all(&work)
+            .map_err(|e| format!("Couldn't prepare a folder for Claude Code: {e}"))?;
+        let config_path = work.join("blotter-mcp.json");
+        let config = claude_code::mcp_config(&blotter, data_dir, &settings.claude_code_model);
+        std::fs::write(&config_path, config.to_string())
+            .map_err(|e| format!("Couldn't write Claude Code's tool settings: {e}"))?;
+        Ok(Self {
+            exe,
+            work,
+            config_path,
+            model: settings.claude_code_model.clone(),
+        })
+    }
+
+    fn start(&self, resume: Option<&str>) -> Result<Session, String> {
+        let instructions = context::instructions();
+        Session::start(
+            &self.exe,
+            &self.work,
+            &claude_code::SessionConfig {
+                system_prompt: &instructions,
+                model: &self.model,
+                resume,
+                mcp_config: &self.config_path,
+            },
+        )
+    }
+}
+
+/// Starts Claude Code ahead of the next message, so it's ready when the
+/// user sends one: the thread's own process, or a spare for a new thread.
+/// Starting makes no model call. Does nothing on the API route.
+#[tauri::command]
+pub async fn chat_prewarm(
+    state: State<'_, AppState>,
+    runs: State<'_, ChatRuns>,
+    sessions: State<'_, ClaudeSessions>,
+    thread_id: Option<String>,
+) -> Result<(), CommandError> {
+    let (settings, thread) = {
+        let planner = state.planner.lock().map_err(|_| lock_err())?;
+        let thread = match &thread_id {
+            Some(id) => Some(chat::require_thread(planner.db().conn(), id)?),
+            None => None,
         };
+        (read_settings(&planner)?, thread)
+    };
+    if settings.route != Route::ClaudeCode {
+        return Ok(());
+    }
+    // A running turn has its process out of the pool; don't start another.
+    if let Some(id) = &thread_id
+        && runs.0.lock().map(|r| r.contains_key(id)).unwrap_or(true)
+    {
+        return Ok(());
+    }
+    let data_dir = state
+        .db_path
+        .parent()
+        .map(PathBuf::from)
+        .unwrap_or_default();
+    let mut pool = sessions.0.lock().await;
+    pool.tidy();
+    let model = settings.claude_code_model.clone();
+    match thread.and_then(|t| t.external_session.map(|s| (t.id, s))) {
+        Some((id, session)) => {
+            if pool.by_thread.get(&id).is_some_and(|s| s.model == model) {
+                return Ok(());
+            }
+            let launch = Launch::new(&settings, &data_dir).map_err(CommandError::internal)?;
+            let started = launch
+                .start(Some(&session))
+                .map_err(CommandError::internal)?;
+            pool.by_thread.insert(id, started);
+        }
+        None => {
+            if pool.spare.as_ref().is_some_and(|s| s.model == model) {
+                return Ok(());
+            }
+            let launch = Launch::new(&settings, &data_dir).map_err(CommandError::internal)?;
+            pool.spare = Some(launch.start(None).map_err(CommandError::internal)?);
+        }
+    }
+    pool.tidy();
+    Ok(())
+}
+
+/// The message as Claude Code gets it: the planner snapshot, then what the
+/// user wrote. (Its system prompt stays the same for the life of the
+/// process, so what changes travels with each message.)
+fn with_snapshot(snapshot: &str, text: &str) -> String {
+    format!("<planner_snapshot>\n{snapshot}\n</planner_snapshot>\n\n{text}")
+}
+
+async fn run_claude_code(app: &AppHandle, p: Prepared) -> Result<Option<String>, String> {
+    let launch = Launch::new(&p.settings, &p.data_dir)?;
+    let message = with_snapshot(&p.snapshot, &p.text);
+    let sessions = app.state::<ClaudeSessions>();
+
+    // This thread's running process, or the spare for a new thread.
+    let kept = {
+        let mut pool = sessions.0.lock().await;
+        pool.tidy();
+        let own = pool.by_thread.remove(&p.thread.id);
+        let spare = if p.thread.external_session.is_none() {
+            pool.spare.take()
+        } else {
+            None
+        };
+        own.or(spare).filter(|s| s.model == launch.model)
+    };
+    let mut resume = p.thread.external_session.clone();
+    let mut process = match kept.and_then(|mut s| s.is_alive().then_some(s)) {
+        Some(s) => s,
+        None => launch.start(resume.as_deref())?,
+    };
+
+    loop {
         let mut blocks: Vec<Block> = Vec::new();
         let mut names: HashMap<String, String> = HashMap::new();
         let mut session = None;
@@ -546,62 +718,63 @@ async fn run_claude_code(app: &AppHandle, p: Prepared) -> Result<Option<String>,
         let mut failed = false;
         let mut tools_ok = true;
         let thread_id = p.thread.id.clone();
-        let ran = claude_code::run(&exe, &work, &turn, |event| match event {
-            Event::Init {
-                session_id,
-                tools_ok: ok,
-            } => {
-                session = Some(session_id);
-                tools_ok = ok;
-            }
-            Event::Text(text) => emit(app, &thread_id, ChatEvent::Text { text }),
-            Event::ToolStart { id, name, input } => {
-                names.insert(id.clone(), name.clone());
-                emit(
-                    app,
-                    &thread_id,
-                    ChatEvent::ToolStart {
-                        id: id.clone(),
-                        name: name.clone(),
-                        input: input.clone(),
-                    },
-                );
-                blocks.push(Block::ToolUse {
-                    id,
-                    name,
-                    input,
-                    invalid: None,
-                });
-            }
-            Event::ToolResult { id, is_error, text } => {
-                let name = names.get(&id).cloned().unwrap_or_default();
-                emit(
-                    app,
-                    &thread_id,
-                    ChatEvent::ToolResult {
-                        id: id.clone(),
+        let ran = process
+            .turn(&message, |event| match event {
+                Event::Init {
+                    session_id,
+                    tools_ok: ok,
+                } => {
+                    session = Some(session_id);
+                    tools_ok = ok;
+                }
+                Event::Text(text) => emit(app, &thread_id, ChatEvent::Text { text }),
+                Event::ToolStart { id, name, input } => {
+                    names.insert(id.clone(), name.clone());
+                    emit(
+                        app,
+                        &thread_id,
+                        ChatEvent::ToolStart {
+                            id: id.clone(),
+                            name: name.clone(),
+                            input: input.clone(),
+                        },
+                    );
+                    blocks.push(Block::ToolUse {
+                        id,
                         name,
+                        input,
+                        invalid: None,
+                    });
+                }
+                Event::ToolResult { id, is_error, text } => {
+                    let name = names.get(&id).cloned().unwrap_or_default();
+                    emit(
+                        app,
+                        &thread_id,
+                        ChatEvent::ToolResult {
+                            id: id.clone(),
+                            name,
+                            is_error,
+                            preview: preview(&text),
+                        },
+                    );
+                    blocks.push(Block::ToolResult {
+                        tool_use_id: id,
+                        content: text,
                         is_error,
-                        preview: preview(&text),
-                    },
-                );
-                blocks.push(Block::ToolResult {
-                    tool_use_id: id,
-                    content: text,
+                    });
+                }
+                Event::Done {
+                    session_id,
+                    text,
                     is_error,
-                });
-            }
-            Event::Done {
-                session_id,
-                text,
-                is_error,
-            } => {
-                session = session_id.or(session.take());
-                final_text = text;
-                failed = is_error;
-            }
-        })
-        .await;
+                } => {
+                    session = session_id.or(session.take());
+                    final_text = text;
+                    failed = is_error;
+                }
+            })
+            .await;
 
         // A session Claude Code no longer has: start a fresh one once.
         let lost_session = resume.is_some()
@@ -611,6 +784,7 @@ async fn run_claude_code(app: &AppHandle, p: Prepared) -> Result<Option<String>,
             };
         if lost_session {
             resume = None;
+            process = launch.start(None)?;
             continue;
         }
         ran?;
@@ -636,6 +810,10 @@ async fn run_claude_code(app: &AppHandle, p: Prepared) -> Result<Option<String>,
         with_planner(app, |planner| {
             chat::set_external_session(planner.db().conn(), &p.thread.id, session.as_deref())
         });
+        // Keep the process for the next message.
+        let mut pool = sessions.0.lock().await;
+        pool.by_thread.insert(p.thread.id.clone(), process);
+        pool.tidy();
         return Ok((!tools_ok).then(|| {
             "Blotter's tools didn't start for Claude Code, so it couldn't see your planner."
                 .to_owned()

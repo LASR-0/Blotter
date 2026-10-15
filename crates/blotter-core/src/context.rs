@@ -1,7 +1,12 @@
-//! The system prompt for the AI (roadmap §4.6): who it is, the current
-//! date, time and timezone, the user's block-outs and planning hours,
-//! today's agenda and the Inbox count, and the scheduling rules in plain
-//! language. Anything larger is fetched with the read tools on demand.
+//! What the AI is told (roadmap §4.6). Two parts:
+//!
+//! - [`instructions`]: who it is and the scheduling rules in plain
+//!   language. Fixed, so a long-running Claude Code process can keep it as
+//!   its system prompt.
+//! - [`snapshot`]: the planner right now (date, time and timezone,
+//!   planning hours, block-outs, today's agenda, the Inbox), sent with each
+//!   message so it never goes stale. Anything larger is fetched with the
+//!   read tools on demand.
 
 use std::fmt::Write as _;
 
@@ -27,8 +32,9 @@ goes exactly where it's put, even inside a block-out; overlapping fixed items ar
 flagged as conflicts.
 - Don't work out free time yourself: use find_free_slots to see options, or auto_slot to place \
 Inbox tasks, which honours block-outs, planning hours, due dates and priority.
-- Look things up (list_agenda, search_items, list_inbox) before changing them, and use the ids \
-the tools return. Never invent ids.
+- The planner snapshot is current: use its agenda, Inbox and ids directly instead of fetching \
+them again. Look up anything else (other days with list_agenda, search_items) before changing it, \
+and use the ids the tools return. Never invent ids.
 - When a tool returns an error, read it, fix the arguments and try again, or tell the user what \
 went wrong.
 
@@ -36,8 +42,25 @@ How to answer:
 - Be brief and concrete: say what you changed or found, with local times like 14:30.
 - Only change what the user asked for. If a request is ambiguous, ask first.";
 
-/// Builds the system prompt from the planner's current state.
+/// The Inbox items listed in the snapshot; past this the model fetches.
+const INBOX_LISTED: usize = 25;
+
+/// Who the AI is and how Blotter works. Doesn't change between messages.
+pub fn instructions() -> String {
+    format!(
+        "You are the planning assistant inside Blotter, the user's keyboard-first daily \
+         planner. You read and change the planner only through the tools provided. Each \
+         message comes with a snapshot of the planner as it is right then.\n\n{RULES}"
+    )
+}
+
+/// The whole prompt for a provider that is sent everything each turn.
 pub fn system_prompt(planner: &mut Planner) -> Result<String> {
+    Ok(format!("{}\n\n{}", instructions(), snapshot(planner)?))
+}
+
+/// The planner right now, for the AI.
+pub fn snapshot(planner: &mut Planner) -> Result<String> {
     let settings = planner.settings()?;
     let tz = settings.tz;
     let now = planner.now();
@@ -46,12 +69,15 @@ pub fn system_prompt(planner: &mut Planner) -> Result<String> {
         .execute("get_day_summary", json!({}), &Actor::System)?
         .result;
     let items: Vec<Item> = serde_json::from_value(summary["items"].clone()).unwrap_or_default();
+    let inbox: Vec<Item> = serde_json::from_value(
+        planner
+            .execute("list_inbox", json!({}), &Actor::System)?
+            .result,
+    )
+    .unwrap_or_default();
     let blockouts = store::blockouts::list(planner.db().conn())?;
 
-    let mut out = String::from(
-        "You are the planning assistant inside Blotter, the user's keyboard-first daily \
-         planner. You read and change the planner only through the tools provided.\n\n",
-    );
+    let mut out = String::from("Planner snapshot\n");
     let _ = writeln!(out, "Now: {} ({tz}).", local.format("%A %-d %B %Y, %H:%M"));
 
     out.push_str("\nPlanning hours (when flexible tasks may be placed):\n");
@@ -114,15 +140,48 @@ pub fn system_prompt(planner: &mut Planner) -> Result<String> {
     let count = |key: &str| summary[key].as_u64().unwrap_or(0);
     let _ = writeln!(
         out,
-        "Inbox: {} unscheduled. Overdue: {}. Conflicts today: {}.",
-        count("inbox_count"),
+        "Overdue: {}. Conflicts today: {}.",
         count("overdue_count"),
         summary["conflicts"].as_array().map_or(0, Vec::len),
     );
 
-    out.push('\n');
-    out.push_str(RULES);
-    Ok(out)
+    let _ = writeln!(out, "\nInbox ({} unscheduled):", inbox.len());
+    for item in inbox.iter().take(INBOX_LISTED) {
+        let _ = writeln!(out, "- {}", inbox_line(item, tz));
+    }
+    if inbox.len() > INBOX_LISTED {
+        let _ = writeln!(
+            out,
+            "- … and {} more (list_inbox)",
+            inbox.len() - INBOX_LISTED
+        );
+    }
+    Ok(out.trim_end().to_owned())
+}
+
+/// One Inbox line: title, duration, priority and due date, with its id.
+fn inbox_line(item: &Item, tz: Tz) -> String {
+    let mut flags = Vec::new();
+    if let Some(d) = item.duration_min {
+        flags.push(format!("{d}m"));
+    }
+    if item.priority > 0 {
+        flags.push(format!("!{}", item.priority));
+    }
+    if let Some(due) = item.due_at {
+        let d = due.with_timezone(&tz);
+        flags.push(format!(
+            "due {} {}",
+            d.format("%a %-d %b"),
+            d.format("%H:%M")
+        ));
+    }
+    let flags = if flags.is_empty() {
+        String::new()
+    } else {
+        format!(" [{}]", flags.join(", "))
+    };
+    format!("{}{flags} (id {})", item.title, item.id)
 }
 
 /// One agenda line: time, title and what matters about it, with its id.
@@ -201,7 +260,21 @@ mod tests {
             prompt.contains("15:00–15:45 Dentist [event, fixed]"),
             "{prompt}"
         );
-        assert!(prompt.contains("Inbox: 1 unscheduled."), "{prompt}");
+        assert!(
+            prompt.contains(
+                "Inbox (1 unscheduled):
+- Buy milk"
+            ),
+            "{prompt}"
+        );
+        assert!(snapshot(&mut p).unwrap().starts_with(
+            "Planner snapshot
+Now:"
+        ));
+        assert!(
+            !instructions().contains("Dentist"),
+            "instructions are fixed"
+        );
         assert!(prompt.contains("find_free_slots"));
     }
 

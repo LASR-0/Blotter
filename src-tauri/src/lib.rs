@@ -131,6 +131,8 @@ pub fn run() {
             capture::prepare(app.handle());
             app.manage(rollover::RolloverNotice::default());
             app.manage(ai::chat::ChatRuns::default());
+            app.manage(ai::chat::ClaudeSessions::default());
+            ai::chat::start_session_reaper(app.handle().clone());
             rollover::start(app.handle().clone());
             reminders::start(app.handle().clone());
             // The main window starts hidden (tauri.conf.json) so `--hidden`
@@ -183,6 +185,7 @@ pub fn run() {
             ai::chat::chat_delete_thread,
             ai::chat::chat_cancel,
             ai::chat::chat_send,
+            ai::chat::chat_prewarm,
             chat_window::open_chat_window,
             chat_window::set_chat_on_top,
             chat_window::dock_chat,

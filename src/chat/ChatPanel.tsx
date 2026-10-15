@@ -200,6 +200,12 @@ export function ChatPanel({ mode }: { mode: 'docked' | 'popout' }) {
   const empty = threadId === null && items.length === 0;
 
   useEffect(() => input.current?.focus(), [threadId]);
+  // Have Claude Code start up now, so it's ready when a message is sent.
+  useEffect(() => {
+    invoke('chat_prewarm', { threadId }).catch((e: unknown) =>
+      console.warn('Chat warm-up failed', e),
+    );
+  }, [threadId]);
   // Follow the reply as it streams.
   useLayoutEffect(() => {
     const el = scroller.current;

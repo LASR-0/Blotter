@@ -29,7 +29,7 @@ Notes:
     - <known gaps / follow-ups>
 ```
 
-Commit types: `feat`, `fix`, `refactor`, `test`, `docs`, `build`, `ci`, `chore`.
+Commit types: `feat`, `fix`, `perf`, `refactor`, `test`, `docs`, `build`, `ci`, `chore`.
 Bug and visual fixes from Luke's feedback get their own entries (`fix(...)`), added in order. Earlier entries are never rewritten.
 
 ---
@@ -80,7 +80,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 29 | 8 | `feat(ai): provider adapters and keychain credentials` (API providers marked experimental, D29) | committed `6d6442d` |
 | 29a | 8 | `feat(mcp): MCP server over the operation registry` | committed `e43fd31` (brought forward from #40, D29) |
 | 30 | 8 | `feat(ai): tool-calling loop and Claude Code provider` | committed `aafb799` |
-| 31 | 8 | `feat(ui): chat panel and pop-out window` | committed (hash in the next entry) |
+| 31 | 8 | `feat(ui): chat panel and pop-out window` | committed `4edf2d6` |
+| 31a | 8 | `perf(ai): keep Claude Code running between messages` | committed (hash in the next entry) |
 | 32 | 8 | `feat(ai): proposal review and auto-apply mode` | planned |
 | 33 | 8 | `feat(ai): daily briefing` | planned |
 | 34 | 9 | `feat: ICS export and file import` | planned |
@@ -2520,7 +2521,7 @@ Notes:
       rather than killing the session.
     - Next: #31 chat panel and pop-out window.
 
-### #31 — Chat panel and pop-out window            [status: committed — hash in the next entry]
+### #31 — Chat panel and pop-out window            [status: committed 4edf2d6]
 Phase: 8 (design: Chat Panel)
 Message:
     feat(ui): chat panel and pop-out window
@@ -2582,4 +2583,58 @@ Notes:
     - Mishap while testing: `taskkill /IM blotter.exe` also stopped the `blotter mcp`
       server Luke's VS Code Claude session had started. A new session starts a new one.
       I now stop processes by PID only.
+    - Next: #32 proposal review and auto-apply mode.
+
+### #31a — Keep Claude Code running between messages            [status: committed — hash in the next entry]
+Phase: 8 (Luke: "basic prompts take quite a while")
+Message:
+    perf(ai): keep Claude Code running between messages
+
+    A basic chat request took about 15 s, and only about 3.5 s of that was
+    the model. The rest was starting `claude` fresh for every message:
+    about 2.5 s for Windows to start the program and 8 s for Claude Code's
+    own startup, most of it waiting on its MCP connection. Blotter's
+    server answers in 0.35 s, and turning off hooks or user settings made
+    no difference.
+
+    Now each thread keeps a Claude Code process running. Messages go on
+    its stdin as stream-json, and replies stream back. Opening the chat
+    or a new thread starts a process ahead of time; that makes no model
+    call. Processes stop after 10 minutes idle, at most two threads keep
+    one, and a model change starts a new one. If a process ends (Stop,
+    or a crash), the next message starts a new one that resumes the
+    thread's session. Blotter exiting closes their stdin, which ends
+    them.
+
+    Because a long-running process keeps its system prompt, the prompt
+    is now only the fixed instructions. A planner snapshot (now, planning
+    hours, block-outs, today's agenda, and now the Inbox items with ids)
+    travels with each message. Listing the Inbox saves the model a
+    list_inbox round trip on Inbox requests.
+
+    Spawned `claude` no longer inherits the CLAUDECODE / CLAUDE_CODE_*
+    variables of a Claude session Blotter was started from. They made it
+    act as that session's child.
+Files:
+    M  crates/blotter-core/src/context.rs   (instructions + snapshot, Inbox listed)
+    M  src-tauri/src/ai/claude_code.rs      (Session over stream-json, env cleaning)
+    M  src-tauri/src/ai/chat.rs             (ClaudeSessions pool, chat_prewarm, reaper)
+    M  src-tauri/src/lib.rs                 (state, reaper, command)
+    M  src-tauri/Cargo.toml                 (tokio sync)
+    M  src/chat/ChatPanel.tsx               (warm up on open and thread change)
+    M  .claude/COMMITS.md
+Test steps:
+    - cargo test --workspace → 136 core + 35 app (+2: stream-json input lines, inherited
+      variables dropped) + 5 mcp; clippy / fmt clean
+    - pnpm check → clean; Vitest 172
+    - Timed by hand with the exact arguments (claude 2.1.292, WinGet): one process per
+      message → init at 10.8 s, total ~15 s; one kept process → messages 2 and 3 in
+      2.7 s and 2.3 s (create_item, update_item, list_inbox)
+Notes:
+    - Verified live by Luke in his dev app (rebuilt on the change): "way better now".
+      I couldn't drive it myself, since his instance held the single-instance lock.
+    - Startup breakdown measured from Claude Code's startup timing (CLAUDE_CODE_EMIT_
+      STARTUP_TIMING): hooks_init 7.1 s waiting alongside mcp_connect 4.7 s. --bare starts
+      faster but never reads OAuth, so it can't use the subscription.
+    - Memory: each warm `claude` process is a few hundred MB, hence the cap and idle stop.
     - Next: #32 proposal review and auto-apply mode.

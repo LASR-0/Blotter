@@ -11,12 +11,14 @@
 
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
+use std::sync::{Arc, Mutex as StdMutex};
 use std::time::Duration;
 
 use serde::Serialize;
 use serde_json::{Value, json};
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
-use tokio::process::Command;
+use tokio::process::{Child, ChildStdin, Command};
+use tokio::sync::mpsc;
 
 use crate::{DATA_DIR_ENV, MCP_ACTOR_ENV, cli};
 
@@ -86,8 +88,29 @@ fn install_dirs() -> Vec<PathBuf> {
     dirs
 }
 
+/// Variables a Claude Code session sets for the programs it runs. Blotter
+/// started from inside one (a terminal in an editor with Claude Code)
+/// inherits them, and passing them on would make Blotter's `claude` act as
+/// a child of that session. Configuration such as `CLAUDE_CONFIG_DIR` and
+/// `ANTHROPIC_*` is kept.
+fn is_session_var(name: &str) -> bool {
+    name == "CLAUDECODE"
+        || name == "CLAUDE_PID"
+        || name == "CLAUDE_EFFORT"
+        || name == "CLAUDE_AGENT_SDK_VERSION"
+        || name == "MCP_CONNECTION_NONBLOCKING"
+        || (name.starts_with("CLAUDE_CODE_")
+            && name != "CLAUDE_CODE_USE_BEDROCK"
+            && name != "CLAUDE_CODE_USE_VERTEX")
+}
+
 fn command(exe: &Path) -> Command {
     let mut cmd = Command::new(exe);
+    for (name, _) in std::env::vars_os() {
+        if name.to_str().is_some_and(is_session_var) {
+            cmd.env_remove(&name);
+        }
+    }
     cmd.stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -180,9 +203,8 @@ pub fn actor(model: &str) -> String {
     format!("ai:claude-code/{model}")
 }
 
-/// One run of `claude -p`.
-pub struct Turn<'a> {
-    pub prompt: &'a str,
+/// How to start a Claude Code process.
+pub struct SessionConfig<'a> {
     pub system_prompt: &'a str,
     pub model: &'a str,
     /// The thread's Claude session, to carry the conversation on.
@@ -190,11 +212,13 @@ pub struct Turn<'a> {
     pub mcp_config: &'a Path,
 }
 
-/// The arguments for a turn. The prompt goes on stdin, not here, so no
-/// quoting can mangle it.
-pub fn args(turn: &Turn<'_>) -> Vec<String> {
+/// The arguments for a process. Messages go on stdin as stream-json, not
+/// here, so no quoting can mangle them.
+pub fn args(turn: &SessionConfig<'_>) -> Vec<String> {
     let mut args: Vec<String> = [
         "-p",
+        "--input-format",
+        "stream-json",
         "--output-format",
         "stream-json",
         "--verbose",
@@ -337,63 +361,125 @@ fn result_text(content: &Value) -> String {
     }
 }
 
-/// Runs one turn, calling `on_event` for each event as it streams. Returns
-/// an error when Claude Code couldn't run or ended without a result.
-pub async fn run(
-    exe: &Path,
-    cwd: &Path,
-    turn: &Turn<'_>,
-    mut on_event: impl FnMut(Event),
-) -> Result<(), String> {
-    std::fs::create_dir_all(cwd)
-        .map_err(|e| format!("Couldn't prepare a folder for Claude Code: {e}"))?;
-    let mut child = command(exe)
-        .args(args(turn))
-        .current_dir(cwd)
-        .stdin(Stdio::piped())
-        .spawn()
-        .map_err(|e| format!("Couldn't start Claude Code: {e}"))?;
+/// One user message as Claude Code's stream-json input reads it.
+fn input_line(message: &str) -> String {
+    let line = json!({ "type": "user", "message": { "role": "user", "content": message } });
+    format!("{line}\n")
+}
 
-    if let Some(mut stdin) = child.stdin.take() {
-        stdin
-            .write_all(turn.prompt.as_bytes())
-            .await
-            .map_err(|e| format!("Couldn't send the message to Claude Code: {e}"))?;
-        // Dropping stdin closes it, which tells Claude Code the prompt ended.
-    }
-    let mut stderr = child.stderr.take();
-    let errors = tokio::spawn(async move {
-        let mut text = String::new();
-        if let Some(err) = stderr.as_mut() {
-            let _ = err.read_to_string(&mut text).await;
+/// A running Claude Code process for one conversation. Starting `claude`
+/// takes seconds (its own start-up and connecting to Blotter's server),
+/// so the process stays up between messages: each message is a line on
+/// its stdin, each reply streams back. Dropping the session kills it; if
+/// Blotter itself dies, the closed stdin ends it too.
+pub struct Session {
+    child: Child,
+    stdin: ChildStdin,
+    events: mpsc::UnboundedReceiver<Event>,
+    stderr: Arc<StdMutex<String>>,
+    /// The model it was started with; another model needs a new process.
+    pub model: String,
+    pub last_used: std::time::Instant,
+}
+
+impl Session {
+    /// Starts `claude` in the background. It boots while nothing is asked
+    /// of it yet, so starting one ahead of time hides the wait; it makes no
+    /// model call until a message arrives.
+    pub fn start(exe: &Path, cwd: &Path, config: &SessionConfig<'_>) -> Result<Self, String> {
+        std::fs::create_dir_all(cwd)
+            .map_err(|e| format!("Couldn't prepare a folder for Claude Code: {e}"))?;
+        let mut child = command(exe)
+            .args(args(config))
+            .current_dir(cwd)
+            .stdin(Stdio::piped())
+            .spawn()
+            .map_err(|e| format!("Couldn't start Claude Code: {e}"))?;
+        let stdin = child
+            .stdin
+            .take()
+            .ok_or("Couldn't talk to Claude Code (no input).")?;
+        let stdout = child
+            .stdout
+            .take()
+            .ok_or("Couldn't talk to Claude Code (no output).")?;
+
+        let (tx, events) = mpsc::unbounded_channel();
+        tokio::spawn(async move {
+            let mut lines = BufReader::new(stdout).lines();
+            while let Ok(Some(line)) = lines.next_line().await {
+                for event in parse_line(&line) {
+                    if tx.send(event).is_err() {
+                        return;
+                    }
+                }
+            }
+            // The sender drops here, so a waiting turn learns the process ended.
+        });
+        let stderr = Arc::new(StdMutex::new(String::new()));
+        if let Some(mut err) = child.stderr.take() {
+            let sink = Arc::clone(&stderr);
+            tokio::spawn(async move {
+                let mut text = String::new();
+                let _ = err.read_to_string(&mut text).await;
+                if let Ok(mut s) = sink.lock() {
+                    *s = text;
+                }
+            });
         }
-        text
-    });
+        Ok(Self {
+            child,
+            stdin,
+            events,
+            stderr,
+            model: config.model.to_owned(),
+            last_used: std::time::Instant::now(),
+        })
+    }
 
-    let mut finished = false;
-    if let Some(stdout) = child.stdout.take() {
-        let mut lines = BufReader::new(stdout).lines();
-        while let Ok(Some(line)) = lines.next_line().await {
-            for event in parse_line(&line) {
-                finished |= matches!(event, Event::Done { .. });
-                on_event(event);
+    /// Whether the process is still running.
+    pub fn is_alive(&mut self) -> bool {
+        matches!(self.child.try_wait(), Ok(None))
+    }
+
+    /// Sends one message and streams the reply to `on_event` until Claude
+    /// Code reports the turn finished. Fails if the process ends first.
+    pub async fn turn(
+        &mut self,
+        message: &str,
+        mut on_event: impl FnMut(Event),
+    ) -> Result<(), String> {
+        self.last_used = std::time::Instant::now();
+        self.stdin
+            .write_all(input_line(message).as_bytes())
+            .await
+            .map_err(|_| self.ended())?;
+        self.stdin.flush().await.map_err(|_| self.ended())?;
+        while let Some(event) = self.events.recv().await {
+            let done = matches!(event, Event::Done { .. });
+            on_event(event);
+            if done {
+                self.last_used = std::time::Instant::now();
+                return Ok(());
             }
         }
+        // The output closed: give stderr a moment to arrive.
+        let _ = tokio::time::timeout(Duration::from_secs(2), self.child.wait()).await;
+        Err(self.ended())
     }
-    let status = child
-        .wait()
-        .await
-        .map_err(|e| format!("Claude Code didn't finish cleanly: {e}"))?;
-    let stderr = errors.await.unwrap_or_default();
-    if finished {
-        return Ok(());
+
+    fn ended(&self) -> String {
+        let stderr = self
+            .stderr
+            .lock()
+            .map(|s| s.trim().to_owned())
+            .unwrap_or_default();
+        if stderr.is_empty() {
+            "Claude Code stopped without answering.".to_owned()
+        } else {
+            format!("Claude Code stopped: {}", last_lines(&stderr, 6))
+        }
     }
-    let detail = stderr.trim();
-    Err(if detail.is_empty() {
-        format!("Claude Code stopped without answering ({status}).")
-    } else {
-        format!("Claude Code stopped: {}", last_lines(detail, 6))
-    })
 }
 
 fn last_lines(text: &str, n: usize) -> String {
@@ -477,8 +563,7 @@ mod tests {
     #[test]
     fn args_lock_claude_code_to_blotter_tools() {
         let cfg = PathBuf::from("mcp.json");
-        let turn = Turn {
-            prompt: "hi",
+        let turn = SessionConfig {
             system_prompt: "You plan.",
             model: "sonnet",
             resume: Some("s-1"),
@@ -496,7 +581,40 @@ mod tests {
         assert_eq!(after("--resume"), "s-1");
         assert_eq!(after("--system-prompt"), "You plan.");
         assert!(a.contains(&"--strict-mcp-config".to_owned()));
-        assert!(!a.contains(&"hi".to_owned()), "the prompt goes on stdin");
+        assert_eq!(
+            after("--input-format"),
+            "stream-json",
+            "messages go on stdin"
+        );
+    }
+
+    #[test]
+    fn messages_are_stream_json_lines() {
+        let line = input_line("Add \"milk\"\nplease");
+        assert!(line.ends_with('\n') && line.matches('\n').count() == 1);
+        let v: Value = serde_json::from_str(line.trim()).unwrap();
+        assert_eq!(v["type"], "user");
+        assert_eq!(v["message"]["content"], "Add \"milk\"\nplease");
+    }
+
+    #[test]
+    fn inherited_session_variables_are_dropped() {
+        for name in [
+            "CLAUDECODE",
+            "CLAUDE_CODE_SESSION_ID",
+            "CLAUDE_CODE_ENTRYPOINT",
+            "CLAUDE_PID",
+        ] {
+            assert!(is_session_var(name), "{name}");
+        }
+        for name in [
+            "CLAUDE_CONFIG_DIR",
+            "ANTHROPIC_API_KEY",
+            "CLAUDE_CODE_USE_BEDROCK",
+            "PATH",
+        ] {
+            assert!(!is_session_var(name), "{name}");
+        }
     }
 
     #[test]
