@@ -7,6 +7,8 @@ import {
   ArrowLeft,
   ArrowRight,
   ArrowsOutLineVertical,
+  ArrowSquareOut,
+  ChatCircleText,
   ArrowUp,
   CheckSquare,
   NotePencil as EditIcon,
@@ -38,6 +40,7 @@ import {
   type Icon,
 } from '@phosphor-icons/react';
 import { deleteFocused, openFocused, toggleFocused } from '@/actions/itemActions';
+import { useChat } from '@/chat/chatStore';
 import { runAutoSlot } from '@/app/autoSlot';
 import { rolloverNow } from '@/app/rollover';
 import { redoLast, undoLast } from '@/app/undo';
@@ -450,6 +453,39 @@ export function buildActions(): Action[] {
       altBindings: ['Ctrl+Y'],
       yieldsToText: true,
       run: () => void redoLast(),
+    },
+    {
+      id: 'chat.toggle',
+      label: 'Toggle chat',
+      group: 'View',
+      icon: ChatCircleText,
+      binding: 'Ctrl+/',
+      keywords: ['ai', 'assistant', 'claude', 'ask'],
+      run: () => useChat.getState().setOpen(!useChat.getState().open),
+    },
+    {
+      id: 'chat.popout',
+      label: 'Pop out chat',
+      group: 'View',
+      icon: ArrowSquareOut,
+      binding: 'Ctrl+Shift+/',
+      keywords: ['ai', 'window', 'sticky', 'on top'],
+      run: () => {
+        const chat = useChat.getState();
+        chat.setOpen(false);
+        void invoke('open_chat_window', { threadId: chat.threadId });
+      },
+    },
+    {
+      id: 'chat.new',
+      label: 'New chat thread',
+      group: 'Actions',
+      icon: NotePencil,
+      keywords: ['ai', 'assistant', 'conversation'],
+      run: () => {
+        useChat.getState().showThread(null);
+        useChat.getState().setOpen(true);
+      },
     },
     {
       id: 'app.quit',

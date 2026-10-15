@@ -207,3 +207,10 @@
 @utility shadow-overlay {
   box-shadow: var(--shadow-overlay);
 }
+
+/* The chat's streaming cursor. */
+@keyframes bl-blink {
+  50% {
+    opacity: 0;
+  }
+}

@@ -1,7 +1,8 @@
-import { Calendar, CaretLeft, CaretRight, Notebook } from '@phosphor-icons/react';
+import { Calendar, CaretLeft, CaretRight, ChatCircleText, Notebook } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/button';
 import { Segmented } from '@/components/ui/segmented';
 import { Tooltip } from '@/components/ui/tooltip';
+import { useChat } from '@/chat/chatStore';
 import { hasPeriod, isCalendarView, periodTitle, type CalendarView } from '@/lib/period';
 import { useNav } from './nav';
 
@@ -21,6 +22,8 @@ export function TopBar() {
   const { title, sub } = periodTitle(view, anchor);
   const calendar = isCalendarView(view);
   const mode = view === 'diary' ? 'diary' : calendar ? 'calendar' : null;
+  const chatOpen = useChat((s) => s.open);
+  const setChatOpen = useChat((s) => s.setOpen);
 
   return (
     <header className="flex h-12 flex-none items-center gap-2 border-b border-border pr-3 pl-3.5">
@@ -106,6 +109,17 @@ export function TopBar() {
           options={CAL_OPTIONS}
         />
       )}
+      <Tooltip label="Toggle AI chat" shortcut="Ctrl+/">
+        <Button
+          size="icon"
+          variant="icon"
+          aria-label="Toggle AI chat"
+          data-state={chatOpen ? 'on' : 'off'}
+          onClick={() => setChatOpen(!chatOpen)}
+        >
+          <ChatCircleText />
+        </Button>
+      </Tooltip>
     </header>
   );
 }

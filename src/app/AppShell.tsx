@@ -1,4 +1,5 @@
 import { useEffect, useMemo } from 'react';
+import { listen } from '@tauri-apps/api/event';
 import { buildActions, NAV_CONTEXT } from '@/actions/actions';
 import { useKeymap } from '@/keymap/useKeymap';
 import { usePlannerSync } from '@/lib/queries';
@@ -29,6 +30,8 @@ import { useOverlay } from './overlay';
 import { ShortcutSheet } from './ShortcutSheet';
 import { Sidebar } from './Sidebar';
 import { TopBar } from './TopBar';
+import { ChatPanel } from '@/chat/ChatPanel';
+import { useChat, useChatEvents } from '@/chat/chatStore';
 
 /** Tracks whether the window is below the sidebar auto-collapse width. */
 function useNarrowWindow() {
@@ -40,6 +43,27 @@ function useNarrowWindow() {
     query.addEventListener('change', update);
     return () => query.removeEventListener('change', update);
   }, [setNarrow]);
+}
+
+/** Opens the docked chat for `blotter --chat` and when the pop-out docks back. */
+function useChatOpeners() {
+  useEffect(() => {
+    const open = (threadId?: string | null) => {
+      const chat = useChat.getState();
+      if (threadId !== undefined) chat.showThread(threadId);
+      chat.setOpen(true);
+    };
+    const offCli = listen<string>('app:cli', (e) => {
+      if (e.payload === 'chat') open();
+    });
+    const offDock = listen<{ thread_id: string | null }>('chat:dock', (e) =>
+      open(e.payload.thread_id),
+    );
+    return () => {
+      void offCli.then((stop) => stop());
+      void offDock.then((stop) => stop());
+    };
+  }, []);
 }
 
 /** Views with roving keyboard focus. */
@@ -61,6 +85,10 @@ export function AppShell() {
   usePlannerSync();
   const windows = useBlockoutWindows();
   useNarrowWindow();
+
+  const chatOpen = useChat((s) => s.open);
+  useChatEvents();
+  useChatOpeners();
 
   const loadTheme = useTheme((s) => s.load);
   useEffect(() => {
@@ -86,6 +114,13 @@ export function AppShell() {
           </ErrorBoundary>
         </main>
       </div>
+      {chatOpen && (
+        <aside className="w-[360px] min-w-[300px] flex-none border-l border-border">
+          <ErrorBoundary what="The chat">
+            <ChatPanel mode="docked" />
+          </ErrorBoundary>
+        </aside>
+      )}
       <CommandPalette actions={actions} />
       <ShortcutSheet actions={actions} />
       <QuickAddDialog />

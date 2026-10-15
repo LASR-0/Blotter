@@ -29,6 +29,7 @@ pub enum Step {
     ToolStart {
         id: String,
         name: String,
+        input: serde_json::Value,
     },
     ToolResult {
         id: String,
@@ -135,6 +136,7 @@ where
             on_step(Step::ToolStart {
                 id: id.clone(),
                 name: name.clone(),
+                input: input.clone(),
             });
             let (text, is_error, batch_id) = match invalid {
                 Some(problem) => (

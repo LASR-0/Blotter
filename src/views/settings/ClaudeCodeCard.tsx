@@ -100,7 +100,7 @@ export function ClaudeCodeCard({ settings }: { settings: AiSettings }) {
           )}
         >
           {line.ok ? (
-            <CheckCircle size={13} className="text-success" />
+            <CheckCircle size={13} className="text-tag-health" />
           ) : (
             <WarningCircle size={13} />
           )}

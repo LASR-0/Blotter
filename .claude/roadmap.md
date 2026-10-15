@@ -507,7 +507,7 @@ Each phase states the intent, then the acceptance criteria (AC) and leads to ver
 
 **Plan (2026-10-15, D29):** #29 provider layer and keychain (API providers experimental) → #29a MCP server (from Phase 12) → #30 tool loop with the Claude Code provider → #31 chat panel → #32 proposals and auto mode → #33 daily briefing.
 
-**Progress (2026-10-15):** #29 (providers, experimental) and #29a (MCP server, `blotter mcp`) are committed. #30 (chat backend: tool loop, threads, Claude Code provider, verified live on the subscription) is committed. Until #32, AI and MCP changes apply directly, with a snapshot before the first change of each session or turn (D30). Next: #31.
+**Progress (2026-10-15):** #29 (providers, experimental) and #29a (MCP server, `blotter mcp`) are committed. #30 (chat backend: tool loop, threads, Claude Code provider, verified live on the subscription) is committed. #31 (chat panel, pop-out window, `--chat`) is committed. Until #32, AI and MCP changes apply directly, with a snapshot before the first change of each session or turn (D30). Next: #32.
 **Intent:**
 - providers and keychain credentials,
 - the tool loop over the operation registry,

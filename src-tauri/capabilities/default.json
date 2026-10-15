@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Capabilities for the main window and the quick-capture popup.",
-  "windows": ["main", "capture"],
+  "description": "Capabilities for the main window, the quick-capture popup and the chat pop-out.",
+  "windows": ["main", "capture", "chat"],
   "permissions": ["core:default"]
 }

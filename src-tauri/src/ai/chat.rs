@@ -52,6 +52,7 @@ pub enum ChatEvent {
     ToolStart {
         id: String,
         name: String,
+        input: Value,
     },
     ToolResult {
         id: String,
@@ -454,7 +455,7 @@ async fn run_api(app: &AppHandle, p: Prepared) -> Result<Option<String>, String>
     let on_step: Arc<dyn Fn(Step) + Send + Sync> = Arc::new(move |step| {
         let event = match step {
             Step::Text(text) => ChatEvent::Text { text },
-            Step::ToolStart { id, name } => ChatEvent::ToolStart { id, name },
+            Step::ToolStart { id, name, input } => ChatEvent::ToolStart { id, name, input },
             Step::ToolResult {
                 id,
                 name,
@@ -562,6 +563,7 @@ async fn run_claude_code(app: &AppHandle, p: Prepared) -> Result<Option<String>,
                     ChatEvent::ToolStart {
                         id: id.clone(),
                         name: name.clone(),
+                        input: input.clone(),
                     },
                 );
                 blocks.push(Block::ToolUse {

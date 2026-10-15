@@ -79,8 +79,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 28 | 7 | `feat: snapshots, restore UI and JSON export/import` | committed `92c7afe` |
 | 29 | 8 | `feat(ai): provider adapters and keychain credentials` (API providers marked experimental, D29) | committed `6d6442d` |
 | 29a | 8 | `feat(mcp): MCP server over the operation registry` | committed `e43fd31` (brought forward from #40, D29) |
-| 30 | 8 | `feat(ai): tool-calling loop and Claude Code provider` | committed (hash in the next entry) |
-| 31 | 8 | `feat(ui): chat panel and pop-out window` | planned |
+| 30 | 8 | `feat(ai): tool-calling loop and Claude Code provider` | committed `aafb799` |
+| 31 | 8 | `feat(ui): chat panel and pop-out window` | committed (hash in the next entry) |
 | 32 | 8 | `feat(ai): proposal review and auto-apply mode` | planned |
 | 33 | 8 | `feat(ai): daily briefing` | planned |
 | 34 | 9 | `feat: ICS export and file import` | planned |
@@ -2433,7 +2433,7 @@ Notes:
       Linux/Flatpak (`flatpak run --command=blotter io.github.lasr0.Blotter mcp`, Phase 13).
     - Next: #30 tool loop with the Claude Code provider (spawns `claude` with this server).
 
-### #30 — Tool loop, chat threads and the Claude Code provider            [status: committed — hash in the next entry]
+### #30 — Tool loop, chat threads and the Claude Code provider            [status: committed aafb799]
 Phase: 8 (D29, D30)
 Message:
     feat(ai): tool-calling loop and Claude Code provider
@@ -2519,3 +2519,67 @@ Notes:
       exe open, which blocks relinking. Rename the running exe aside (Windows allows it)
       rather than killing the session.
     - Next: #31 chat panel and pop-out window.
+
+### #31 — Chat panel and pop-out window            [status: committed — hash in the next entry]
+Phase: 8 (design: Chat Panel)
+Message:
+    feat(ui): chat panel and pop-out window
+
+    The chat, following the Chat Panel design. It docks on the right of
+    the main window (Ctrl+/ or the new top-bar button) or pops out into
+    a slim always-on-top "sticky note" window (Ctrl+Shift+/) that docks
+    back. `blotter --chat` opens it in the running app.
+
+    - Header: thread title, new thread, a thread list (switch or delete),
+      pop out / close (docked) or keep on top / dock back (pop-out).
+      Chips show the AI in use ("Claude Code · sonnet") and the mode.
+      Mode reads "Auto" until proposals arrive in #32 (D30).
+    - Messages: user bubbles; tool calls as mono lines with their
+      arguments, red with the error when one fails; replies stream with
+      a cursor and render light Markdown (paragraphs, lists, bold, code)
+      as React elements, never HTML; error cards for failed turns.
+    - Composer: Enter sends, Shift+Enter adds a line, Stop cancels a
+      running turn. A new thread offers the design's three suggestions.
+    - Backend: chat_window.rs opens, pins and docks the pop-out. Tool
+      starts now carry their input.
+Files:
+    A  src-tauri/src/chat_window.rs
+    A  src/app/ChatApp.tsx
+    A  src/chat/ChatPanel.tsx
+    A  src/chat/chatStore.ts
+    A  src/chat/markdown.tsx
+    A  src/chat/markdown.test.tsx
+    A  src/chat/mdParse.ts
+    A  src/chat/transcript.ts
+    A  src/chat/transcript.test.ts
+    M  src-tauri/capabilities/default.json  (chat window)
+    M  src-tauri/src/ai/agent.rs, ai/chat.rs (tool input on tool_start)
+    M  src-tauri/src/lib.rs
+    M  src/actions/actions.ts               (chat.toggle, chat.popout, chat.new)
+    M  src/app/AppShell.tsx                 (docked panel, --chat and dock events)
+    M  src/app/TopBar.tsx                   (Toggle AI chat button)
+    M  src/main.tsx                         (chat window renders ChatApp)
+    M  src/styles.css                       (cursor blink)
+    M  src/views/settings/ClaudeCodeCard.tsx (tag-health colour; there is no success token)
+    M  .claude/COMMITS.md, .claude/roadmap.md
+Test steps:
+    - cargo test --workspace → 136 core + 33 app (+1 pop-out URL) + 5 mcp; clippy / fmt clean
+    - pnpm check → clean; Vitest 172 (+8: transcript, live events, argument summaries,
+      Markdown parse and escaping)
+    - pnpm dev:demo: top-bar chat button → "Brief me on today" → tool lines, a streamed
+      brief with headings and lists; type a request → one bubble, create_item line,
+      Inbox count updates; Pop out → sticky window on the thread; Dock → back in the
+      main window; close it, run `blotter --chat` → it opens again
+Notes:
+    - Verified live (WebView2 CDP, Claude Code on the subscription): everything in the test
+      steps, with screenshots of the docked panel mid-stream and finished, and of the pop-out.
+    - Found and fixed live: the first message showed twice (a live copy plus the saved
+      copy). It now shows only the saved copy, which is written before the turn starts.
+      Also: creating the pop-out in a sync command left it blank (a WebView2 deadlock on
+      Windows). open_chat_window is async now.
+    - Not verified: real keypresses for Ctrl+/ and Ctrl+Shift+/ (my harness can't send
+      Ctrl; the top-bar button and actions run the same code); always-on-top on Wayland.
+    - Mishap while testing: `taskkill /IM blotter.exe` also stopped the `blotter mcp`
+      server Luke's VS Code Claude session had started. A new session starts a new one.
+      I now stop processes by PID only.
+    - Next: #32 proposal review and auto-apply mode.

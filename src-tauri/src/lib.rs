@@ -5,6 +5,7 @@ mod ai;
 mod autostart;
 mod backups;
 mod capture;
+mod chat_window;
 mod cli;
 mod commands;
 mod external;
@@ -182,6 +183,9 @@ pub fn run() {
             ai::chat::chat_delete_thread,
             ai::chat::chat_cancel,
             ai::chat::chat_send,
+            chat_window::open_chat_window,
+            chat_window::set_chat_on_top,
+            chat_window::dock_chat,
         ])
         .run(tauri::generate_context!());
 
