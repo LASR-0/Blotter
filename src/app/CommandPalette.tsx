@@ -6,6 +6,7 @@ import { ACTION_GROUPS, type Action } from '@/actions/actions';
 import { Kbd, KeyChips } from '@/components/ui/kbd';
 import { itemMeta } from '@/lib/format';
 import { useOp } from '@/lib/queries';
+import { paletteScore } from '@/lib/paletteScore';
 import type { Item } from '@/lib/types';
 import { useOverlay } from './overlay';
 
@@ -99,7 +100,7 @@ function PaletteBody({ actions, close }: { actions: readonly Action[]; close: ()
   const items = term.length >= 2 ? (search.data ?? []) : [];
 
   return (
-    <Command loop label="Command palette" className="flex flex-col">
+    <Command loop filter={paletteScore} label="Command palette" className="flex flex-col">
       <div className="flex h-12 items-center gap-2.5 border-b border-border px-3.5">
         <MagnifyingGlass size={16} className="text-text-muted" />
         <Command.Input

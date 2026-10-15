@@ -71,7 +71,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 25c | 6 | `feat(ui): theme-coloured scrollbars` | committed `980e5cf` (#25a–#25d as one commit) |
 | 25d | 6 | `chore: add pnpm dev:demo for testing against demo data` | committed `980e5cf` (#25a–#25d as one commit) |
 | 26 | 6 | `feat: snooze, missed-reminder catch-up and autostart setting` | committed `67206ac` |
-| 27 | 7 | `feat: undo/redo from change log` | committed (see entry) |
+| 27 | 7 | `feat: undo/redo from change log` | committed `575b2c9` |
+| 27a | 7 | `fix(ui): rank exact palette matches first` | committed (hash in the next entry) |
 | 28 | 7 | `feat: snapshots, restore UI and JSON export/import` | planned |
 | 29 | 8 | `feat(ai): provider adapters and keychain credentials` | planned |
 | 30 | 8 | `feat(ai): tool-calling loop over the operation registry` | planned |
@@ -2074,7 +2075,7 @@ Notes:
     - New operations beyond the roadmap's minimum set: snooze_reminder, get_settings,
       update_settings (all in the registry, so the AI and MCP can use them).
 
-### #27 — Undo/redo from the change log            [status: committed — hash recorded in the next entry]
+### #27 — Undo/redo from the change log            [status: committed 575b2c9]
 Phase: 7
 Message:
     feat: undo/redo from change log
@@ -2140,3 +2141,27 @@ Notes:
     - Ctrl+Z undoes system and AI batches too (e.g. the rollover), newest first, as the log
       is one timeline.
     - Undo of theme changes isn't covered: the theme is a UI setting outside the change log.
+
+### #27a — Palette ranks exact matches first            [status: committed — hash in the next entry]
+Phase: 7 (fix found while testing #27)
+Message:
+    fix(ui): rank exact palette matches first
+
+    The palette used cmdk's default fuzzy score, so typing "redo" listed
+    "Previous period", "Next period" and "Diary ↔ Calendar" (r…e…d…o in
+    order) above Redo. The palette now ranks with its own score: exact
+    label, then prefix, then a word starting with the search, then all
+    words of a multi-word search ("theme dark"), then substring, then
+    keywords. Loose letter-by-letter matches only count from a word
+    start and rank last.
+Files:
+    A  src/lib/paletteScore.ts
+    A  src/lib/paletteScore.test.ts
+    M  src/app/CommandPalette.tsx
+    M  .claude/COMMITS.md
+Test steps:
+    - pnpm check                → clean; Vitest 158 passed (+5)
+    - Palette: "redo" → Redo first; "undo" → Undo first; "theme dark" → Theme: Dark
+Notes:
+    - Verified live: "redo" now lists Redo, then "Roll over unfinished tasks now" (a low,
+      word-start match); the View rows no longer appear.
