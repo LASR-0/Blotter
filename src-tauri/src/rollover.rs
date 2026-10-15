@@ -51,10 +51,10 @@ fn check(app: &AppHandle) {
             let Some(batch_id) = outcome.batch_id else {
                 return; // Ran, but nothing was left behind.
             };
-            if let Some(notice) = app.try_state::<RolloverNotice>() {
-                if let Ok(mut slot) = notice.0.lock() {
-                    *slot = Some(outcome.result);
-                }
+            if let Some(notice) = app.try_state::<RolloverNotice>()
+                && let Ok(mut slot) = notice.0.lock()
+            {
+                *slot = Some(outcome.result);
             }
             let _ = app.emit(
                 CHANGED_EVENT,

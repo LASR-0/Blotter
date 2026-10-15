@@ -1,0 +1,22 @@
+[package]
+name = "blotter-mcp"
+description = "Blotter's MCP server: the operation registry over stdio for external agents."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+blotter-core.workspace = true
+rmcp = { version = "3.5.1", default-features = false, features = ["server", "transport-io"] }
+serde_json.workspace = true
+chrono-tz = "0.10.4"
+tokio = { version = "1.53.3", features = ["rt", "macros", "io-std"] }
+
+[dev-dependencies]
+tempfile = "3.27.0"
+rmcp = { version = "3.5.1", default-features = false, features = ["server", "client", "transport-io"] }
+
+[lints]
+workspace = true

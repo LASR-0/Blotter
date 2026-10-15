@@ -53,6 +53,12 @@ impl Planner {
         &self.db
     }
 
+    /// The planner's clock, e.g. to timestamp a snapshot taken before an
+    /// operation.
+    pub fn now(&self) -> time::Instant {
+        self.clock.now()
+    }
+
     pub fn settings(&self) -> Result<PlannerSettings> {
         PlannerSettings::load(self.db.conn(), self.default_tz)
     }
@@ -211,6 +217,27 @@ pub(crate) mod tests {
         ] {
             assert!(names.contains(&expected), "missing {expected}");
         }
+    }
+
+    #[test]
+    fn agents_cannot_run_user_only_ops() {
+        let mut p = planner();
+        let agent_ops: Vec<_> = p.registry().agent_ops().map(|d| d.name).collect();
+        assert!(agent_ops.contains(&"create_item"));
+        assert!(agent_ops.contains(&"auto_slot"));
+        for name in ops::USER_ONLY_OPS {
+            assert!(p.registry().get(name).is_some(), "{name} is registered");
+            assert!(!agent_ops.contains(name), "{name} offered to agents");
+        }
+        let ai = Actor::Ai {
+            provider: "anthropic".into(),
+            model: "m".into(),
+        };
+        for actor in [Actor::Mcp, ai] {
+            let err = p.execute("undo", json!({}), &actor).unwrap_err();
+            assert!(matches!(err, CoreError::Invalid(_)), "{err:?}");
+        }
+        assert!(p.execute("get_undo_state", json!({}), &Actor::User).is_ok());
     }
 
     #[test]

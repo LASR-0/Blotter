@@ -506,6 +506,8 @@ Each phase states the intent, then the acceptance criteria (AC) and leads to ver
 ### Phase 8 — AI
 
 **Plan (2026-10-15, D29):** #29 provider layer and keychain (API providers experimental) → #29a MCP server (from Phase 12) → #30 tool loop with the Claude Code provider → #31 chat panel → #32 proposals and auto mode → #33 daily briefing.
+
+**Progress (2026-10-15):** #29 (providers, experimental) and #29a (MCP server, `blotter mcp`) are committed. Until #32, MCP changes apply directly, with a snapshot before the first change of each session. Next: #30.
 **Intent:**
 - providers and keychain credentials,
 - the tool loop over the operation registry,

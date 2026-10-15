@@ -1,16 +1,17 @@
 [workspace]
 resolver = "3"
-members = ["crates/blotter-core", "src-tauri"]
+members = ["crates/blotter-core", "crates/blotter-mcp", "src-tauri"]
 
 [workspace.package]
 version = "0.1.0"
 edition = "2024"
 license = "MIT"
 repository = "https://github.com/LASR-0/Blotter"
-rust-version = "1.85"
+rust-version = "1.88"
 
 [workspace.dependencies]
 blotter-core = { path = "crates/blotter-core" }
+blotter-mcp = { path = "crates/blotter-mcp" }
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.154"
 thiserror = "2.0.21"

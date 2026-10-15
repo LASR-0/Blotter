@@ -179,6 +179,25 @@ fn schema_for<A: JsonSchema>() -> Value {
     value
 }
 
+/// Operations only the user (and the system) may run. They are left out of
+/// the tools offered to the AI and MCP clients, and refused if an agent
+/// calls them anyway: undo/redo work through the user's own history, the
+/// rollover is the system's daily job, settings are the user's, and
+/// snoozing answers a notification on screen.
+pub const USER_ONLY_OPS: &[&str] = &[
+    "undo",
+    "redo",
+    "get_undo_state",
+    "rollover",
+    "update_settings",
+    "snooze_reminder",
+];
+
+/// Whether agents (the AI and MCP clients) may run the operation `name`.
+pub fn agent_may_run(name: &str) -> bool {
+    !USER_ONLY_OPS.contains(&name)
+}
+
 /// All operations, keyed by name.
 pub struct Registry {
     ops: BTreeMap<&'static str, OpDef>,
@@ -213,6 +232,11 @@ impl Registry {
 
     pub fn infos(&self) -> Vec<OpInfo> {
         self.iter().map(OpDef::info).collect()
+    }
+
+    /// The operations offered to agents as tools.
+    pub fn agent_ops(&self) -> impl Iterator<Item = &OpDef> {
+        self.iter().filter(|d| agent_may_run(d.name))
     }
 }
 
@@ -255,6 +279,12 @@ pub(crate) fn execute(
             let def = registry
                 .get(&c.name)
                 .ok_or_else(|| CoreError::UnknownOp(c.name.clone()))?;
+            if matches!(actor, Actor::Ai { .. } | Actor::Mcp) && !agent_may_run(def.name) {
+                return Err(CoreError::invalid(format!(
+                    "'{}' is only available to the user",
+                    def.name
+                )));
+            }
             def.validate(&c.args)?;
             Ok(def)
         })

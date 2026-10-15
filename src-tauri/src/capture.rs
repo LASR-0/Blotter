@@ -79,10 +79,10 @@ fn build<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<WebviewWindow<R>> {
 
 /// Creates the hidden popup at startup so the shortcut shows it instantly.
 pub fn prepare<R: Runtime>(app: &AppHandle<R>) {
-    if app.get_webview_window(CAPTURE_WINDOW).is_none() {
-        if let Err(err) = build(app) {
-            eprintln!("blotter: could not create the quick-capture window: {err}");
-        }
+    if app.get_webview_window(CAPTURE_WINDOW).is_none()
+        && let Err(err) = build(app)
+    {
+        eprintln!("blotter: could not create the quick-capture window: {err}");
     }
 }
 

@@ -26,6 +26,20 @@ pub struct LaunchArgs {
     pub unknown: Vec<String>,
 }
 
+/// The subcommand that runs the MCP server instead of the app.
+pub const MCP_SUBCOMMAND: &str = "mcp";
+
+/// Whether this launch is `blotter mcp` (the subcommand must come first).
+pub fn is_mcp<I, S>(argv: I) -> bool
+where
+    I: IntoIterator<Item = S>,
+    S: AsRef<str>,
+{
+    argv.into_iter()
+        .nth(1)
+        .is_some_and(|a| a.as_ref() == MCP_SUBCOMMAND)
+}
+
 /// Parses `argv` (including the program name at index 0). The first action
 /// flag wins; repeated or conflicting ones after it are ignored.
 pub fn parse<I, S>(argv: I) -> LaunchArgs
@@ -69,6 +83,13 @@ mod tests {
             CliAction::Chat,
             "first action wins"
         );
+    }
+
+    #[test]
+    fn mcp_subcommand_only_in_first_place() {
+        assert!(is_mcp(["blotter", "mcp"]));
+        assert!(!is_mcp(["blotter"]));
+        assert!(!is_mcp(["blotter", "--hidden", "mcp"]));
     }
 
     #[test]

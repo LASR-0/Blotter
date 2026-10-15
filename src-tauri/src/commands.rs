@@ -62,9 +62,9 @@ fn lock_error() -> CommandError {
 }
 
 #[derive(Debug, Clone, Serialize)]
-struct ChangedPayload {
-    batch_id: String,
-    ops: Vec<String>,
+pub(crate) struct ChangedPayload {
+    pub batch_id: String,
+    pub ops: Vec<String>,
 }
 
 #[derive(Serialize)]

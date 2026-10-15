@@ -18,6 +18,7 @@ import { Button } from '@/components/ui/button';
 import { Select } from '@/components/ui/select';
 import { isOpError } from '@/lib/api';
 import { cn } from '@/lib/cn';
+import { McpSection } from './McpSection';
 
 type Kind = 'anthropic' | 'openai' | 'openai_compatible';
 
@@ -293,7 +294,8 @@ export function AiProvidersPage() {
           API-key providers are <strong className="font-medium text-text">experimental</strong>:
           they&apos;re built and tested against recorded responses, but haven&apos;t been tried
           against the real services yet, and calls are billed by the provider. Using your signed-in
-          Claude Code instead, on your existing subscription, is coming next.
+          Claude Code instead, on your existing subscription, is coming next. Claude Code and Claude
+          Desktop can already use Blotter directly through its MCP server, below.
         </span>
       </div>
       {error && <p className="m-0 text-sm text-danger">{error}</p>}
@@ -321,6 +323,7 @@ export function AiProvidersPage() {
           Add OpenAI-compatible endpoint
         </Button>
       </div>
+      <McpSection />
     </div>
   );
 }

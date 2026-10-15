@@ -295,11 +295,11 @@ pub(crate) fn place(
             hi = hi.min(day_end);
             limit = format!("on {}", day.format("%a %-d %b"));
         }
-        if let Some(due) = item.due_at {
-            if due < hi {
-                hi = due;
-                limit = format!("before its due date ({} {})", fmt_day(due), fmt_time(due));
-            }
+        if let Some(due) = item.due_at
+            && due < hi
+        {
+            hi = due;
+            limit = format!("before its due date ({} {})", fmt_day(due), fmt_time(due));
         }
         let stays = if rollover {
             "It goes back to the Inbox."

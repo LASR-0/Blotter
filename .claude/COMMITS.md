@@ -77,8 +77,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 27c | 7 | `fix(ui): unique keys on the block-out editor panels` | committed `e16efbd` |
 | 27d | 7 | `feat(ui): error boundaries instead of a blank window` | committed `4c3e5b3` |
 | 28 | 7 | `feat: snapshots, restore UI and JSON export/import` | committed `92c7afe` |
-| 29 | 8 | `feat(ai): provider adapters and keychain credentials` (API providers marked experimental, D29) | committed (hash in the next entry) |
-| 29a | 8 | `feat(mcp): MCP server over the operation registry` | planned (brought forward from #40, D29) |
+| 29 | 8 | `feat(ai): provider adapters and keychain credentials` (API providers marked experimental, D29) | committed `6d6442d` |
+| 29a | 8 | `feat(mcp): MCP server over the operation registry` | committed (hash in the next entry; brought forward from #40, D29) |
 | 30 | 8 | `feat(ai): tool-calling loop and Claude Code provider` | planned (Claude Code provider added, D29) |
 | 31 | 8 | `feat(ui): chat panel and pop-out window` | planned |
 | 32 | 8 | `feat(ai): proposal review and auto-apply mode` | planned |
@@ -2310,7 +2310,7 @@ Notes:
     - Roadmap AC met: any edit sequence undoes and redoes (#27); a restore snapshots the
       current state first; a JSON export re-imports to an identical state (tested).
 
-### #29 — AI provider adapters and keychain credentials (experimental)            [status: committed — hash in the next entry]
+### #29 — AI provider adapters and keychain credentials (experimental)            [status: committed 6d6442d]
 Phase: 8 (D29)
 Message:
     feat(ai): provider adapters and keychain credentials
@@ -2354,3 +2354,81 @@ Notes:
     - Not verified: a real reply from any provider (needs a key; D29), the OpenAI-compatible
       add flow after that fix, and Linux CI building aws-lc-rs (reqwest's default TLS).
     - Next: #29a MCP server, then #30 tool loop with the Claude Code provider.
+
+### #29a — MCP server over the operation registry            [status: committed — hash in the next entry]
+Phase: 8 (brought forward from #40, D29)
+Message:
+    feat(mcp): MCP server over the operation registry
+
+    `blotter mcp` serves the operation registry over stdio (rmcp 3.5.1)
+    for Claude Desktop, Claude Code and other MCP clients. It's a
+    subcommand of the app's own program, handled before Tauri starts, so
+    it never takes the single-instance lock, runs beside an open Blotter,
+    and needs nothing extra packaged. It opens the same database as the
+    app (WAL); changes are written as actor `mcp`, show in the change log
+    and undo with Ctrl+Z. Blotter takes a "Before AI batch" snapshot
+    before the first change of each MCP session. Validation and planner
+    errors come back as tool errors, one problem per line, so the model
+    can retry.
+
+    Core: undo, redo, get_undo_state, rollover, update_settings and
+    snooze_reminder are user-only. They're left out of agent tools and
+    refused for AI and MCP actors. Also adds Planner::now.
+
+    App:
+    - Polls SQLite's data_version every second. A write from another
+      process refreshes every window and wakes the reminder engine.
+    - The app and `blotter mcp` find the database through one function:
+      $BLOTTER_DATA_DIR, else the OS data dir plus the app id. This is the
+      same path Tauri's app_data_dir gave, so existing data stays put.
+    - Settings → AI providers has an MCP server section with copyable
+      `claude mcp add` and claude_desktop_config.json setups. These pass
+      BLOTTER_DATA_DIR on when the app runs on a non-default database.
+
+    Build: MSRV 1.85 → 1.88 (rmcp needs it). Clippy's let-chain lint
+    then collapses four nested ifs.
+Files:
+    A  crates/blotter-mcp/Cargo.toml
+    A  crates/blotter-mcp/src/lib.rs
+    A  src-tauri/src/external.rs
+    A  src/lib/mcpSetup.ts
+    A  src/lib/mcpSetup.test.ts
+    A  src/views/settings/McpSection.tsx
+    M  Cargo.toml                              (member, workspace dep, rust-version 1.88)
+    M  Cargo.lock
+    M  crates/blotter-core/src/ops/mod.rs      (USER_ONLY_OPS, agent_ops, actor check)
+    M  crates/blotter-core/src/planner.rs      (now(), test)
+    M  crates/blotter-core/src/ops/blockouts.rs, ops/slots.rs   (let chains)
+    M  src-tauri/Cargo.toml                    (blotter-mcp, dirs 7.0.0)
+    M  src-tauri/src/lib.rs                    (db_path, run_mcp, watcher, mcp_setup)
+    M  src-tauri/src/cli.rs                    (mcp subcommand)
+    M  src-tauri/src/commands.rs               (ChangedPayload pub(crate))
+    M  src-tauri/src/capture.rs, rollover.rs   (let chains)
+    M  src/views/settings/AiProvidersPage.tsx
+    M  .claude/COMMITS.md, .claude/roadmap.md
+Test steps:
+    - cargo test --workspace → 132 core (+1 user-only ops) + 22 app (+2: mcp subcommand,
+      app id matches tauri.conf.json) + 4 mcp (in-process client: tool list and hints,
+      logged as mcp after one snapshot, invalid args come back, user-only/unknown refused)
+    - cargo clippy --workspace --all-targets -- -D warnings → clean; cargo fmt --check → clean
+    - pnpm check → clean; Vitest 164 passed (+4)
+    - Raw JSON-RPC over stdio to target/debug/blotter.exe mcp on a scratch BLOTTER_DATA_DIR:
+      initialize → serverInfo blotter 0.1.0, protocol 2025-06-18; tools/list → 25 tools;
+      create_item / auto_slot work; bad args → isError with one line per problem;
+      undo → -32602 unknown tool; one before_ai_batch snapshot in the folder
+Notes:
+    - Verified live (pnpm dev:demo --fresh, driven over WebView2 CDP): a `blotter mcp`
+      create_item from another process moved the sidebar Inbox count 7 → 8 within the 1 s
+      poll, and the item appeared in the Inbox view. The app's undo state named it
+      ("Create item “Added over MCP”") and undo removed it. The settings section rendered
+      with the demo folder passed through. No errors in the dev log.
+    - Verified on the release build too (windows_subsystem = "windows", no console): the
+      same stdio probe passes, so pipes from MCP clients work without a console window.
+    - Propose mode isn't there yet: until #32 adds proposals and the Propose/Auto switch,
+      MCP changes apply straight away (auto mode), with the session snapshot and undo as the
+      guard rails. #32 should make MCP mutations become proposals when Propose is on (§4.8).
+    - One snapshot per session rather than one per tool call: an agent making 10 calls
+      would otherwise push 10 snapshots through the 20-snapshot retention.
+    - Not verified: a real Claude Desktop / Claude Code session using the setup lines;
+      Linux/Flatpak (`flatpak run --command=blotter io.github.lasr0.Blotter mcp`, Phase 13).
+    - Next: #30 tool loop with the Claude Code provider (spawns `claude` with this server).

@@ -128,10 +128,10 @@ fn validate(b: &mut Blockout) -> Result<()> {
     }
     b.tz.parse::<Tz>()
         .map_err(|_| CoreError::invalid(format!("unknown timezone '{}'", b.tz)))?;
-    if let (Some(from), Some(until)) = (b.active_from, b.active_until) {
-        if until < from {
-            return Err(CoreError::invalid("active_until is before active_from"));
-        }
+    if let (Some(from), Some(until)) = (b.active_from, b.active_until)
+        && until < from
+    {
+        return Err(CoreError::invalid("active_until is before active_from"));
     }
     if let Some(color) = &b.color {
         let hex = color.strip_prefix('#').unwrap_or("");
