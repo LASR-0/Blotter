@@ -7,6 +7,7 @@ import {
   Info,
   Palette,
   Prohibit,
+  Sparkle,
   type Icon,
 } from '@phosphor-icons/react';
 import { useNav, type SettingsPage } from '@/app/nav';
@@ -15,6 +16,7 @@ import { Kbd } from '@/components/ui/kbd';
 import { cn } from '@/lib/cn';
 import { PRESETS, type Theme } from '@/theme/presets';
 import { useTheme } from '@/theme/theme';
+import { AiProvidersPage } from './settings/AiProvidersPage';
 import { BackupsPage } from './settings/BackupsPage';
 import { BlockoutsPage } from './settings/BlockoutsPage';
 import { NotificationsPage } from './settings/NotificationsPage';
@@ -24,6 +26,7 @@ import { NotificationsPage } from './settings/NotificationsPage';
 const PAGES: readonly { id: SettingsPage; label: string; icon: Icon }[] = [
   { id: 'blockouts', label: 'Block-outs', icon: Prohibit },
   { id: 'notifications', label: 'Notifications', icon: Bell },
+  { id: 'ai', label: 'AI providers', icon: Sparkle },
   { id: 'theme', label: 'Theme', icon: Palette },
   { id: 'backups', label: 'Backups', icon: ClockCounterClockwise },
   { id: 'about', label: 'About', icon: Info },
@@ -60,6 +63,8 @@ export function SettingsView() {
       <main className="min-w-0 flex-1 overflow-auto">
         {page === 'about' ? (
           <AboutPage />
+        ) : page === 'ai' ? (
+          <AiProvidersPage />
         ) : page === 'backups' ? (
           <BackupsPage />
         ) : page === 'notifications' ? (

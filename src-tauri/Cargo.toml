@@ -19,7 +19,10 @@ tauri-build = { version = "2.7.2", features = [] }
 blotter-core.workspace = true
 chrono = { version = "0.4.45", default-features = false, features = ["clock"] }
 chrono-tz = "0.10.4"
+futures-util = "0.3.32"
 iana-time-zone = "0.1.65"
+keyring = "4.2.0"
+reqwest = { version = "0.13.5", features = ["json", "stream"] }
 serde.workspace = true
 serde_json.workspace = true
 tauri = { version = "2.12.3", features = ["tray-icon"] }

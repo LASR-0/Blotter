@@ -7,6 +7,7 @@
 pub mod blockouts;
 pub mod changes;
 pub mod items;
+pub mod providers;
 pub mod reminders;
 pub mod settings;
 

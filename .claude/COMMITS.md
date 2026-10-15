@@ -76,9 +76,10 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 27b | 7 | `fix(core): undo skips automatic system changes` | committed `b5b6341` |
 | 27c | 7 | `fix(ui): unique keys on the block-out editor panels` | committed `e16efbd` |
 | 27d | 7 | `feat(ui): error boundaries instead of a blank window` | committed `4c3e5b3` |
-| 28 | 7 | `feat: snapshots, restore UI and JSON export/import` | committed (hash in the next entry) |
-| 29 | 8 | `feat(ai): provider adapters and keychain credentials` | planned |
-| 30 | 8 | `feat(ai): tool-calling loop over the operation registry` | planned |
+| 28 | 7 | `feat: snapshots, restore UI and JSON export/import` | committed `92c7afe` |
+| 29 | 8 | `feat(ai): provider adapters and keychain credentials` (API providers marked experimental, D29) | committed (hash in the next entry) |
+| 29a | 8 | `feat(mcp): MCP server over the operation registry` | planned (brought forward from #40, D29) |
+| 30 | 8 | `feat(ai): tool-calling loop and Claude Code provider` | planned (Claude Code provider added, D29) |
 | 31 | 8 | `feat(ui): chat panel and pop-out window` | planned |
 | 32 | 8 | `feat(ai): proposal review and auto-apply mode` | planned |
 | 33 | 8 | `feat(ai): daily briefing` | planned |
@@ -88,7 +89,7 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 37 | 10 | `feat(ui): theme engine with live preview` | planned |
 | 38 | 10 | `feat(ui): remaining settings pages and first-run setup` | planned |
 | 39 | 11 | `feat(ui): completion history and streaks` | planned |
-| 40 | 12 | `feat(mcp): MCP server over the operation registry` | planned |
+| 40 | 12 | ~~`feat(mcp): MCP server over the operation registry`~~ | superseded by #29a |
 | 41 | 13 | `build: Windows installers and Linux AppImage/deb bundles` | planned |
 | 42 | 13 | `build: Flatpak manifest` | planned |
 | 43 | 13 | `build: AUR PKGBUILD` | planned |
@@ -2237,7 +2238,7 @@ Notes:
     - Verified live by making the Year view throw (temporarily, reverted): the panel showed,
       navigation kept working, and returning to Year after the fix rendered it normally.
 
-### #28 — Snapshots, restore UI and JSON export/import            [status: committed — hash in the next entry]
+### #28 — Snapshots, restore UI and JSON export/import            [status: committed 92c7afe]
 Phase: 7
 Message:
     feat: snapshots, restore UI and JSON export/import
@@ -2308,3 +2309,48 @@ Notes:
       test; please try the three buttons.
     - Roadmap AC met: any edit sequence undoes and redoes (#27); a restore snapshots the
       current state first; a JSON export re-imports to an identical state (tested).
+
+### #29 — AI provider adapters and keychain credentials (experimental)            [status: committed — hash in the next entry]
+Phase: 8 (D29)
+Message:
+    feat(ai): provider adapters and keychain credentials
+
+    Anthropic (Messages API, raw HTTP) and OpenAI-style chat completions
+    (OpenAI and compatible servers such as Ollama), streamed, with tool
+    calling. Tool arguments are parsed strictly and flagged, never run,
+    when malformed; Anthropic thinking blocks are passed back unchanged;
+    refusal fallbacks are on for the models that take them. Default
+    Anthropic model: claude-sonnet-5-5.
+
+    Keys live in the OS keychain (Windows Credential Manager / Secret
+    Service), never in the database, logs or webview; the UI sees only
+    the last four characters. Settings → AI providers: add Anthropic,
+    OpenAI or OpenAI-compatible endpoints, save a key, load models, test
+    the connection, pick the one in use.
+
+    Experimental: unit-tested against recorded streams, not yet run
+    against a real service with a real key (labelled in the UI).
+Files:
+    A  crates/blotter-core/src/store/providers.rs
+    A  src-tauri/src/ai/{mod,sse,anthropic,openai,keychain,commands}.rs
+    A  src/views/settings/AiProvidersPage.tsx
+    M  crates/blotter-core/src/store/mod.rs
+    M  src-tauri/Cargo.toml   (reqwest 0.13.5 json+stream, futures-util, keyring 4.2.0)
+    M  Cargo.lock
+    M  src-tauri/src/lib.rs
+    M  src/app/nav.ts, src/views/SettingsView.tsx
+    M  .claude/COMMITS.md, .claude/roadmap.md (D29, Phase 8 plan, #29a/#30 reorder)
+Test steps:
+    - cargo test --workspace → 131 core (+2 providers) + 20 app (+11: SSE parser, both
+      adapters' recorded streams, truncated tool input, error classes, key hint)
+    - clippy / fmt clean; pnpm check clean, Vitest 160
+Notes:
+    - Verified live: the page, the experimental badges, saving a made-up key into Windows
+      Credential Manager (not in the DB, WAL or log), and Test connection reaching
+      api.anthropic.com through the corporate TLS proxy, answering 401 "invalid x-api-key"
+      shown as "couldn't sign in". The test key was deleted afterwards.
+    - Fixed while testing: OpenAI/compatible providers couldn't be added without a model;
+      the model may now be empty until chosen, and chat refuses until it is.
+    - Not verified: a real reply from any provider (needs a key; D29), the OpenAI-compatible
+      add flow after that fix, and Linux CI building aws-lc-rs (reqwest's default TLS).
+    - Next: #29a MCP server, then #30 tool loop with the Claude Code provider.

@@ -1,6 +1,7 @@
 //! The Blotter desktop app: windows, tray, notifications, keychain and AI
 //! HTTP on top of `blotter-core`.
 
+mod ai;
 mod autostart;
 mod backups;
 mod capture;
@@ -127,6 +128,12 @@ pub fn run() {
             backups::export_json,
             backups::pick_import,
             backups::apply_import,
+            ai::commands::list_providers,
+            ai::commands::save_provider,
+            ai::commands::delete_provider,
+            ai::commands::set_default_provider,
+            ai::commands::fetch_models,
+            ai::commands::test_provider,
         ])
         .run(tauri::generate_context!());
 

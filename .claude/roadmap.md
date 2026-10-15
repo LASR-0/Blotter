@@ -504,6 +504,8 @@ Each phase states the intent, then the acceptance criteria (AC) and leads to ver
 - A JSON export re-imports to an identical state.
 
 ### Phase 8 — AI
+
+**Plan (2026-10-15, D29):** #29 provider layer and keychain (API providers experimental) → #29a MCP server (from Phase 12) → #30 tool loop with the Claude Code provider → #31 chat panel → #32 proposals and auto mode → #33 daily briefing.
 **Intent:**
 - providers and keychain credentials,
 - the tool loop over the operation registry,
@@ -542,6 +544,8 @@ Each phase states the intent, then the acceptance criteria (AC) and leads to ver
 **AC:** completions from any path (UI, AI, MCP) appear, with correct local times.
 
 ### Phase 12 — MCP server
+
+**Moved:** the MCP server is built in Phase 8 as #29a (D29). This phase keeps its acceptance checks with Claude Desktop and the README notes.
 **Intent:** a stdio MCP server over the same operation registry (§4.8).
 
 **AC:**
@@ -629,3 +633,4 @@ The Claude Design prompt (`design-prompt.md`, which also sets the visual directi
 | D26 | JSON import replaces everything, after an automatic snapshot (merge is post-v1) | Confirmed |
 | D27 | AI providers authenticate with API keys (Anthropic Console, OpenAI), not consumer-app sign-in; Anthropic defaults to Claude Sonnet 5.5; other defaults picked from each provider's live model list at implementation. GitHub Models can be offered as an OpenAI-compatible preset | Confirmed |
 | D28 | Daily briefing off by default; 07:30 when turned on | Confirmed |
+| D29 | AI runs through two routes. **Claude Code** (the user's installed, signed-in `claude` CLI, driven headless with Blotter's MCP server) is the tested, primary route and uses the user's existing subscription. **API-key providers** (Anthropic, OpenAI, OpenAI-compatible/Ollama) are built and unit-tested against recorded responses but labelled "Experimental — untested" until checked with a real key. The MCP server moves from Phase 12 into Phase 8 (#29a), since the Claude Code route needs it. Check Anthropic's terms on driving Claude Code from another app before publishing that route | Confirmed |
