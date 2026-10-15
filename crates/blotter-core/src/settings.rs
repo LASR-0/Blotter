@@ -36,6 +36,12 @@ pub const KEY_LAST_REMINDER_CHECK: &str = "last_reminder_check";
 pub const KEY_SNAPSHOT_KEEP: &str = "snapshot_keep";
 /// Where snapshots are written (default: a `snapshots` folder by the database).
 pub const KEY_SNAPSHOT_DIR: &str = "snapshot_dir";
+/// Whether the AI briefs the user each morning (default off, D28).
+pub const KEY_BRIEFING_ENABLED: &str = "briefing_enabled";
+/// Local `HH:MM` the morning briefing runs at (default 07:30, D28).
+pub const KEY_BRIEFING_TIME: &str = "briefing_time";
+/// The local date of the last automatic briefing (internal).
+pub const KEY_LAST_BRIEFING: &str = "last_briefing_date";
 /// `"propose"` (default, D8) or `"auto"`: whether AI and MCP changes wait for approval.
 pub const KEY_AI_MODE: &str = "ai_mode";
 /// Which AI the chat uses: `"claude_code"` (default, D29) or `"api"` (the default provider).
@@ -47,7 +53,8 @@ pub const KEY_CLAUDE_CODE_PATH: &str = "claude_code_path";
 
 /// Settings that describe this install rather than the planner: they stay
 /// put through a restore or import, and aren't exported.
-pub const DEVICE_KEYS: [&str; 8] = [
+pub const DEVICE_KEYS: [&str; 9] = [
+    KEY_LAST_BRIEFING,
     KEY_AI_MODE,
     KEY_LAST_REMINDER_CHECK,
     KEY_LAST_ROLLOVER,

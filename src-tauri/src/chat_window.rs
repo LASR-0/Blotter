@@ -12,7 +12,7 @@ use crate::shell::{MAIN_WINDOW, show_main};
 
 pub const CHAT_WINDOW: &str = "chat";
 /// Sent to the main window to open the docked panel on a thread.
-const DOCK_EVENT: &str = "chat:dock";
+pub(crate) const DOCK_EVENT: &str = "chat:dock";
 /// Sent to the pop-out to switch it to a thread.
 const SHOW_EVENT: &str = "chat:show-thread";
 

@@ -9,17 +9,21 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use blotter_core::context;
 use blotter_core::proposals::{self, Decision, Mode, Proposal};
 use blotter_core::settings::{KEY_AI_ROUTE, KEY_CLAUDE_CODE_MODEL, KEY_CLAUDE_CODE_PATH};
 use blotter_core::store::chat::{self, ChatMessage, ChatRole, Thread};
 use blotter_core::store::{self, providers};
 use blotter_core::{Actor, Planner};
+use blotter_core::{briefing, context};
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use tauri::async_runtime::JoinHandle;
 use tauri::{AppHandle, Emitter, Manager, State};
+use tauri_plugin_notification::NotificationExt;
+
+use crate::chat_window::DOCK_EVENT;
+use crate::shell::MAIN_WINDOW;
 
 use super::agent::{self, Step};
 use super::claude_code::{self, Event, Session};
@@ -248,6 +252,7 @@ fn prepare(
     state: &AppState,
     thread_id: Option<String>,
     text: String,
+    title: Option<String>,
 ) -> Result<Prepared, CommandError> {
     let mut planner = state.planner.lock().map_err(|_| lock_err())?;
     let settings = read_settings(&planner)?;
@@ -264,7 +269,7 @@ fn prepare(
         Some(id) => chat::require_thread(planner.db().conn(), id)?,
         None => chat::create_thread(
             planner.db().conn(),
-            &text,
+            title.as_deref().unwrap_or(&text),
             provider.as_ref().map(|p| p.id.as_str()),
             now,
         )?,
@@ -355,8 +360,6 @@ fn text_of(blocks: &[Block]) -> String {
 #[tauri::command]
 pub fn chat_send(
     app: AppHandle,
-    state: State<'_, AppState>,
-    runs: State<'_, ChatRuns>,
     thread_id: Option<String>,
     text: String,
 ) -> Result<String, CommandError> {
@@ -364,6 +367,21 @@ pub fn chat_send(
     if text.is_empty() {
         return Err(CommandError::internal("Type a message first."));
     }
+    start_turn(&app, thread_id, text, None, false)
+}
+
+/// Starts a turn (see [`chat_send`]). `title` names a new thread instead
+/// of its first message; `notify` shows an OS notification with the reply
+/// and opens the chat on it in the main window (the morning briefing).
+pub fn start_turn(
+    app: &AppHandle,
+    thread_id: Option<String>,
+    text: String,
+    title: Option<String>,
+    notify: bool,
+) -> Result<String, CommandError> {
+    let state = app.state::<AppState>();
+    let runs = app.state::<ChatRuns>();
     // Held until the turn is registered, so two sends can't race, and a
     // turn that ends at once can't unregister before it's registered.
     let mut in_flight = runs.0.lock().map_err(|_| lock_err())?;
@@ -373,7 +391,7 @@ pub fn chat_send(
     {
         return Err(CommandError::internal("Still answering the last message."));
     }
-    let prepared = prepare(&state, thread_id, text)?;
+    let prepared = prepare(&state, thread_id, text, title)?;
     let id = prepared.thread.id.clone();
     let task_app = app.clone();
     let handle = tauri::async_runtime::spawn(async move {
@@ -396,7 +414,12 @@ pub fn chat_send(
             chat::set_turn_batches(conn, &thread_id, &batches)
         });
         match result {
-            Ok(notice) => emit(&task_app, &thread_id, ChatEvent::Done { notice }),
+            Ok(notice) => {
+                emit(&task_app, &thread_id, ChatEvent::Done { notice });
+                if notify {
+                    announce(&task_app, &thread_id);
+                }
+            }
             Err(message) => {
                 save_error(&task_app, &thread_id, &message);
                 emit(&task_app, &thread_id, ChatEvent::Error { message });
@@ -410,6 +433,89 @@ pub fn chat_send(
     });
     in_flight.insert(id.clone(), handle);
     Ok(id)
+}
+
+/// The reply's opening shown in the notification.
+const ANNOUNCE_CHARS: usize = 160;
+
+/// Tells the user a finished turn is waiting: an OS notification with the
+/// start of the reply, and the chat opened on it in the main window.
+fn announce(app: &AppHandle, thread_id: &str) {
+    let reply = with_planner(app, |p| chat::messages(p.db().conn(), thread_id))
+        .and_then(Result::ok)
+        .and_then(|msgs| {
+            msgs.into_iter()
+                .rev()
+                .find(|m| m.role == ChatRole::Assistant && !m.content.is_empty())
+        })
+        .map(|m| m.content.replace("**", ""))
+        .unwrap_or_default();
+    let body: String = reply.chars().take(ANNOUNCE_CHARS).collect();
+    let body = if reply.chars().count() > ANNOUNCE_CHARS {
+        format!("{}…", body.trim_end())
+    } else {
+        body
+    };
+    if let Err(err) = app
+        .notification()
+        .builder()
+        .title("Your daily briefing")
+        .body(body)
+        .show()
+    {
+        eprintln!("blotter: couldn't show the briefing notification: {err}");
+    }
+    if let Some(main) = app.get_webview_window(MAIN_WINDOW) {
+        let _ = main.emit(DOCK_EVENT, json!({ "thread_id": thread_id }));
+    }
+}
+
+/// Runs the daily briefing now, in a new thread; the chat shows it.
+#[tauri::command]
+pub fn chat_briefing(app: AppHandle) -> Result<String, CommandError> {
+    let today = with_planner(&app, |p| {
+        p.settings()
+            .map(|s| p.now().with_timezone(&s.tz).date_naive())
+    })
+    .and_then(Result::ok)
+    .unwrap_or_else(|| Utc::now().date_naive());
+    start_turn(
+        &app,
+        None,
+        briefing::PROMPT.to_owned(),
+        Some(briefing::title(today)),
+        false,
+    )
+}
+
+/// The morning briefing, once a day after its time when it's turned on
+/// (D28: off by default). Called every minute by the background check.
+pub fn briefing_if_due(app: &AppHandle) {
+    let due = with_planner(app, |p| {
+        let tz = p.settings()?.tz;
+        let date = briefing::due(p.db().conn(), tz, p.now())?;
+        if let Some(d) = date {
+            // Marked first, so a failure can't repeat it every minute.
+            briefing::mark_done(p.db().conn(), d, p.now())?;
+        }
+        Ok::<_, blotter_core::CoreError>(date)
+    });
+    let Some(Ok(Some(date))) = due else {
+        return;
+    };
+    let started = start_turn(
+        app,
+        None,
+        briefing::PROMPT.to_owned(),
+        Some(briefing::title(date)),
+        true,
+    );
+    if let Err(err) = started {
+        eprintln!(
+            "blotter: the morning briefing couldn't start: {}",
+            err.message
+        );
+    }
 }
 
 /// Runs `f` on the planner, if it's available.

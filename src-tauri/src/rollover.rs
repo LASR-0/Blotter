@@ -30,6 +30,7 @@ pub fn start(app: AppHandle) {
             loop {
                 check(&app);
                 crate::backups::daily(&app);
+                crate::ai::chat::briefing_if_due(&app);
                 thread::sleep(CHECK_EVERY);
             }
         });

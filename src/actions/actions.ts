@@ -35,6 +35,7 @@ import {
   SidebarSimple,
   SquaresFour,
   Sun,
+  SunHorizon,
   ArrowsLeftRight,
   Tray,
   type Icon,
@@ -475,6 +476,18 @@ export function buildActions(): Action[] {
         chat.setOpen(false);
         void invoke('open_chat_window', { threadId: chat.threadId });
       },
+    },
+    {
+      id: 'chat.briefing',
+      label: 'Daily briefing',
+      group: 'Actions',
+      icon: SunHorizon,
+      keywords: ['ai', 'brief', 'morning', 'summary', 'today', 'plan my day'],
+      run: () =>
+        void invoke<string>('chat_briefing').then((id) => {
+          useChat.getState().showThread(id);
+          useChat.getState().setOpen(true);
+        }),
     },
     {
       id: 'chat.new',

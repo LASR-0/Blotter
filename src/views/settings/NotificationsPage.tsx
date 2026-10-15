@@ -19,6 +19,8 @@ interface Settings {
   snooze_options_min: number[];
   catch_up_enabled: boolean;
   catch_up_hours: number;
+  briefing_enabled: boolean;
+  briefing_time: string;
 }
 
 type Patch = Partial<Settings>;
@@ -141,6 +143,7 @@ export function NotificationsPage() {
   const [test, setTest] = useState<string | null>(null);
   const [autostart, setAutostart] = useState<boolean | null>(null);
   const [rollover, setRollover] = useState<string | null>(null);
+  const [briefing, setBriefing] = useState<string | null>(null);
 
   useEffect(() => {
     invoke<boolean>('get_autostart')
@@ -241,6 +244,28 @@ export function NotificationsPage() {
           className="min-w-[130px] font-mono text-sm"
         />
       </Row>
+      <Row
+        label="Daily briefing"
+        description="Each morning the AI sums up your day and suggests times for Inbox tasks. It arrives as a notification and opens in the chat. Off by default."
+      >
+        <Switch
+          aria-label="Daily briefing"
+          checked={s.briefing_enabled}
+          onCheckedChange={(on) => save({ briefing_enabled: on })}
+        />
+      </Row>
+      {s.briefing_enabled && (
+        <Row label="Briefing time" description="Or ask for one any time from the command palette.">
+          <TimeField
+            ariaLabel="Briefing time"
+            value={briefing ?? s.briefing_time}
+            onChange={(v) => {
+              setBriefing(v);
+              if (parseTime(v) === v && v !== s.briefing_time) save({ briefing_time: v });
+            }}
+          />
+        </Row>
+      )}
       <Row
         label="Rollover time"
         description="When unfinished tasks from earlier days are moved on."

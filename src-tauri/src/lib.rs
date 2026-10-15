@@ -190,6 +190,7 @@ pub fn run() {
             ai::chat::pending_proposals,
             ai::chat::decide_proposal,
             ai::chat::chat_batch_changes,
+            ai::chat::chat_briefing,
             chat_window::open_chat_window,
             chat_window::set_chat_on_top,
             chat_window::dock_chat,

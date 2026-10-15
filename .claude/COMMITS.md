@@ -83,8 +83,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 31 | 8 | `feat(ui): chat panel and pop-out window` | committed `4edf2d6` |
 | 31a | 8 | `perf(ai): keep Claude Code running between messages` | committed `bd48332` |
 | 32 | 8 | `feat(ai): proposal review and auto-apply mode` | committed `0a2b64a` (Undo batch split out as #32a) |
-| 32a | 8 | `feat(ui): undo batch for auto-applied AI changes` | committed (hash in the next entry) |
-| 33 | 8 | `feat(ai): daily briefing` | planned |
+| 32a | 8 | `feat(ui): undo batch for auto-applied AI changes` | committed `d8bc8d7` |
+| 33 | 8 | `feat(ai): daily briefing` | committed (hash in the next entry) |
 | 34 | 9 | `feat: ICS export and file import` | planned |
 | 35 | 9 | `feat: ICS subscriptions with block-out option` | planned |
 | 36 | 10 | `feat(ui): keybinding editor` | planned |
@@ -2724,7 +2724,7 @@ Notes:
       in pencil.
     - Next: #32a Undo batch for auto-applied changes.
 
-### #32a — Undo batch for auto-applied AI changes            [status: committed — hash in the next entry]
+### #32a — Undo batch for auto-applied AI changes            [status: committed d8bc8d7]
 Phase: 8 (design: Chat Panel, auto-mode card)
 Message:
     feat(ui): undo batch for auto-applied AI changes
@@ -2760,3 +2760,55 @@ Notes:
       remove them.
     - Redo has no batch argument, so the card offers Undo only; Ctrl+Shift+Z redoes.
     - Next: #33 daily briefing.
+
+### #33 — Daily briefing            [status: committed — hash in the next entry]
+Phase: 8 (D28)
+Message:
+    feat(ai): daily briefing
+
+    The AI briefs the user on their day: today's fixed commitments,
+    conflicts and overdue tasks, and the free time left. It then finds
+    slots for Inbox tasks, proposed or applied according to the
+    Propose/Auto switch.
+
+    - On demand: "Daily briefing" in the command palette starts it in a
+      new thread titled "Briefing · Thu 15 Oct" and opens the chat there.
+    - Each morning, when turned on (D28: off by default; 07:30): the
+      minute check runs it once a day after its time, marking the day
+      first so a failure can't repeat it. When it's done, an OS
+      notification ("Your daily briefing") shows the start of the reply,
+      and the chat opens on it in the main window.
+    - Settings → Notifications: a Daily briefing switch and its time.
+      Both are in get_settings / update_settings as briefing_enabled and
+      briefing_time. The last run date is per device.
+
+    Also: chat_send's turn start is now start_turn, used by the briefing
+    too (with a thread title and the notification).
+Files:
+    A  crates/blotter-core/src/briefing.rs
+    M  crates/blotter-core/src/lib.rs
+    M  crates/blotter-core/src/settings.rs      (briefing keys; last run is a device key)
+    M  crates/blotter-core/src/ops/settings.rs  (briefing_enabled, briefing_time)
+    M  src-tauri/src/ai/chat.rs                 (start_turn, chat_briefing, briefing_if_due, announce)
+    M  src-tauri/src/chat_window.rs             (DOCK_EVENT shared)
+    M  src-tauri/src/rollover.rs                (minute check calls the briefing)
+    M  src-tauri/src/lib.rs
+    M  src/actions/actions.ts                   (Daily briefing)
+    M  src/views/settings/NotificationsPage.tsx
+    M  .claude/COMMITS.md, .claude/roadmap.md
+Test steps:
+    - cargo test --workspace → 145 core (+2: due once a day after its time when on, titles;
+      update_settings takes the briefing fields and rejects a bad time) + 36 app + 6 mcp;
+      clippy / fmt clean
+    - pnpm check → clean; Vitest 179
+Notes:
+    - Not driven live by me: Luke's dev app held the single-instance lock (it rebuilt on
+      these changes at 22:25). The turn itself is the same path as chat_send, which was
+      verified live in #30/#31a. Please try: Ctrl+K → "Daily briefing". Then switch it on
+      in Settings → Notifications with a time a minute or two ahead and leave the window
+      closed to the tray: a notification should arrive and the chat should be open on it.
+    - Notification clicks aren't wired (the plugin has no reliable click event on
+      desktop); the chat is opened on the thread in the main window instead.
+    - Phase 8 is complete with this (#29–#33, #29a, #31a, #32a). Remaining from the AC:
+      the API providers against real services (experimental, D29).
+    - Next: Phase 9, #34 ICS export and file import.

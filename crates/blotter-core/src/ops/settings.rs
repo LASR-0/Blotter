@@ -63,6 +63,10 @@ pub struct Settings {
     pub catch_up_hours: u32,
     /// Automatic snapshots kept; manual ones are always kept.
     pub snapshot_keep: u32,
+    /// The morning briefing (D28: off by default).
+    pub briefing_enabled: bool,
+    /// Local `HH:MM` it runs at.
+    pub briefing_time: String,
 }
 
 #[derive(Debug, Default, Deserialize, JsonSchema)]
@@ -87,6 +91,11 @@ pub struct UpdateSettingsArgs {
     /// Automatic snapshots to keep (5 to 200).
     #[schemars(range(min = 5, max = 200))]
     pub snapshot_keep: Option<u32>,
+    /// The AI briefs the user each morning.
+    pub briefing_enabled: Option<bool>,
+    /// Local time of the morning briefing, `HH:MM`.
+    #[schemars(regex(pattern = r"^([01]\d|2[0-3]):[0-5]\d$"))]
+    pub briefing_time: Option<String>,
 }
 
 fn read(conn: &Connection, planner: &PlannerSettings) -> Result<Settings> {
@@ -105,6 +114,11 @@ fn read(conn: &Connection, planner: &PlannerSettings) -> Result<Settings> {
         catch_up_enabled: notify.catch_up_enabled,
         catch_up_hours: notify.catch_up_hours,
         snapshot_keep: crate::snapshots::keep(conn)?,
+        briefing_enabled: crate::briefing::load(conn)?.enabled,
+        briefing_time: crate::briefing::load(conn)?
+            .time
+            .format("%H:%M")
+            .to_string(),
     })
 }
 
@@ -148,6 +162,14 @@ fn update_settings(ctx: &mut Ctx<'_>, a: UpdateSettingsArgs) -> Result<Settings>
     }
     if let Some(on) = a.catch_up_enabled {
         write(ctx, keys::KEY_CATCH_UP, &on)?;
+    }
+    if let Some(on) = a.briefing_enabled {
+        write(ctx, keys::KEY_BRIEFING_ENABLED, &on)?;
+    }
+    if let Some(t) = &a.briefing_time {
+        NaiveTime::parse_from_str(t, "%H:%M")
+            .map_err(|_| CoreError::invalid(format!("briefing_time \"{t}\" isn't HH:MM")))?;
+        write(ctx, keys::KEY_BRIEFING_TIME, t)?;
     }
     if let Some(h) = a.catch_up_hours {
         write(ctx, keys::KEY_CATCH_UP_HOURS, &h)?;
@@ -249,5 +271,26 @@ mod tests {
         assert!(run(&mut p, "update_settings", json!({ "catch_up_hours": 0 })).is_err());
         assert!(run(&mut p, "update_settings", json!({ "snapshot_keep": 1 })).is_err());
         assert!(run(&mut p, "update_settings", json!({ "volume": 11 })).is_err());
+        assert!(
+            run(
+                &mut p,
+                "update_settings",
+                json!({ "briefing_time": "7:30" })
+            )
+            .is_err()
+        );
+        let s = run(
+            &mut p,
+            "update_settings",
+            json!({ "briefing_enabled": true, "briefing_time": "06:45" }),
+        )
+        .unwrap();
+        assert_eq!(
+            (
+                s.result["briefing_enabled"].clone(),
+                s.result["briefing_time"].clone()
+            ),
+            (json!(true), json!("06:45"))
+        );
     }
 }

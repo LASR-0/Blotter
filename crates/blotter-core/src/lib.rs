@@ -6,6 +6,7 @@
 //! shared by the desktop app and the MCP server.
 
 pub mod alerts;
+pub mod briefing;
 pub mod context;
 pub mod db;
 pub mod error;
