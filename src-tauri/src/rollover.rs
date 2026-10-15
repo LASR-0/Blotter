@@ -29,6 +29,7 @@ pub fn start(app: AppHandle) {
         .spawn(move || {
             loop {
                 check(&app);
+                crate::backups::daily(&app);
                 thread::sleep(CHECK_EVERY);
             }
         });

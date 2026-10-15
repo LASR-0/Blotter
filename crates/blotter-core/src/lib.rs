@@ -8,6 +8,7 @@
 pub mod alerts;
 pub mod db;
 pub mod error;
+pub mod export;
 pub mod id;
 pub mod model;
 pub mod ops;
@@ -15,6 +16,7 @@ mod planner;
 pub mod recurrence;
 pub mod settings;
 pub mod slots;
+pub mod snapshots;
 pub mod store;
 pub mod time;
 pub mod windows;

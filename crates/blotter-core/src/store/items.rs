@@ -244,6 +244,13 @@ pub fn list_overdue(
     )
 }
 
+/// Every item: series and plain items first, then occurrence overrides
+/// (so a restore can insert parents before children).
+pub fn list_all(conn: &Connection) -> Result<Vec<Item>> {
+    let sql = format!("SELECT {COLUMNS} FROM items ORDER BY parent_id IS NOT NULL, created_at, id");
+    collect(conn, &sql, [])
+}
+
 /// Occurrence overrides of a recurring series.
 pub fn list_children(conn: &Connection, parent_id: &str) -> Result<Vec<Item>> {
     let sql = format!("SELECT {COLUMNS} FROM items WHERE parent_id = ?1 ORDER BY recurrence_id");

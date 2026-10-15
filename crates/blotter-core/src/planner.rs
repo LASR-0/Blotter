@@ -45,6 +45,10 @@ impl Planner {
         &self.registry
     }
 
+    pub fn db_mut(&mut self) -> &mut Database {
+        &mut self.db
+    }
+
     pub fn db(&self) -> &Database {
         &self.db
     }

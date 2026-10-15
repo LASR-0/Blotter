@@ -32,6 +32,20 @@ pub const KEY_CATCH_UP: &str = "catch_up_enabled";
 pub const KEY_CATCH_UP_HOURS: &str = "catch_up_hours";
 /// When the reminder engine last checked (internal; the catch-up starts here).
 pub const KEY_LAST_REMINDER_CHECK: &str = "last_reminder_check";
+/// Automatic snapshots kept (default 20); manual ones are always kept.
+pub const KEY_SNAPSHOT_KEEP: &str = "snapshot_keep";
+/// Where snapshots are written (default: a `snapshots` folder by the database).
+pub const KEY_SNAPSHOT_DIR: &str = "snapshot_dir";
+
+/// Settings that describe this install rather than the planner: they stay
+/// put through a restore or import, and aren't exported.
+pub const DEVICE_KEYS: [&str; 4] = [
+    KEY_LAST_REMINDER_CHECK,
+    KEY_LAST_ROLLOVER,
+    KEY_SNAPSHOT_DIR,
+    "theme",
+];
+pub const DEFAULT_SNAPSHOT_KEEP: u32 = 20;
 
 #[derive(Debug, Clone)]
 pub struct PlannerSettings {

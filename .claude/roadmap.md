@@ -492,7 +492,7 @@ Each phase states the intent, then the acceptance criteria (AC) and leads to ver
 
 ### Phase 7 — Undo, snapshots and backups
 
-**Progress (2026-10-15):** #27 (undo/redo) is committed; #28 (snapshots, restore UI, JSON export/import) is next.
+**Progress (2026-10-15):** complete. #27 (undo/redo, with fixes #27a–#27d) and #28 (snapshots, restore, JSON export/import) are committed. Phase 8 (AI) is next and needs Luke's Anthropic key for live checks.
 **Intent:**
 - undo/redo from the change log,
 - the snapshot system and restore UI,

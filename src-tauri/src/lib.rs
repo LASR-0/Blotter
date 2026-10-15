@@ -2,6 +2,7 @@
 //! HTTP on top of `blotter-core`.
 
 mod autostart;
+mod backups;
 mod capture;
 mod cli;
 mod commands;
@@ -98,6 +99,7 @@ pub fn run() {
         })
         .plugin(tauri_plugin_notification::init())
         .plugin(autostart::plugin())
+        .plugin(tauri_plugin_dialog::init())
         .on_window_event(shell::on_window_event)
         .invoke_handler(tauri::generate_handler![
             commands::app_version,
@@ -117,6 +119,14 @@ pub fn run() {
             reminders::send_test_notification,
             autostart::get_autostart,
             autostart::set_autostart,
+            backups::list_snapshots,
+            backups::create_snapshot,
+            backups::restore_snapshot,
+            backups::choose_snapshot_dir,
+            backups::reset_snapshot_dir,
+            backups::export_json,
+            backups::pick_import,
+            backups::apply_import,
         ])
         .run(tauri::generate_context!());
 

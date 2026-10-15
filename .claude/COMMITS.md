@@ -74,9 +74,9 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 27 | 7 | `feat: undo/redo from change log` | committed `575b2c9` |
 | 27a | 7 | `fix(ui): rank exact palette matches first` | committed `53ee35a` |
 | 27b | 7 | `fix(core): undo skips automatic system changes` | committed `b5b6341` |
-| 27c | 7 | `fix(ui): unique keys on the block-out editor panels` | committed (hash in the next entry) |
-| 27d | 7 | `feat(ui): error boundaries instead of a blank window` | committed (hash in the next entry) |
-| 28 | 7 | `feat: snapshots, restore UI and JSON export/import` | planned |
+| 27c | 7 | `fix(ui): unique keys on the block-out editor panels` | committed `e16efbd` |
+| 27d | 7 | `feat(ui): error boundaries instead of a blank window` | committed `4c3e5b3` |
+| 28 | 7 | `feat: snapshots, restore UI and JSON export/import` | committed (hash in the next entry) |
 | 29 | 8 | `feat(ai): provider adapters and keychain credentials` | planned |
 | 30 | 8 | `feat(ai): tool-calling loop over the operation registry` | planned |
 | 31 | 8 | `feat(ui): chat panel and pop-out window` | planned |
@@ -2193,7 +2193,7 @@ Test steps:
 Notes:
     - Unit-tested only: the change is two SQL conditions.
 
-### #27c — Unique keys on the block-out editor panels            [status: committed — hash in the next entry]
+### #27c — Unique keys on the block-out editor panels            [status: committed e16efbd]
 Phase: 7 (parked fix, found 2026-10-15)
 Message:
     fix(ui): unique keys on the block-out editor panels
@@ -2214,7 +2214,7 @@ Notes:
     - Verified live: the page with editor and exceptions logged no warnings (it logged one
       per visit before).
 
-### #27d — Error boundaries instead of a blank window            [status: committed — hash in the next entry]
+### #27d — Error boundaries instead of a blank window            [status: committed 4c3e5b3]
 Phase: 7 (parked follow-up from #25b)
 Message:
     feat(ui): error boundaries instead of a blank window
@@ -2236,3 +2236,75 @@ Test steps:
 Notes:
     - Verified live by making the Year view throw (temporarily, reverted): the panel showed,
       navigation kept working, and returning to Year after the fix rendered it normally.
+
+### #28 — Snapshots, restore UI and JSON export/import            [status: committed — hash in the next entry]
+Phase: 7
+Message:
+    feat: snapshots, restore UI and JSON export/import
+
+    Core:
+    - Snapshots are full VACUUM INTO copies in a `snapshots` folder beside
+      the database (relocatable; moving it moves the files). Taken daily
+      on the first check of the day, before every restore and import,
+      and by hand with an optional note. The newest 20 automatic ones are
+      kept (configurable 5–200 via update_settings `snapshot_keep`);
+      manual ones are always kept. Missing files drop off the list.
+    - Restore takes a "before restore" snapshot, copies the snapshot in
+      with SQLite's backup API (the open connection stays valid) and
+      migrates it if it's from an older version. The current snapshot
+      list and this install's own settings (theme, snapshot folder,
+      reminder/rollover bookkeeping) carry across, and the reminder
+      check restarts from now so old reminders don't flood in.
+    - JSON export (format "blotter", version 1): items, reminders,
+      block-outs, exceptions and user settings. Import checks the file,
+      then replaces everything after a "before import" snapshot; the
+      change log is cleared with the data it described.
+    - Migration 0003: a note on snapshots.
+
+    App/UI:
+    - Settings → Backups (design S8): Export JSON, Import JSON (with a
+      confirm showing what the file holds), Snapshot now (with a note),
+      retention, location (Change… / Use default), and the snapshot list
+      with Restore… (confirmed). The window reloads after a restore or
+      import, back on the same settings page.
+    - tauri-plugin-dialog 2.8.1 for the native file and folder pickers.
+Files:
+    A  crates/blotter-core/migrations/0003_snapshot_note.sql
+    A  crates/blotter-core/src/export.rs
+    A  crates/blotter-core/src/snapshots.rs
+    A  src-tauri/src/backups.rs
+    A  src/lib/backupFormat.ts
+    A  src/lib/backupFormat.test.ts
+    A  src/views/settings/BackupsPage.tsx
+    M  crates/blotter-core/Cargo.toml        (rusqlite "backup" feature)
+    M  crates/blotter-core/src/db.rs          (migration 0003, restore_from)
+    M  crates/blotter-core/src/lib.rs
+    M  crates/blotter-core/src/ops/settings.rs (snapshot_keep)
+    M  crates/blotter-core/src/planner.rs     (db_mut)
+    M  crates/blotter-core/src/settings.rs    (snapshot keys, device keys)
+    M  crates/blotter-core/src/store/items.rs (list_all)
+    M  src-tauri/Cargo.toml                   (tauri-plugin-dialog 2.8.1)
+    M  Cargo.lock
+    M  src-tauri/src/lib.rs
+    M  src-tauri/src/rollover.rs              (daily snapshot check)
+    M  src/app/nav.ts                         (settings page persists)
+    M  src/views/SettingsView.tsx
+    M  .claude/COMMITS.md
+    M  .claude/roadmap.md
+Test steps:
+    - cargo test --workspace    → 129 core (+5: restore round trip keeps the list and is
+      itself undoable, pruning keeps manual, daily once per local day + relocation,
+      export→import identical, rejects other files) + 9 app
+    - cargo clippy / fmt → clean; pnpm check → clean; Vitest 160 passed (+2)
+    - pnpm dev:demo: Settings → Backups shows a Daily snapshot; Snapshot now with a note →
+      listed "Manual · note" and kept; add a task, Restore… the manual one → the task is
+      gone and "Before restore" is listed; Export JSON → file saved; Import JSON that file
+      → confirm lists the counts → replaced; Change… moves the snapshots
+Notes:
+    - Verified live: the daily snapshot at startup, Snapshot now with a note, Restore (probe
+      task gone, "Before restore" listed, list carried across, no errors in the log).
+    - Not driven live: the native Save/Open/Folder dialogs (my test harness can't operate
+      them). Export→import is covered by the core round-trip test, the folder move by a core
+      test; please try the three buttons.
+    - Roadmap AC met: any edit sequence undoes and redoes (#27); a restore snapshots the
+      current state first; a JSON export re-imports to an identical state (tested).

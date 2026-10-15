@@ -26,7 +26,8 @@ pub(super) fn defs() -> Vec<OpDef> {
         OpDef::new(
             "get_settings",
             "Read the user's settings: timezone, default durations and reminder, rollover, \
-             and how reminders are delivered (notifications, snooze options, catch-up).",
+             how reminders are delivered (notifications, snooze options, catch-up) and how \
+             many automatic snapshots are kept.",
             false,
             get_settings,
         ),
@@ -60,6 +61,8 @@ pub struct Settings {
     pub snooze_options_min: Vec<u32>,
     pub catch_up_enabled: bool,
     pub catch_up_hours: u32,
+    /// Automatic snapshots kept; manual ones are always kept.
+    pub snapshot_keep: u32,
 }
 
 #[derive(Debug, Default, Deserialize, JsonSchema)]
@@ -81,6 +84,9 @@ pub struct UpdateSettingsArgs {
     /// How far back the catch-up looks, in hours (1 to 168).
     #[schemars(range(min = 1, max = 168))]
     pub catch_up_hours: Option<u32>,
+    /// Automatic snapshots to keep (5 to 200).
+    #[schemars(range(min = 5, max = 200))]
+    pub snapshot_keep: Option<u32>,
 }
 
 fn read(conn: &Connection, planner: &PlannerSettings) -> Result<Settings> {
@@ -98,6 +104,7 @@ fn read(conn: &Connection, planner: &PlannerSettings) -> Result<Settings> {
         snooze_options_min: notify.snooze_options_min,
         catch_up_enabled: notify.catch_up_enabled,
         catch_up_hours: notify.catch_up_hours,
+        snapshot_keep: crate::snapshots::keep(conn)?,
     })
 }
 
@@ -145,6 +152,9 @@ fn update_settings(ctx: &mut Ctx<'_>, a: UpdateSettingsArgs) -> Result<Settings>
     if let Some(h) = a.catch_up_hours {
         write(ctx, keys::KEY_CATCH_UP_HOURS, &h)?;
     }
+    if let Some(n) = a.snapshot_keep {
+        write(ctx, keys::KEY_SNAPSHOT_KEEP, &n)?;
+    }
     // Re-read so a changed default reminder shows; the zone is unchanged.
     let planner = PlannerSettings::load(ctx.conn, ctx.settings.tz)?;
     read(ctx.conn, &planner)
@@ -166,6 +176,7 @@ mod tests {
         assert_eq!(s["default_event_reminder_min"], 10);
         assert_eq!(s["snooze_options_min"], json!([5, 15, 60]));
         assert_eq!(s["catch_up_hours"], 24);
+        assert_eq!(s["snapshot_keep"], 20);
         assert_eq!(s["notifications_enabled"], true);
         assert_eq!(s["rollover_time"], "04:00");
 
@@ -236,6 +247,7 @@ mod tests {
             .is_err()
         );
         assert!(run(&mut p, "update_settings", json!({ "catch_up_hours": 0 })).is_err());
+        assert!(run(&mut p, "update_settings", json!({ "snapshot_keep": 1 })).is_err());
         assert!(run(&mut p, "update_settings", json!({ "volume": 11 })).is_err());
     }
 }

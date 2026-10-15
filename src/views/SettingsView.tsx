@@ -1,12 +1,21 @@
 import { useEffect, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { Bell, Check, Info, Palette, Prohibit, type Icon } from '@phosphor-icons/react';
+import {
+  Bell,
+  Check,
+  ClockCounterClockwise,
+  Info,
+  Palette,
+  Prohibit,
+  type Icon,
+} from '@phosphor-icons/react';
 import { useNav, type SettingsPage } from '@/app/nav';
 import { BlotterMark } from '@/components/BlotterMark';
 import { Kbd } from '@/components/ui/kbd';
 import { cn } from '@/lib/cn';
 import { PRESETS, type Theme } from '@/theme/presets';
 import { useTheme } from '@/theme/theme';
+import { BackupsPage } from './settings/BackupsPage';
 import { BlockoutsPage } from './settings/BlockoutsPage';
 import { NotificationsPage } from './settings/NotificationsPage';
 
@@ -16,6 +25,7 @@ const PAGES: readonly { id: SettingsPage; label: string; icon: Icon }[] = [
   { id: 'blockouts', label: 'Block-outs', icon: Prohibit },
   { id: 'notifications', label: 'Notifications', icon: Bell },
   { id: 'theme', label: 'Theme', icon: Palette },
+  { id: 'backups', label: 'Backups', icon: ClockCounterClockwise },
   { id: 'about', label: 'About', icon: Info },
 ];
 
@@ -50,6 +60,8 @@ export function SettingsView() {
       <main className="min-w-0 flex-1 overflow-auto">
         {page === 'about' ? (
           <AboutPage />
+        ) : page === 'backups' ? (
+          <BackupsPage />
         ) : page === 'notifications' ? (
           <NotificationsPage />
         ) : page === 'blockouts' ? (

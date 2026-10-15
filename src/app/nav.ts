@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { isCalendarView, stepPeriod, type CalendarView, type View } from '@/lib/period';
 
-export type SettingsPage = 'blockouts' | 'notifications' | 'theme' | 'about';
+export type SettingsPage = 'blockouts' | 'notifications' | 'theme' | 'backups' | 'about';
 
 interface NavState {
   view: View;
@@ -78,6 +78,8 @@ export const useNav = create<NavState>()(
         calView: s.calView,
         sidebarCollapsed: s.sidebarCollapsed,
         diaryInbox: s.diaryInbox,
+        // So a reload (e.g. after a restore) returns to the same settings page.
+        settingsPage: s.settingsPage,
       }),
     },
   ),
