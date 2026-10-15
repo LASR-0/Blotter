@@ -49,7 +49,9 @@ export type Item =
     }
   | { kind: 'error'; message: string }
   | { kind: 'notice'; text: string }
-  | { kind: 'proposal'; id: string };
+  | { kind: 'proposal'; id: string }
+  /** What an Auto-mode turn applied, with its Undo batch. */
+  | { kind: 'changed'; batches: string[] };
 
 const ARGS_MAX = 60;
 
@@ -104,22 +106,26 @@ export function transcript(
     }
     if (!m.blocks) {
       if (m.content) items.push({ kind: 'text', text: m.content });
-      continue;
-    }
-    for (const b of m.blocks) {
-      if (b.type === 'text' && b.text.trim()) items.push({ kind: 'text', text: b.text });
-      if (b.type === 'tool_use') {
-        items.push({
-          kind: 'tool',
-          id: b.id,
-          name: b.name,
-          args: summarizeArgs(b.input),
-          status: b.invalid ? 'error' : 'running',
-          detail: b.invalid,
-        });
+    } else {
+      for (const b of m.blocks) {
+        if (b.type === 'text' && b.text.trim()) items.push({ kind: 'text', text: b.text });
+        if (b.type === 'tool_use') {
+          items.push({
+            kind: 'tool',
+            id: b.id,
+            name: b.name,
+            args: summarizeArgs(b.input),
+            status: b.invalid ? 'error' : 'running',
+            detail: b.invalid,
+          });
+        }
+        if (b.type === 'tool_result') resolveTool(items, b.tool_use_id, b.is_error, b.content);
+        if (b.type === 'error') items.push({ kind: 'error', message: b.message });
       }
-      if (b.type === 'tool_result') resolveTool(items, b.tool_use_id, b.is_error, b.content);
-      if (b.type === 'error') items.push({ kind: 'error', message: b.message });
+    }
+    // A turn that changed things (Auto mode) lists its batches on its reply.
+    if (m.role === 'assistant' && m.batch_id) {
+      items.push({ kind: 'changed', batches: m.batch_id.split(',').filter(Boolean) });
     }
   }
   flushBefore(Infinity);

@@ -151,6 +151,19 @@ pub fn list_threads(conn: &Connection) -> Result<Vec<Thread>> {
     Ok(out)
 }
 
+/// Records on the thread's latest reply the change-log batches its turn
+/// wrote (comma-separated in `batch_id`), for its "Undo batch".
+pub fn set_turn_batches(conn: &Connection, thread_id: &str, batches: &[String]) -> Result<()> {
+    if batches.is_empty() {
+        return Ok(());
+    }
+    conn.execute(
+        "UPDATE chat_messages SET batch_id = ?2 WHERE id = (SELECT id FROM chat_messages \n         WHERE thread_id = ?1 AND role = 'assistant' ORDER BY rowid DESC LIMIT 1)",
+        rusqlite::params![thread_id, batches.join(",")],
+    )?;
+    Ok(())
+}
+
 pub fn set_external_session(conn: &Connection, id: &str, session: Option<&str>) -> Result<()> {
     conn.execute(
         "UPDATE chat_threads SET external_session = ?2 WHERE id = ?1",
@@ -299,6 +312,20 @@ mod tests {
             messages(c, &a.id).unwrap().is_empty(),
             "messages go with it"
         );
+    }
+
+    #[test]
+    fn a_turns_batches_go_on_its_latest_reply() {
+        let db = Database::open_in_memory().unwrap();
+        let c = db.conn();
+        let t = create_thread(c, "x", None, now()).unwrap();
+        append(c, &t.id, ChatRole::User, "hi", None, None, now()).unwrap();
+        append(c, &t.id, ChatRole::Assistant, "one", None, None, now()).unwrap();
+        append(c, &t.id, ChatRole::Assistant, "two", None, None, now()).unwrap();
+        set_turn_batches(c, &t.id, &["B1".into(), "B2".into()]).unwrap();
+        let msgs = messages(c, &t.id).unwrap();
+        assert_eq!(msgs[1].batch_id, None);
+        assert_eq!(msgs[2].batch_id.as_deref(), Some("B1,B2"));
     }
 
     #[test]

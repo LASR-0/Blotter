@@ -11,6 +11,8 @@ export const messagesKey = (threadId: string | null) => ['chat-messages', thread
 /** Proposals (all of them; a thread's under ['chat-proposals', id], MCP clients' under null). */
 export const PROPOSALS_KEY = ['chat-proposals'];
 export const PENDING_KEY = ['pending-proposals'];
+/** What turns' batches changed (their Changed cards). */
+export const BATCHES_KEY = ['chat-batch-changes'];
 
 interface ChatState {
   /** The panel docked in the main window is showing. */
@@ -102,6 +104,7 @@ export function useChatEvents() {
     const stopChanged = listen('planner:changed', () => {
       void queryClient.invalidateQueries({ queryKey: PROPOSALS_KEY });
       void queryClient.invalidateQueries({ queryKey: PENDING_KEY });
+      void queryClient.invalidateQueries({ queryKey: BATCHES_KEY });
     });
     return () => {
       void stop.then((unlisten) => unlisten());

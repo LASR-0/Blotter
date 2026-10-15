@@ -82,8 +82,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 30 | 8 | `feat(ai): tool-calling loop and Claude Code provider` | committed `aafb799` |
 | 31 | 8 | `feat(ui): chat panel and pop-out window` | committed `4edf2d6` |
 | 31a | 8 | `perf(ai): keep Claude Code running between messages` | committed `bd48332` |
-| 32 | 8 | `feat(ai): proposal review and auto-apply mode` | committed (hash in the next entry; Undo batch split out as #32a) |
-| 32a | 8 | `feat(ui): undo batch for auto-applied AI changes` | planned |
+| 32 | 8 | `feat(ai): proposal review and auto-apply mode` | committed `0a2b64a` (Undo batch split out as #32a) |
+| 32a | 8 | `feat(ui): undo batch for auto-applied AI changes` | committed (hash in the next entry) |
 | 33 | 8 | `feat(ai): daily briefing` | planned |
 | 34 | 9 | `feat: ICS export and file import` | planned |
 | 35 | 9 | `feat: ICS subscriptions with block-out option` | planned |
@@ -2640,7 +2640,7 @@ Notes:
     - Memory: each warm `claude` process is a few hundred MB, hence the cap and idle stop.
     - Next: #32 proposal review and auto-apply mode.
 
-### #32 — Proposal review and the Propose/Auto switch            [status: committed — hash in the next entry]
+### #32 — Proposal review and the Propose/Auto switch            [status: committed 0a2b64a]
 Phase: 8 (D8; Luke: "make the auto/propose remembered")
 Message:
     feat(ai): proposal review and auto-apply mode
@@ -2723,3 +2723,40 @@ Notes:
     - Pencil items on the calendar for pending proposals (D23) aren't drawn yet; the card is
       in pencil.
     - Next: #32a Undo batch for auto-applied changes.
+
+### #32a — Undo batch for auto-applied AI changes            [status: committed — hash in the next entry]
+Phase: 8 (design: Chat Panel, auto-mode card)
+Message:
+    feat(ui): undo batch for auto-applied AI changes
+
+    In Auto mode, a chat reply that changed things is followed by a
+    "Changed · N items" card, worded like the proposal cards ("~ Fix the
+    tap · Inbox → Sat 17 Oct 10:30–11:15"). It notes the snapshot taken
+    first and has Undo batch, which undoes the turn's batches newest
+    first. Undoing a batch whose items were edited since is refused with
+    the reason, as Ctrl+Z is. Once undone, the card reads "Batch undone"
+    and points to Ctrl+Shift+Z.
+
+    The batches are found the same way for both routes. The turn notes
+    where the change log is when it starts; afterwards it collects the
+    batches its actor wrote since (leaving out undo/redo rows) and records
+    them on the turn's reply. That covers Claude Code too, whose changes
+    are written by the MCP server's own process.
+Files:
+    A  src/chat/ChangedCard.tsx
+    M  crates/blotter-core/src/store/changes.rs  (last_rowid, batches_since)
+    M  crates/blotter-core/src/store/chat.rs     (set_turn_batches)
+    M  src-tauri/src/ai/chat.rs                  (record the turn's batches; chat_batch_changes)
+    M  src-tauri/src/lib.rs
+    M  src/chat/ChatPanel.tsx, chatStore.ts, transcript.ts (+test)
+    M  .claude/COMMITS.md
+Test steps:
+    - cargo test --workspace → 143 core (+2: batches_since finds one actor's turn and skips
+      undo rows; a turn's batches go on its latest reply) + 36 app + 6 mcp; clippy / fmt clean
+    - pnpm check → clean; Vitest 179 (+1: the Changed card follows its reply)
+Notes:
+    - Not driven live by me: Luke's dev app held the single-instance lock. Please try:
+      Auto mode, ask the chat to add two tasks, then Undo batch on the card, which should
+      remove them.
+    - Redo has no batch argument, so the card offers Undo only; Ctrl+Shift+Z redoes.
+    - Next: #33 daily briefing.

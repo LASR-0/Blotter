@@ -85,6 +85,20 @@ describe('transcript with proposals', () => {
   });
 });
 
+describe('transcript with applied changes', () => {
+  it('puts the Changed card after the reply that made them', () => {
+    const items = transcript([
+      msg({ role: 'user', content: 'Slot my inbox' }),
+      msg({ content: 'Done.', batch_id: 'B1,B2' }),
+    ]);
+    expect(items).toEqual([
+      { kind: 'user', text: 'Slot my inbox' },
+      { kind: 'text', text: 'Done.' },
+      { kind: 'changed', batches: ['B1', 'B2'] },
+    ]);
+  });
+});
+
 describe('applyEvent', () => {
   it('streams text, tools and the end of a turn', () => {
     let turn: LiveTurn = { items: [], running: true };

@@ -379,13 +379,21 @@ pub fn chat_send(
     let handle = tauri::async_runtime::spawn(async move {
         let thread_id = prepared.thread.id.clone();
         let actor = turn_actor(&prepared);
+        // Where the change log was, to find what this turn changes.
+        let since = with_planner(&task_app, |p| store::changes::last_rowid(p.db().conn()))
+            .and_then(Result::ok)
+            .unwrap_or(i64::MAX);
         let result = match prepared.settings.route {
             Route::ClaudeCode => run_claude_code(&task_app, prepared).await,
             Route::Api => run_api(&task_app, prepared).await,
         };
-        // This turn's proposals form its card; the next turn starts another.
         with_planner(&task_app, |p| {
-            proposals::seal(p.db().conn(), &actor, &thread_id)
+            let conn = p.db().conn();
+            // This turn's proposals form its card; the next turn starts another.
+            proposals::seal(conn, &actor, &thread_id)?;
+            // What it applied (Auto mode), for the reply's "Undo batch".
+            let batches = store::changes::batches_since(conn, &actor, since)?;
+            chat::set_turn_batches(conn, &thread_id, &batches)
         });
         match result {
             Ok(notice) => emit(&task_app, &thread_id, ChatEvent::Done { notice }),
@@ -472,6 +480,20 @@ pub fn chat_proposals(
         None => proposals::Filter::External,
     };
     Ok(proposals::list(planner.db().conn(), filter)?)
+}
+
+/// What a turn's batches changed, for its "Changed" card.
+#[tauri::command]
+pub fn chat_batch_changes(
+    state: State<'_, AppState>,
+    batch_ids: Vec<String>,
+) -> Result<Vec<blotter_core::model::Change>, CommandError> {
+    let planner = state.planner.lock().map_err(|_| lock_err())?;
+    let mut out = Vec::new();
+    for id in &batch_ids {
+        out.extend(store::changes::list_batch(planner.db().conn(), id)?);
+    }
+    Ok(out)
 }
 
 /// Changes waiting for a decision, for the chat button's badge.

@@ -31,6 +31,7 @@ import { AI_SETTINGS_KEY, type AiSettings } from '@/lib/aiSettings';
 import { addedAgo } from '@/lib/format';
 import { cn } from '@/lib/cn';
 import { messagesKey, PROPOSALS_KEY, THREADS_KEY, useChat } from './chatStore';
+import { ChangedCard } from './ChangedCard';
 import { ProposalCard } from './ProposalCard';
 import type { Proposal } from './proposals';
 import { Markdown } from './markdown';
@@ -182,6 +183,8 @@ function Row({
           {item.text}
         </span>
       );
+    case 'changed':
+      return <ChangedCard batches={item.batches} />;
     case 'proposal': {
       const p = proposals.get(item.id);
       return p ? <ProposalCard proposal={p} /> : null;

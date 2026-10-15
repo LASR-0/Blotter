@@ -2,7 +2,7 @@ use rusqlite::{Connection, OptionalExtension, Row, named_params};
 
 use super::{fmt_opt_instant, json_value, opt_instant, parse_enum};
 use crate::error::Result;
-use crate::model::Change;
+use crate::model::{Actor, Change};
 use crate::time;
 
 const COLUMNS: &str = "id, batch_id, op, entity, entity_id, before_json, after_json, actor, created_at, undone_at, \
@@ -65,6 +65,26 @@ pub fn list_batch(conn: &Connection, batch_id: &str) -> Result<Vec<Change>> {
         &format!("SELECT {COLUMNS} FROM changes WHERE batch_id = ?1 ORDER BY rowid"),
         [batch_id],
     )
+}
+
+/// Where the change log is up to, to find what is written after it.
+pub fn last_rowid(conn: &Connection) -> Result<i64> {
+    Ok(
+        conn.query_row("SELECT COALESCE(MAX(rowid), 0) FROM changes", [], |r| {
+            r.get(0)
+        })?,
+    )
+}
+
+/// The batches `actor` wrote after `rowid` (not counting undo/redo rows),
+/// oldest first. A chat turn's changes, e.g., for its "Undo batch".
+pub fn batches_since(conn: &Connection, actor: &Actor, rowid: i64) -> Result<Vec<String>> {
+    let mut stmt = conn.prepare(
+        "SELECT batch_id FROM changes WHERE actor = ?1 AND rowid > ?2 AND reverts IS NULL \
+         GROUP BY batch_id ORDER BY MIN(rowid)",
+    )?;
+    let rows = stmt.query_map(rusqlite::params![actor.to_string(), rowid], |r| r.get(0))?;
+    Ok(rows.collect::<rusqlite::Result<_>>()?)
 }
 
 /// Most recent rows first.
@@ -146,9 +166,31 @@ pub fn set_undone(conn: &Connection, batch_id: &str, at: Option<time::Instant>) 
 mod tests {
     use super::*;
     use crate::db::Database;
-    use crate::model::Actor;
     use chrono::{TimeZone, Utc};
     use serde_json::json;
+
+    #[test]
+    fn batches_since_finds_one_actors_turn() {
+        let mut p = crate::planner::tests::planner();
+        let ai = Actor::Ai {
+            provider: "claude-code".into(),
+            model: "sonnet".into(),
+        };
+        p.execute("create_item", json!({ "title": "before" }), &ai)
+            .unwrap();
+        let mark = last_rowid(p.db().conn()).unwrap();
+        let a = p
+            .execute("create_item", json!({ "title": "A" }), &ai)
+            .unwrap();
+        p.execute("create_item", json!({ "title": "mine" }), &Actor::User)
+            .unwrap();
+        let b = p
+            .execute("create_item", json!({ "title": "B" }), &ai)
+            .unwrap();
+        p.execute("undo", json!({}), &Actor::User).unwrap();
+        let found = batches_since(p.db().conn(), &ai, mark).unwrap();
+        assert_eq!(found, [a.batch_id.unwrap(), b.batch_id.unwrap()]);
+    }
 
     #[test]
     fn change_round_trip_and_batch_listing() {
