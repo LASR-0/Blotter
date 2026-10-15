@@ -1,12 +1,12 @@
-use rusqlite::{Connection, Row, named_params};
+use rusqlite::{Connection, OptionalExtension, Row, named_params};
 
 use super::{fmt_opt_instant, json_value, opt_instant, parse_enum};
 use crate::error::Result;
 use crate::model::Change;
 use crate::time;
 
-const COLUMNS: &str =
-    "id, batch_id, op, entity, entity_id, before_json, after_json, actor, created_at, undone_at";
+const COLUMNS: &str = "id, batch_id, op, entity, entity_id, before_json, after_json, actor, created_at, undone_at, \
+     reverts";
 
 fn read(row: &Row<'_>) -> Result<Change> {
     Ok(Change {
@@ -20,6 +20,7 @@ fn read(row: &Row<'_>) -> Result<Change> {
         actor: parse_enum("actor", row.get("actor")?)?,
         created_at: time::parse_instant("created_at", &row.get::<_, String>("created_at")?)?,
         undone_at: opt_instant("undone_at", row.get("undone_at")?)?,
+        reverts: row.get("reverts")?,
     })
 }
 
@@ -37,7 +38,7 @@ pub fn insert(conn: &Connection, c: &Change) -> Result<()> {
     conn.execute(
         &format!(
             "INSERT INTO changes ({COLUMNS}) VALUES (:id, :batch_id, :op, :entity, :entity_id, \
-             :before, :after, :actor, :created_at, :undone_at)"
+             :before, :after, :actor, :created_at, :undone_at, :reverts)"
         ),
         named_params! {
             ":id": c.id,
@@ -50,16 +51,18 @@ pub fn insert(conn: &Connection, c: &Change) -> Result<()> {
             ":actor": c.actor.to_string(),
             ":created_at": time::fmt_instant(c.created_at),
             ":undone_at": fmt_opt_instant(c.undone_at),
+            ":reverts": c.reverts,
         },
     )?;
     Ok(())
 }
 
-/// Every row of one batch, in the order they were written.
+/// Every row of one batch, in the order they were written (rowid order: ULIDs
+/// made in the same millisecond don't sort by time).
 pub fn list_batch(conn: &Connection, batch_id: &str) -> Result<Vec<Change>> {
     collect(
         conn,
-        &format!("SELECT {COLUMNS} FROM changes WHERE batch_id = ?1 ORDER BY id"),
+        &format!("SELECT {COLUMNS} FROM changes WHERE batch_id = ?1 ORDER BY rowid"),
         [batch_id],
     )
 }
@@ -68,7 +71,7 @@ pub fn list_batch(conn: &Connection, batch_id: &str) -> Result<Vec<Change>> {
 pub fn list_recent(conn: &Connection, limit: u32) -> Result<Vec<Change>> {
     collect(
         conn,
-        &format!("SELECT {COLUMNS} FROM changes ORDER BY id DESC LIMIT ?1"),
+        &format!("SELECT {COLUMNS} FROM changes ORDER BY rowid DESC LIMIT ?1"),
         [limit],
     )
 }
@@ -77,9 +80,64 @@ pub fn list_recent(conn: &Connection, limit: u32) -> Result<Vec<Change>> {
 pub fn list_for_entity(conn: &Connection, entity: &str, entity_id: &str) -> Result<Vec<Change>> {
     collect(
         conn,
-        &format!("SELECT {COLUMNS} FROM changes WHERE entity = ?1 AND entity_id = ?2 ORDER BY id"),
+        &format!(
+            "SELECT {COLUMNS} FROM changes WHERE entity = ?1 AND entity_id = ?2 ORDER BY rowid"
+        ),
         [entity, entity_id],
     )
+}
+
+/// Ops whose rows are undo bookkeeping rather than edits.
+const REVERSAL_OPS: &str = "('undo', 'redo')";
+
+/// The newest batch of edits that hasn't been undone: what undo reverses.
+pub fn newest_undoable(conn: &Connection) -> Result<Option<String>> {
+    Ok(conn
+        .query_row(
+            &format!(
+                "SELECT batch_id FROM changes WHERE op NOT IN {REVERSAL_OPS} \
+                 AND undone_at IS NULL ORDER BY rowid DESC LIMIT 1"
+            ),
+            [],
+            |r| r.get(0),
+        )
+        .optional()?)
+}
+
+/// The batch redo re-applies: the one the most recent undo reversed, if
+/// it's still undone and no edit has been made since that undo.
+pub fn newest_redoable(conn: &Connection) -> Result<Option<String>> {
+    let last_undo: Option<(i64, String)> = conn
+        .query_row(
+            "SELECT c.rowid, c.reverts FROM changes c WHERE c.op = 'undo' \
+             AND EXISTS (SELECT 1 FROM changes o WHERE o.batch_id = c.reverts \
+                         AND o.undone_at IS NOT NULL) \
+             ORDER BY c.rowid DESC LIMIT 1",
+            [],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )
+        .optional()?;
+    let Some((undo_row, batch)) = last_undo else {
+        return Ok(None);
+    };
+    let edited_since: bool = conn.query_row(
+        &format!(
+            "SELECT EXISTS (SELECT 1 FROM changes WHERE op NOT IN {REVERSAL_OPS} \
+             AND rowid > ?1)"
+        ),
+        [undo_row],
+        |r| r.get(0),
+    )?;
+    Ok((!edited_since).then_some(batch))
+}
+
+/// Marks a batch undone (`Some`) or redone (`None`).
+pub fn set_undone(conn: &Connection, batch_id: &str, at: Option<time::Instant>) -> Result<()> {
+    conn.execute(
+        "UPDATE changes SET undone_at = ?2 WHERE batch_id = ?1",
+        rusqlite::params![batch_id, fmt_opt_instant(at)],
+    )?;
+    Ok(())
 }
 
 #[cfg(test)]
@@ -108,6 +166,7 @@ mod tests {
             },
             created_at: now,
             undone_at: None,
+            reverts: None,
         };
         let a = mk("01", "b1", json!({ "title": "Gym" }));
         let b = mk("02", "b1", json!({ "title": "Gym", "priority": 1 }));

@@ -1,6 +1,8 @@
 import { invoke } from '@tauri-apps/api/core';
 import {
   ArrowBendDownRight,
+  ArrowClockwise,
+  ArrowCounterClockwise,
   ArrowDown,
   ArrowLeft,
   ArrowRight,
@@ -38,6 +40,7 @@ import {
 import { deleteFocused, openFocused, toggleFocused } from '@/actions/itemActions';
 import { runAutoSlot } from '@/app/autoSlot';
 import { rolloverNow } from '@/app/rollover';
+import { redoLast, undoLast } from '@/app/undo';
 import { useFocus } from '@/app/focus';
 import { useNav } from '@/app/nav';
 import { useSelection, type BulkEditor } from '@/app/selection';
@@ -69,6 +72,8 @@ export interface Action {
   keywords?: string[];
   /** Muted hint after the label in the palette. */
   hint?: string;
+  /** Text fields keep this key for themselves (Ctrl+Z undoes typing there). */
+  yieldsToText?: boolean;
   /** The binding also works while an overlay (palette, sheet) is open. */
   inOverlay?: boolean;
   /** Hidden from the command palette (pure navigation keys). */
@@ -425,6 +430,26 @@ export function buildActions(): Action[] {
       keywords: ['help', 'cheat sheet', 'keys'],
       inOverlay: true,
       run: () => overlay().toggle('shortcuts'),
+    },
+    {
+      id: 'edit.undo',
+      label: 'Undo',
+      group: 'Actions',
+      icon: ArrowCounterClockwise,
+      binding: 'Ctrl+Z',
+      yieldsToText: true,
+      keywords: ['revert', 'back'],
+      run: () => void undoLast(),
+    },
+    {
+      id: 'edit.redo',
+      label: 'Redo',
+      group: 'Actions',
+      icon: ArrowClockwise,
+      binding: 'Ctrl+Shift+Z',
+      altBindings: ['Ctrl+Y'],
+      yieldsToText: true,
+      run: () => void redoLast(),
     },
     {
       id: 'app.quit',

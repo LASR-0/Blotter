@@ -372,12 +372,12 @@ A short, keyboard-navigable setup with every step skippable:
 ---
 
 ## 7. Commit protocol (applies to every phase)
-- **The implementer never commits or pushes. Luke makes every commit.**
+- **Since 2026-10-15 the implementer commits each increment itself, as Luke (his git identity, no AI co-author trailer), once its test steps pass. It never pushes: Luke syncs from VS Code.** (Until then Luke made every commit himself.)
 - Work is delivered in small increments. Each increment ends with a new entry in `COMMITS.md` containing:
   - the commit number and phase,
   - the **commit message** (Conventional Commits, e.g. `feat(core): …`),
   - the **complete list of files** to stage — added, modified, deleted — with repo-relative paths,
-  - **test steps** for Luke to run before committing (commands plus what to check by hand),
+  - **test steps** (commands plus what to check by hand), run before committing,
   - notes: known gaps, follow-ups.
 - Changed files are delivered as **full files**, not diffs.
 - Each increment should build and pass tests on its own (test before push).
@@ -477,7 +477,7 @@ Each phase states the intent, then the acceptance criteria (AC) and leads to ver
 
 ### Phase 6 — Recurrence and reminders
 
-**Progress (2026-10-15):** #24, #24a and #25 are committed; #25a–#25d (logo and wordmark, themed pickers, scrollbars, pnpm dev:demo) are committed; #26 (snooze toast, missed-reminder catch-up, Notifications settings with autostart) is ready. Phase 6 is complete once #26 is committed.
+**Progress (2026-10-15):** complete. #24–#26 (with #24a and #25a–#25d) are committed.
 **Intent:**
 - RRULE items with occurrence editing,
 - the reminder engine,
@@ -491,6 +491,8 @@ Each phase states the intent, then the acceptance criteria (AC) and leads to ver
 - **Notifications work in the Flatpak build** (verify in Phase 13, but design for it now).
 
 ### Phase 7 — Undo, snapshots and backups
+
+**Progress (2026-10-15):** #27 (undo/redo) is committed; #28 (snapshots, restore UI, JSON export/import) is next.
 **Intent:**
 - undo/redo from the change log,
 - the snapshot system and restore UI,

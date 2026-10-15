@@ -67,7 +67,9 @@ export function useKeymap(
       const token = eventToken(e);
       if (!token) return;
       if ((token === 'enter' || token === 'space') && isActivatable(e.target)) return;
-      const result = resolve(bindings, pending.current, token, contextSet, isTyping(e.target));
+      const typing = isTyping(e.target);
+      const result = resolve(bindings, pending.current, token, contextSet, typing);
+      if (result.type === 'run' && typing && byId.get(result.actionId)?.yieldsToText) return;
       if (result.type === 'none') {
         if (pending.current.length) clear();
         return;

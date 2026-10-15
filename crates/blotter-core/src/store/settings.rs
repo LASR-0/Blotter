@@ -33,6 +33,12 @@ pub fn set<T: Serialize>(conn: &Connection, key: &str, value: &T, now: Instant) 
     Ok(())
 }
 
+/// Removes a setting, so it falls back to its default.
+pub fn delete(conn: &Connection, key: &str) -> Result<()> {
+    conn.execute("DELETE FROM settings WHERE key = ?1", [key])?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

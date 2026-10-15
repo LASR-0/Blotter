@@ -21,6 +21,7 @@ import { LiftDialog } from './LiftDialog';
 import { AutoSlotPanel } from './AutoSlotPanel';
 import { RolloverBanner } from './RolloverBanner';
 import { ReminderToasts } from './ReminderToasts';
+import { Notice } from './Notice';
 import { QuickAddDialog } from './QuickAddDialog';
 import { SIDEBAR_AUTO_COLLAPSE_PX, useNav } from './nav';
 import { useOverlay } from './overlay';
@@ -89,6 +90,7 @@ export function AppShell() {
       <AutoSlotPanel />
       <RolloverBanner />
       <ReminderToasts />
+      <Notice />
       <DragLayer windows={windows} />
     </div>
   );

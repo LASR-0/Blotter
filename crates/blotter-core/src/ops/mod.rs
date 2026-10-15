@@ -15,6 +15,7 @@ mod reminders;
 mod rollover;
 mod settings;
 mod slots;
+mod undo;
 
 use std::collections::BTreeMap;
 
@@ -41,6 +42,8 @@ pub struct Ctx<'a> {
     op: &'static str,
     actor: &'a Actor,
     batch_id: &'a str,
+    /// Set while undoing or redoing: the batch being reversed or re-applied.
+    reverts: Option<String>,
     changes: Vec<Change>,
 }
 
@@ -65,6 +68,7 @@ impl Ctx<'_> {
             actor: self.actor.clone(),
             created_at: self.now,
             undone_at: None,
+            reverts: self.reverts.clone(),
         };
         store::changes::insert(self.conn, &change)?;
         self.changes.push(change);
@@ -191,6 +195,7 @@ impl Registry {
             .chain(slots::defs())
             .chain(rollover::defs())
             .chain(settings::defs())
+            .chain(undo::defs())
         {
             let previous = ops.insert(def.name, def);
             debug_assert!(previous.is_none(), "duplicate operation name");
@@ -267,6 +272,7 @@ pub(crate) fn execute(
             op: def.name,
             actor,
             batch_id: &batch_id,
+            reverts: None,
             changes: Vec::new(),
         };
         results.push((def.handler)(&mut ctx, call.args.clone())?);

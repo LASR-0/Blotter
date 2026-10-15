@@ -79,6 +79,9 @@ pub struct Change {
     pub actor: Actor,
     pub created_at: Instant,
     pub undone_at: Option<Instant>,
+    /// For undo and redo rows: the batch they reverse or re-apply.
+    #[serde(default)]
+    pub reverts: Option<String>,
 }
 
 #[cfg(test)]

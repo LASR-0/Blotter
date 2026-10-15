@@ -1,6 +1,6 @@
 # Blotter — Commit Ledger
 
-The implementer prepares each commit; **Luke stages, commits and pushes. The implementer never does.**
+Since 2026-10-15 the implementer commits each entry itself, as Luke (no AI co-author trailer), after its test steps pass, and **never pushes**: Luke syncs from VS Code. Before that, Luke staged and committed every entry himself.
 Each entry lists the exact files to stage and the message to use. Files are delivered as full files.
 
 ## How to use an entry
@@ -70,8 +70,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 25b | 6 | `feat(ui): themed select, date and time pickers` | committed `980e5cf` (#25a–#25d as one commit) |
 | 25c | 6 | `feat(ui): theme-coloured scrollbars` | committed `980e5cf` (#25a–#25d as one commit) |
 | 25d | 6 | `chore: add pnpm dev:demo for testing against demo data` | committed `980e5cf` (#25a–#25d as one commit) |
-| 26 | 6 | `feat: snooze, missed-reminder catch-up and autostart setting` | ready |
-| 27 | 7 | `feat: undo/redo from change log` | planned |
+| 26 | 6 | `feat: snooze, missed-reminder catch-up and autostart setting` | committed `67206ac` |
+| 27 | 7 | `feat: undo/redo from change log` | committed (see entry) |
 | 28 | 7 | `feat: snapshots, restore UI and JSON export/import` | planned |
 | 29 | 8 | `feat(ai): provider adapters and keychain credentials` | planned |
 | 30 | 8 | `feat(ai): tool-calling loop over the operation registry` | planned |
@@ -1973,7 +1973,7 @@ Notes:
       your real data, so a theme picked in the demo flashes briefly on your next normal
       launch before your own setting loads.
 
-### #26 — Snooze, missed-reminder catch-up and autostart            [status: ready]
+### #26 — Snooze, missed-reminder catch-up and autostart            [status: committed 67206ac]
 Phase: 6
 Message:
     feat: snooze, missed-reminder catch-up and autostart setting
@@ -2073,3 +2073,70 @@ Notes:
       checked in Phase 13 as planned.
     - New operations beyond the roadmap's minimum set: snooze_reminder, get_settings,
       update_settings (all in the registry, so the AI and MCP can use them).
+
+### #27 — Undo/redo from the change log            [status: committed — hash recorded in the next entry]
+Phase: 7
+Message:
+    feat: undo/redo from change log
+
+    Core:
+    - undo / redo / get_undo_state operations. Undo reverses the newest
+      batch that hasn't been undone (any actor) by writing each entity
+      back to its `before` state; redo re-applies what the last undo
+      reversed, unless something has been edited since. `undo` also takes
+      a batch_id, for the AI chat's "Undo batch" later.
+    - Undo and redo write their own change rows (op undo/redo) with a new
+      `reverts` column naming the batch (migration 0002), so the log stays
+      append-only and History can show them.
+    - Each entity must still be as the batch left it; otherwise the undo
+      is refused ("“Gym” has changed since") instead of overwriting the
+      later edit. Rows already removed by a cascade are skipped, foreign
+      keys are checked at commit (so a restored reminder can precede its
+      item), and a reminder's fired state is kept so it doesn't re-fire.
+    - Batches get a short summary: "Create item “Gym”", "Auto-slot
+      (8 items)", "Delete block-out “Work”".
+    - The change log now sorts by insertion order: ULIDs made in the same
+      millisecond don't sort by time, which could misorder a batch.
+
+    UI:
+    - Ctrl+Z undo and Ctrl+Shift+Z (or Ctrl+Y) redo, also in the palette.
+      Text fields keep those keys for their own typing undo (new
+      yieldsToText action flag).
+    - A bottom-centre notice says what happened ("Undone: Auto-slot
+      (8 items)") with the opposite action; it sits above the rollover
+      banner when that's showing. Undo/redo closes the auto-slot result
+      panel, whose placements may no longer stand.
+Files:
+    A  crates/blotter-core/migrations/0002_change_reverts.sql
+    A  crates/blotter-core/src/ops/undo.rs
+    A  src/app/Notice.tsx
+    A  src/app/noticeStore.ts
+    A  src/app/undo.ts
+    M  crates/blotter-core/src/db.rs
+    M  crates/blotter-core/src/model/change.rs
+    M  crates/blotter-core/src/ops/mod.rs
+    M  crates/blotter-core/src/store/changes.rs
+    M  crates/blotter-core/src/store/settings.rs   (delete)
+    M  src/actions/actions.ts
+    M  src/app/AppShell.tsx
+    M  src/keymap/useKeymap.ts
+    M  .claude/COMMITS.md
+    M  .claude/roadmap.md
+Test steps:
+    - cargo test --workspace    → 123 core (+7: undo/redo sequence, redo cleared by an edit,
+      delete with reminder and override, conflict refusal, settings and block-outs, log rows,
+      labels) + 9 app
+    - cargo clippy --workspace --all-targets -- -D warnings → clean; cargo fmt --check → clean
+    - pnpm check                → clean; Vitest 153 passed
+    - pnpm dev:demo: Inbox → Auto-slot → Ctrl+Z → "Undone: Auto-slot (8 items)", the tasks
+      are back in the Inbox; Ctrl+Shift+Z → placed again; type in a text field and Ctrl+Z
+      undoes the typing only; About shows schema v2
+Notes:
+    - Verified live (pnpm dev:demo --fresh): the migration ran (About: schema v2); undoing an
+      8-item auto-slot from the palette wrote 8 undo rows, returned the tasks to the Inbox and
+      showed the notice with Redo; Redo from the palette re-placed them ("Redone: …").
+      Ctrl+Z itself couldn't be pressed by my test harness (posted keys carry no Ctrl), so the
+      shortcut path is covered by the keymap code, not a live press — please try it.
+    - Ctrl+Z undoes system and AI batches too (e.g. the rollover), newest first, as the log
+      is one timeline.
+    - Undo of theme changes isn't covered: the theme is a UI setting outside the change log.
