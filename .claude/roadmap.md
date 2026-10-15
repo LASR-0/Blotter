@@ -508,6 +508,14 @@ Each phase states the intent, then the acceptance criteria (AC) and leads to ver
 **Plan (2026-10-15, D29):** #29 provider layer and keychain (API providers experimental) → #29a MCP server (from Phase 12) → #30 tool loop with the Claude Code provider → #31 chat panel → #32 proposals and auto mode → #33 daily briefing.
 
 **Progress (2026-10-15):** #29 (providers, experimental) and #29a (MCP server, `blotter mcp`) are committed. #30 (chat backend: tool loop, threads, Claude Code provider, verified live on the subscription) is committed. #31 (chat panel, pop-out window, `--chat`) and #31a (Claude Code kept running between messages) are committed, as are #32 (proposals: Propose/Auto, remembered), #32a (Undo batch) and #33 (daily briefing). **Phase 8 is complete**; the API-key providers are still untested against real services (D29). Next: Phase 9.
+
+**Open items (2026-10-15, end of session):**
+- Linux CI for #29a–#33 was still running at hand-off (looking good); confirm it went green.
+- #32 proposal cards were seen rendering in the demo by Luke, but not yet accepted or rejected there; #32a Undo batch and #33 briefing are untried in the window.
+- #35 needs a published Outlook (or other ICS) calendar URL from Luke for its acceptance check.
+- Before publishing the Claude Code route: check Anthropic's terms on driving Claude Code from another app (D29).
+- API-key providers stay "Experimental — untested" until Luke provides a key (D29).
+- Next session: start Phase 9 with #34.
 **Intent:**
 - providers and keychain credentials,
 - the tool loop over the operation registry,

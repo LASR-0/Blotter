@@ -84,7 +84,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 31a | 8 | `perf(ai): keep Claude Code running between messages` | committed `bd48332` |
 | 32 | 8 | `feat(ai): proposal review and auto-apply mode` | committed `0a2b64a` (Undo batch split out as #32a) |
 | 32a | 8 | `feat(ui): undo batch for auto-applied AI changes` | committed `d8bc8d7` |
-| 33 | 8 | `feat(ai): daily briefing` | committed (hash in the next entry) |
+| 33 | 8 | `feat(ai): daily briefing` | committed `e43ac71` |
+| 33a | 8 | `docs: Phase 8 wrap-up and open items` | committed (hash in the next entry) |
 | 34 | 9 | `feat: ICS export and file import` | planned |
 | 35 | 9 | `feat: ICS subscriptions with block-out option` | planned |
 | 36 | 10 | `feat(ui): keybinding editor` | planned |
@@ -2761,7 +2762,7 @@ Notes:
     - Redo has no batch argument, so the card offers Undo only; Ctrl+Shift+Z redoes.
     - Next: #33 daily briefing.
 
-### #33 — Daily briefing            [status: committed — hash in the next entry]
+### #33 — Daily briefing            [status: committed e43ac71]
 Phase: 8 (D28)
 Message:
     feat(ai): daily briefing
@@ -2812,3 +2813,21 @@ Notes:
     - Phase 8 is complete with this (#29–#33, #29a, #31a, #32a). Remaining from the AC:
       the API providers against real services (experimental, D29).
     - Next: Phase 9, #34 ICS export and file import.
+
+### #33a — Phase 8 wrap-up and open items            [status: committed — hash in the next entry]
+Phase: 8
+Message:
+    docs: Phase 8 wrap-up and open items
+
+    Records #33's hash, and in the roadmap the items still open at the
+    end of Phase 8: Linux CI to confirm, proposal UI only partly tried, a
+    published calendar URL needed for #35, Anthropic's terms to check
+    before publishing the Claude Code route, and the untested API-key
+    providers.
+Files:
+    M  .claude/COMMITS.md
+    M  .claude/roadmap.md
+Test steps:
+    - none (docs only)
+Notes:
+    - Next: #34 ICS export and file import.
