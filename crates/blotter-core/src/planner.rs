@@ -142,6 +142,27 @@ impl Planner {
             changes,
         })
     }
+
+    /// Runs calls one by one as `actor`, keeping the ones that succeed
+    /// (see [`ops::run_each`]); `commit` false rehearses and rolls back.
+    pub(crate) fn run_each(
+        &mut self,
+        actor: &Actor,
+        calls: &[ops::Planned<'_>],
+        commit: bool,
+    ) -> Result<(Vec<ops::Ran>, String)> {
+        let settings = self.settings()?;
+        let now = self.clock.now();
+        ops::run_each(
+            self.db.conn_mut(),
+            &self.registry,
+            &settings,
+            now,
+            actor,
+            calls,
+            commit,
+        )
+    }
 }
 
 #[cfg(test)]

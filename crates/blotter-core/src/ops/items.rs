@@ -9,7 +9,6 @@ use super::input::{DateInput, DateTimeInput, patch};
 use super::occurrences::{self, Scope, Target};
 use super::{Ctx, OpDef, require_item};
 use crate::error::{CoreError, Result};
-use crate::id::new_id;
 use crate::model::{Actor, Anchoring, Item, ItemKind, ItemStatus, Reminder, Source};
 use crate::recurrence::{self, Slot};
 use crate::store;
@@ -192,7 +191,7 @@ impl Ctx<'_> {
 
 fn create_item(ctx: &mut Ctx<'_>, a: CreateItemArgs) -> Result<Item> {
     let kind = a.kind.unwrap_or(ItemKind::Task);
-    let mut item = Item::new(new_id(), kind, a.title, ctx.now);
+    let mut item = Item::new(ctx.new_id(), kind, a.title, ctx.now);
     item.anchoring = a.anchoring.unwrap_or(kind.default_anchoring());
     item.source = ctx.source();
     item.notes = a.notes.unwrap_or_default();
@@ -247,7 +246,7 @@ fn create_item(ctx: &mut Ctx<'_>, a: CreateItemArgs) -> Result<Item> {
     }
     for offset in offsets {
         let r = Reminder {
-            id: new_id(),
+            id: ctx.new_id(),
             item_id: item.id.clone(),
             offset_min: Some(offset),
             at: None,

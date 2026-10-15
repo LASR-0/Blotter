@@ -2,7 +2,9 @@ import { Calendar, CaretLeft, CaretRight, ChatCircleText, Notebook } from '@phos
 import { Button } from '@/components/ui/button';
 import { Segmented } from '@/components/ui/segmented';
 import { Tooltip } from '@/components/ui/tooltip';
-import { useChat } from '@/chat/chatStore';
+import { invoke } from '@tauri-apps/api/core';
+import { useQuery } from '@tanstack/react-query';
+import { PENDING_KEY, useChat } from '@/chat/chatStore';
 import { hasPeriod, isCalendarView, periodTitle, type CalendarView } from '@/lib/period';
 import { useNav } from './nav';
 
@@ -24,6 +26,10 @@ export function TopBar() {
   const mode = view === 'diary' ? 'diary' : calendar ? 'calendar' : null;
   const chatOpen = useChat((s) => s.open);
   const setChatOpen = useChat((s) => s.setOpen);
+  // Proposed changes waiting for a decision, from the chat or an MCP client.
+  const pending =
+    useQuery({ queryKey: PENDING_KEY, queryFn: () => invoke<number>('pending_proposals') }).data ??
+    0;
 
   return (
     <header className="flex h-12 flex-none items-center gap-2 border-b border-border pr-3 pl-3.5">
@@ -113,11 +119,17 @@ export function TopBar() {
         <Button
           size="icon"
           variant="icon"
-          aria-label="Toggle AI chat"
+          aria-label={pending ? `Toggle AI chat (${pending} changes to review)` : 'Toggle AI chat'}
           data-state={chatOpen ? 'on' : 'off'}
           onClick={() => setChatOpen(!chatOpen)}
+          className="relative"
         >
           <ChatCircleText />
+          {pending > 0 && (
+            <span className="absolute -top-1 -right-1 min-w-4 rounded-full bg-accent px-1 font-mono text-[10px] leading-4 text-on-accent">
+              {pending}
+            </span>
+          )}
         </Button>
       </Tooltip>
     </header>

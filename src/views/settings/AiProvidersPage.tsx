@@ -15,6 +15,7 @@ import {
 import { useOverlay } from '@/app/overlay';
 import { ErrorPanel } from '@/components/EmptyState';
 import { Button } from '@/components/ui/button';
+import { Segmented } from '@/components/ui/segmented';
 import { Select } from '@/components/ui/select';
 import { isOpError } from '@/lib/api';
 import { cn } from '@/lib/cn';
@@ -271,7 +272,7 @@ function ProviderCard({
   );
 }
 
-/** Settings → AI providers (design S4). The Propose/Auto switch arrives with #32. */
+/** Settings → AI providers (design S4), with the Propose/Auto switch. */
 export function AiProvidersPage() {
   const qc = useQueryClient();
   const providers = useQuery({
@@ -323,6 +324,32 @@ export function AiProvidersPage() {
           yet, and calls are billed by the provider.
         </span>
       </div>
+      {ai.data && (
+        <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border p-4">
+          <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+            <span className="font-semibold">Changes from the AI</span>
+            <span className="text-sm text-text-muted">
+              {ai.data.mode === 'auto'
+                ? 'Applied straight away, after a safety snapshot. Each can be undone.'
+                : 'Proposed first: nothing changes until you accept it in the chat.'}{' '}
+              Also applies to MCP clients such as Claude Desktop.
+            </span>
+          </div>
+          <Segmented
+            ariaLabel="Changes from the AI"
+            value={ai.data.mode}
+            onChange={(mode) =>
+              void invoke<AiSettings>('set_ai_settings', { input: { mode } }).then((s) =>
+                qc.setQueryData(AI_SETTINGS_KEY, s),
+              )
+            }
+            options={[
+              { value: 'propose', label: 'Propose' },
+              { value: 'auto', label: 'Auto' },
+            ]}
+          />
+        </div>
+      )}
       {ai.data && <ClaudeCodeCard settings={ai.data} />}
       <h2 className="m-0 mt-2 text-md font-semibold">API-key providers</h2>
       {error && <p className="m-0 text-sm text-danger">{error}</p>}

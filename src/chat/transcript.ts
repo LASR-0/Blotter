@@ -48,7 +48,8 @@ export type Item =
       detail?: string;
     }
   | { kind: 'error'; message: string }
-  | { kind: 'notice'; text: string };
+  | { kind: 'notice'; text: string }
+  | { kind: 'proposal'; id: string };
 
 const ARGS_MAX = 60;
 
@@ -80,11 +81,24 @@ function resolveTool(items: Item[], id: string, isError: boolean, detail: string
   }
 }
 
-/** A thread's saved messages as display rows. */
-export function transcript(messages: SavedMessage[]): Item[] {
+/**
+ * A thread's saved messages as display rows. Each proposal goes after the
+ * reply of the turn that made it: before the next message the user sent.
+ */
+export function transcript(
+  messages: SavedMessage[],
+  proposals: { id: string; created_at: string }[] = [],
+): Item[] {
   const items: Item[] = [];
+  const queue = [...proposals].sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at));
+  const flushBefore = (at: number) => {
+    while (queue.length && Date.parse(queue[0]!.created_at) < at) {
+      items.push({ kind: 'proposal', id: queue.shift()!.id });
+    }
+  };
   for (const m of messages) {
     if (m.role === 'user') {
+      flushBefore(Date.parse(m.created_at));
       items.push({ kind: 'user', text: m.content });
       continue;
     }
@@ -108,6 +122,7 @@ export function transcript(messages: SavedMessage[]): Item[] {
       if (b.type === 'error') items.push({ kind: 'error', message: b.message });
     }
   }
+  flushBefore(Infinity);
   // A call without a result was cut short (e.g. the turn was stopped).
   for (const i of items) if (i.kind === 'tool' && i.status === 'running') i.status = 'error';
   return items;

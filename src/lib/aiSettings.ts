@@ -2,8 +2,12 @@
 export type Route = 'claude_code' | 'api';
 
 /** The app's AI settings (`get_ai_settings` / `set_ai_settings`). */
+/** Whether AI and MCP changes wait for approval (remembered across restarts). */
+export type AiMode = 'propose' | 'auto';
+
 export interface AiSettings {
   route: Route;
+  mode: AiMode;
   claude_code_model: string;
   /** Empty: Blotter finds `claude` itself. */
   claude_code_path: string;

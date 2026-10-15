@@ -10,6 +10,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use blotter_core::context;
+use blotter_core::proposals::{self, Decision, Mode, Proposal};
 use blotter_core::settings::{KEY_AI_ROUTE, KEY_CLAUDE_CODE_MODEL, KEY_CLAUDE_CODE_PATH};
 use blotter_core::store::chat::{self, ChatMessage, ChatRole, Thread};
 use blotter_core::store::{self, providers};
@@ -108,6 +109,8 @@ fn preview(text: &str) -> String {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AiSettings {
     pub route: Route,
+    /// Whether AI and MCP changes wait for approval (remembered).
+    pub mode: Mode,
     pub claude_code_model: String,
     /// Empty: find `claude` automatically.
     pub claude_code_path: String,
@@ -117,6 +120,7 @@ fn read_settings(planner: &Planner) -> Result<AiSettings, CommandError> {
     let conn = planner.db().conn();
     Ok(AiSettings {
         route: store::settings::get(conn, KEY_AI_ROUTE)?.unwrap_or_default(),
+        mode: proposals::mode(conn)?,
         claude_code_model: store::settings::get::<String>(conn, KEY_CLAUDE_CODE_MODEL)?
             .filter(|m| !m.trim().is_empty())
             .unwrap_or_else(|| claude_code::DEFAULT_MODEL.to_owned()),
@@ -133,6 +137,7 @@ pub fn get_ai_settings(state: State<'_, AppState>) -> Result<AiSettings, Command
 #[derive(Debug, Deserialize)]
 pub struct AiSettingsInput {
     pub route: Option<Route>,
+    pub mode: Option<Mode>,
     pub claude_code_model: Option<String>,
     pub claude_code_path: Option<String>,
 }
@@ -147,6 +152,9 @@ pub fn set_ai_settings(
     let now = Utc::now();
     if let Some(route) = input.route {
         store::settings::set(conn, KEY_AI_ROUTE, &route, now)?;
+    }
+    if let Some(mode) = input.mode {
+        proposals::set_mode(conn, mode, now)?;
     }
     if let Some(model) = input.claude_code_model {
         store::settings::set(conn, KEY_CLAUDE_CODE_MODEL, &model.trim(), now)?;
@@ -370,10 +378,15 @@ pub fn chat_send(
     let task_app = app.clone();
     let handle = tauri::async_runtime::spawn(async move {
         let thread_id = prepared.thread.id.clone();
+        let actor = turn_actor(&prepared);
         let result = match prepared.settings.route {
             Route::ClaudeCode => run_claude_code(&task_app, prepared).await,
             Route::Api => run_api(&task_app, prepared).await,
         };
+        // This turn's proposals form its card; the next turn starts another.
+        with_planner(&task_app, |p| {
+            proposals::seal(p.db().conn(), &actor, &thread_id)
+        });
         match result {
             Ok(notice) => emit(&task_app, &thread_id, ChatEvent::Done { notice }),
             Err(message) => {
@@ -428,7 +441,72 @@ fn save(
     }
 }
 
+/// Who a turn's changes (and proposals) are logged as.
+fn turn_actor(p: &Prepared) -> Actor {
+    match &p.api {
+        Some((provider, _)) => Actor::Ai {
+            provider: serde_json::to_value(provider.kind)
+                .ok()
+                .and_then(|v| v.as_str().map(str::to_owned))
+                .unwrap_or_default(),
+            model: provider.model.clone(),
+        },
+        None => Actor::Ai {
+            provider: "claude-code".to_owned(),
+            model: p.settings.claude_code_model.clone(),
+        },
+    }
+}
+
+// ---- Proposals --------------------------------------------------------------
+
+/// A thread's proposals, or (no thread) pending ones from MCP clients.
+#[tauri::command]
+pub fn chat_proposals(
+    state: State<'_, AppState>,
+    thread_id: Option<String>,
+) -> Result<Vec<Proposal>, CommandError> {
+    let planner = state.planner.lock().map_err(|_| lock_err())?;
+    let filter = match &thread_id {
+        Some(id) => proposals::Filter::Thread(id),
+        None => proposals::Filter::External,
+    };
+    Ok(proposals::list(planner.db().conn(), filter)?)
+}
+
+/// Changes waiting for a decision, for the chat button's badge.
+#[tauri::command]
+pub fn pending_proposals(state: State<'_, AppState>) -> Result<i64, CommandError> {
+    let planner = state.planner.lock().map_err(|_| lock_err())?;
+    Ok(proposals::pending_count(planner.db().conn())?)
+}
+
+/// Accepts and rejects proposed changes; accepted ones are applied as one
+/// undoable batch.
+#[tauri::command]
+pub fn decide_proposal(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    proposal_id: String,
+    accept: Vec<String>,
+    reject: Vec<String>,
+) -> Result<Decision, CommandError> {
+    let decision = {
+        let mut planner = state.planner.lock().map_err(|_| lock_err())?;
+        proposals::decide(&mut planner, &proposal_id, &accept, &reject)?
+    };
+    let _ = app.emit(
+        CHANGED_EVENT,
+        ChangedPayload {
+            batch_id: decision.batch_id.clone().unwrap_or_default(),
+            ops: vec!["decide_proposal".to_owned()],
+        },
+    );
+    Ok(decision)
+}
+
 async fn run_api(app: &AppHandle, p: Prepared) -> Result<Option<String>, String> {
+    let actor = turn_actor(&p);
     let Some((provider, messages)) = p.api else {
         return Err("No AI provider is set up.".to_owned());
     };
@@ -440,13 +518,6 @@ async fn run_api(app: &AppHandle, p: Prepared) -> Result<Option<String>, String>
             .lock()
             .map_err(|_| "The planner is unavailable.")?;
         agent::tools(&planner)
-    };
-    let actor = Actor::Ai {
-        provider: serde_json::to_value(provider.kind)
-            .ok()
-            .and_then(|v| v.as_str().map(str::to_owned))
-            .unwrap_or_default(),
-        model: provider.model.clone(),
     };
     let request = ChatRequest {
         model: provider.model.clone(),
@@ -494,7 +565,10 @@ async fn run_api(app: &AppHandle, p: Prepared) -> Result<Option<String>, String>
     };
     let out = agent::run_turn(
         &state.planner,
-        Some(&p.db_path),
+        agent::Place {
+            db_path: Some(&p.db_path),
+            thread_id: Some(&p.thread.id),
+        },
         &actor,
         request,
         call,

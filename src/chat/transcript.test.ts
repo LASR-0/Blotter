@@ -70,6 +70,21 @@ describe('transcript', () => {
   });
 });
 
+describe('transcript with proposals', () => {
+  it('puts each proposal after its turn', () => {
+    const items = transcript(
+      [
+        msg({ role: 'user', content: 'Plan tonight', created_at: '2026-10-15T08:00:00Z' }),
+        msg({ content: 'Here you go.', created_at: '2026-10-15T08:00:20Z' }),
+        msg({ role: 'user', content: 'Thanks', created_at: '2026-10-15T08:05:00Z' }),
+        msg({ content: 'Any time.', created_at: '2026-10-15T08:05:05Z' }),
+      ],
+      [{ id: 'p1', created_at: '2026-10-15T08:00:10Z' }],
+    );
+    expect(items.map((i) => i.kind)).toEqual(['user', 'text', 'proposal', 'user', 'text']);
+  });
+});
+
 describe('applyEvent', () => {
   it('streams text, tools and the end of a turn', () => {
     let turn: LiveTurn = { items: [], running: true };

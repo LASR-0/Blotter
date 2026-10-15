@@ -11,6 +11,7 @@ use std::future::Future;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 
+use blotter_core::proposals::{self, Mode};
 use blotter_core::snapshots::{self, Reason};
 use blotter_core::{Actor, Planner};
 
@@ -18,6 +19,15 @@ use super::{AiError, Block, ChatRequest, ChatResponse, Delta, Message, Role, Sto
 
 /// Where a model call streams its text as it arrives.
 pub type DeltaSink = Box<dyn FnMut(Delta) + Send>;
+
+/// Where a turn runs: the database file (for snapshots; `None` skips
+/// them, as in tests on an in-memory database) and the chat thread its
+/// proposals belong to.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct Place<'a> {
+    pub db_path: Option<&'a Path>,
+    pub thread_id: Option<&'a str>,
+}
 
 /// Tool rounds per user message before the loop gives up.
 pub const MAX_ROUNDS: usize = 8;
@@ -72,7 +82,7 @@ pub fn tools(planner: &Planner) -> Vec<ToolSpec> {
 /// skips the snapshot (tests on an in-memory database).
 pub async fn run_turn<C, F>(
     planner: &Mutex<Planner>,
-    db_path: Option<&Path>,
+    place: Place<'_>,
     actor: &Actor,
     mut request: ChatRequest,
     mut call: C,
@@ -144,7 +154,7 @@ where
                     true,
                     None,
                 ),
-                None => run_tool(planner, db_path, actor, name, input, &mut snapshotted),
+                None => run_tool(planner, place, actor, name, input, &mut snapshotted),
             };
             if let Some(b) = &batch_id {
                 out.batches.push(b.clone());
@@ -176,7 +186,7 @@ where
 /// the batch it wrote.
 fn run_tool(
     planner: &Mutex<Planner>,
-    db_path: Option<&Path>,
+    place: Place<'_>,
     actor: &Actor,
     name: &str,
     input: &serde_json::Value,
@@ -189,8 +199,15 @@ fn run_tool(
         Some(def) if blotter_core::ops::agent_may_run(def.name) => def.mutates,
         _ => return (format!("There is no tool called '{name}'."), true, None),
     };
+    if mutates && proposals::mode(planner.db().conn()).unwrap_or_default() == Mode::Propose {
+        // Recorded for the user to accept; nothing changes yet.
+        return match proposals::propose(&mut planner, actor, place.thread_id, name, input.clone()) {
+            Ok(p) => (proposals::proposed_message(&p.result), false, None),
+            Err(err) => (err.for_agent(), true, None),
+        };
+    }
     if mutates && !*snapshotted {
-        if let Some(path) = db_path {
+        if let Some(path) = place.db_path {
             let conn = planner.db().conn();
             let taken = snapshots::dir(conn, path).and_then(|dir| {
                 let note = format!("Before changes from the chat ({actor})");
@@ -221,11 +238,11 @@ mod tests {
     use serde_json::json;
     use std::collections::VecDeque;
 
+    /// A planner in Auto mode: tool calls change things at once.
     fn planner() -> Mutex<Planner> {
-        Mutex::new(Planner::new(
-            Database::open_in_memory().unwrap(),
-            chrono_tz::UTC,
-        ))
+        let p = Planner::new(Database::open_in_memory().unwrap(), chrono_tz::UTC);
+        proposals::set_mode(p.db().conn(), Mode::Auto, chrono::Utc::now()).unwrap();
+        Mutex::new(p)
     }
 
     fn ai() -> Actor {
@@ -312,7 +329,7 @@ mod tests {
         let sink = Arc::clone(&steps);
         let out = run_turn(
             &p,
-            None,
+            Place::default(),
             &ai(),
             request(&p),
             call,
@@ -359,6 +376,52 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn propose_mode_records_proposals_instead() {
+        let p = planner();
+        proposals::set_mode(
+            p.lock().unwrap().db().conn(),
+            Mode::Propose,
+            chrono::Utc::now(),
+        )
+        .unwrap();
+        let (call, seen) = scripted(vec![
+            reply(
+                vec![tool_use("t1", "create_item", json!({ "title": "Milk" }))],
+                Stop::ToolUse,
+            ),
+            reply(
+                vec![Block::Text {
+                    text: "Proposed.".into(),
+                }],
+                Stop::EndTurn,
+            ),
+        ]);
+        let out = run_turn(
+            &p,
+            Place::default(),
+            &ai(),
+            request(&p),
+            call,
+            Arc::new(|_| {}),
+        )
+        .await
+        .unwrap();
+        assert!(out.batches.is_empty(), "nothing applied");
+        let planner = p.lock().unwrap();
+        assert_eq!(proposals::pending_count(planner.db().conn()).unwrap(), 1);
+        let sent = &seen.lock().unwrap()[1];
+        match &sent.messages.last().unwrap().content[0] {
+            Block::ToolResult {
+                content, is_error, ..
+            } => {
+                assert!(!is_error);
+                assert!(content.starts_with("Proposed, not applied"), "{content}");
+            }
+            other => panic!("{other:?}"),
+        }
+    }
+
+    #[tokio::test]
     async fn malformed_and_user_only_calls_never_run() {
         let p = planner();
         let (call, _) = scripted(vec![
@@ -381,9 +444,16 @@ mod tests {
                 Stop::EndTurn,
             ),
         ]);
-        let out = run_turn(&p, None, &ai(), request(&p), call, Arc::new(|_| {}))
-            .await
-            .unwrap();
+        let out = run_turn(
+            &p,
+            Place::default(),
+            &ai(),
+            request(&p),
+            call,
+            Arc::new(|_| {}),
+        )
+        .await
+        .unwrap();
         assert!(out.batches.is_empty());
         let changes: i64 = p
             .lock()
@@ -407,9 +477,16 @@ mod tests {
             })
             .collect();
         let (call, seen) = scripted(looping);
-        let out = run_turn(&p, None, &ai(), request(&p), call, Arc::new(|_| {}))
-            .await
-            .unwrap();
+        let out = run_turn(
+            &p,
+            Place::default(),
+            &ai(),
+            request(&p),
+            call,
+            Arc::new(|_| {}),
+        )
+        .await
+        .unwrap();
         assert_eq!(seen.lock().unwrap().len(), MAX_ROUNDS + 1);
         assert!(out.notice.unwrap().contains("Stopped after"));
     }
@@ -421,9 +498,16 @@ mod tests {
             vec![tool_use("t1", "create_item", json!({ "title": "Half" }))],
             Stop::MaxTokens,
         )]);
-        let out = run_turn(&p, None, &ai(), request(&p), call, Arc::new(|_| {}))
-            .await
-            .unwrap();
+        let out = run_turn(
+            &p,
+            Place::default(),
+            &ai(),
+            request(&p),
+            call,
+            Arc::new(|_| {}),
+        )
+        .await
+        .unwrap();
         assert!(out.batches.is_empty());
         assert!(out.notice.is_some());
     }

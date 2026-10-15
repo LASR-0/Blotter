@@ -15,6 +15,7 @@ use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use blotter_core::ops::OpDef;
+use blotter_core::proposals::{self, Mode};
 use blotter_core::snapshots::{self, Reason};
 use blotter_core::{Actor, Planner};
 use rmcp::model::{
@@ -93,6 +94,18 @@ impl BlotterMcp {
         };
         if !blotter_core::ops::agent_may_run(def.name) {
             return Err(unknown_tool(name));
+        }
+        let mode = proposals::mode(planner.db().conn()).unwrap_or_default();
+        if def.mutates && mode == Mode::Propose {
+            // Recorded for the user to accept in Blotter; nothing changes yet.
+            return Ok(
+                match proposals::propose(&mut planner, &self.actor, None, name, args) {
+                    Ok(p) => CallToolResult::success(vec![ContentBlock::text(
+                        proposals::proposed_message(&p.result),
+                    )]),
+                    Err(err) => error_result(&err.for_agent()),
+                },
+            );
         }
         if def.mutates
             && !self.snapshotted.load(Ordering::Acquire)
@@ -207,10 +220,16 @@ mod tests {
     }
 
     impl Session {
+        /// A session in Auto mode: changes apply at once.
         async fn start() -> Self {
+            Self::start_in(Mode::Auto).await
+        }
+
+        async fn start_in(mode: Mode) -> Self {
             let dir = tempfile::tempdir().unwrap();
             let db_path = dir.path().join("blotter.db");
             let db = blotter_core::Database::open(&db_path).unwrap();
+            proposals::set_mode(db.conn(), mode, chrono::Utc::now()).unwrap();
             let server = BlotterMcp::new(Planner::new(db, chrono_tz::UTC), &db_path);
             let (server_io, client_io) = tokio::io::duplex(64 * 1024);
             tokio::spawn(async move {
@@ -314,6 +333,31 @@ mod tests {
 
         let inbox = s.call("list_inbox", json!({})).await.unwrap();
         assert!(text(&inbox).contains("Buy milk"));
+    }
+
+    #[tokio::test]
+    async fn propose_mode_records_instead_of_changing() {
+        let s = Session::start_in(Mode::Propose).await;
+        let made = s
+            .call("create_item", json!({ "title": "Gym" }))
+            .await
+            .unwrap();
+        assert_eq!(made.is_error, Some(false), "{}", text(&made));
+        assert!(
+            text(&made).starts_with("Proposed, not applied"),
+            "{}",
+            text(&made)
+        );
+        let db = s.db();
+        let items: i64 = db
+            .conn()
+            .query_row("SELECT COUNT(*) FROM items", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(items, 0, "nothing applied");
+        assert_eq!(proposals::pending_count(db.conn()).unwrap(), 1);
+        assert_eq!(snapshot_count(&db), 0, "no snapshot for a proposal");
+        let inbox = s.call("list_inbox", json!({})).await.unwrap();
+        assert_eq!(text(&inbox), "[]", "reads still run");
     }
 
     #[tokio::test]

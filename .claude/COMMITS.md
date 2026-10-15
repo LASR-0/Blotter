@@ -81,8 +81,9 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 29a | 8 | `feat(mcp): MCP server over the operation registry` | committed `e43fd31` (brought forward from #40, D29) |
 | 30 | 8 | `feat(ai): tool-calling loop and Claude Code provider` | committed `aafb799` |
 | 31 | 8 | `feat(ui): chat panel and pop-out window` | committed `4edf2d6` |
-| 31a | 8 | `perf(ai): keep Claude Code running between messages` | committed (hash in the next entry) |
-| 32 | 8 | `feat(ai): proposal review and auto-apply mode` | planned |
+| 31a | 8 | `perf(ai): keep Claude Code running between messages` | committed `bd48332` |
+| 32 | 8 | `feat(ai): proposal review and auto-apply mode` | committed (hash in the next entry; Undo batch split out as #32a) |
+| 32a | 8 | `feat(ui): undo batch for auto-applied AI changes` | planned |
 | 33 | 8 | `feat(ai): daily briefing` | planned |
 | 34 | 9 | `feat: ICS export and file import` | planned |
 | 35 | 9 | `feat: ICS subscriptions with block-out option` | planned |
@@ -2585,7 +2586,7 @@ Notes:
       I now stop processes by PID only.
     - Next: #32 proposal review and auto-apply mode.
 
-### #31a — Keep Claude Code running between messages            [status: committed — hash in the next entry]
+### #31a — Keep Claude Code running between messages            [status: committed bd48332]
 Phase: 8 (Luke: "basic prompts take quite a while")
 Message:
     perf(ai): keep Claude Code running between messages
@@ -2638,3 +2639,87 @@ Notes:
       faster but never reads OAuth, so it can't use the subscription.
     - Memory: each warm `claude` process is a few hundred MB, hence the cap and idle stop.
     - Next: #32 proposal review and auto-apply mode.
+
+### #32 — Proposal review and the Propose/Auto switch            [status: committed — hash in the next entry]
+Phase: 8 (D8; Luke: "make the auto/propose remembered")
+Message:
+    feat(ai): proposal review and auto-apply mode
+
+    Propose mode (the default, D8): a change the AI or an MCP client asks
+    for is not made. It is rehearsed (run in a transaction that is rolled
+    back) and kept as a proposed operation with the before/after the
+    rehearsal showed. The model gets the rehearsal's result, marked
+    "Proposed, not applied", so it can chain proposals and tells the user
+    nothing has changed yet. Bad arguments and rule breaks (a flexible
+    task in a block-out) still come back as errors for a retry.
+
+    Ids stay stable: each rehearsal replays the proposal's earlier pending
+    operations first. The entity ids a rehearsal creates are recorded and
+    handed out again on later replays and on accept, so "create X, then
+    schedule X" works and an id the model was told about stays the id.
+    Operations now get entity ids from their context (Ctx::new_id).
+
+    Accepting runs the chosen operations for real, in order, as the AI
+    that proposed them, under one undoable batch, each in its own
+    savepoint. One that can't apply any more (it needed a change that was
+    rejected) is marked failed with a reason; the rest still apply. A
+    proposal is pending, accepted, rejected or partial.
+
+    A chat turn's operations form one proposal (card). The app seals it
+    when the turn ends; those Claude Code made through Blotter's MCP
+    server are claimed for the thread. Proposals from other MCP clients
+    stay unthreaded until decided.
+
+    The mode is a setting (ai_mode). It's kept per device and is
+    remembered as it was left. Auto applies changes at once, as before,
+    after a safety snapshot. The snapshot tells the model which mode is
+    on.
+
+    UI: proposal cards in pencil (design: Chat Panel), with accept/reject
+    per change and Accept all (Ctrl+Enter) / Reject all. Each change reads
+    like "~ Fix the tap · Inbox → Sat 17 Oct 10:30–11:15". The mode chip
+    in the chat header switches Propose/Auto, and Settings → AI providers
+    has the same switch. A badge on the chat button counts changes
+    waiting, including proposals from MCP clients, which show at the top
+    of the chat.
+Files:
+    A  crates/blotter-core/migrations/0005_proposal_ids.sql
+    A  crates/blotter-core/src/proposals.rs
+    A  src/chat/ProposalCard.tsx
+    A  src/chat/proposals.ts
+    A  src/chat/proposals.test.ts
+    M  crates/blotter-core/src/ops/mod.rs        (Ctx::new_id, run_each with savepoints)
+    M  crates/blotter-core/src/ops/{blockouts,items,occurrences,reminders}.rs (ctx.new_id)
+    M  crates/blotter-core/src/planner.rs        (run_each)
+    M  crates/blotter-core/src/context.rs        (mode line in the snapshot)
+    M  crates/blotter-core/src/settings.rs       (KEY_AI_MODE, device key)
+    M  crates/blotter-core/src/db.rs, lib.rs     (migration 0005, schema v5)
+    M  crates/blotter-mcp/src/lib.rs, Cargo.toml (propose in Propose mode; tests)
+    M  src-tauri/src/ai/agent.rs                 (Place, propose in the tool loop)
+    M  src-tauri/src/ai/chat.rs                  (mode setting, seal, proposal commands)
+    M  src-tauri/src/lib.rs
+    M  src/chat/ChatPanel.tsx, chatStore.ts, transcript.ts (+test)
+    M  src/app/TopBar.tsx                        (pending badge)
+    M  src/lib/aiSettings.ts, src/views/settings/AiProvidersPage.tsx
+    M  Cargo.lock, .claude/COMMITS.md
+Test steps:
+    - cargo test --workspace → 141 core (+5 proposals: rehearsal changes nothing and chained
+      ids survive accept; a rejected prerequisite fails what needed it; partial accept and bad
+      calls; sealing; the mode is remembered) + 36 app (+1 propose in the tool loop) + 6 mcp
+      (+1 propose mode records instead of changing); clippy / fmt clean
+    - pnpm check → clean; Vitest 178 (+6: change lines, actor labels, cards after their turn)
+    - Headless Claude Code through `blotter mcp` on the demo DB (Propose): "create Chain test,
+      then schedule it tomorrow 18:30" → create_item then schedule_item with the rehearsal's
+      id, both recorded, no item created, and the reply says nothing is applied yet. 10:00
+      tomorrow → the Work block-out error came back and the model asked instead
+Notes:
+    - Not driven live by me: the cards, the mode chip, the Settings switch and the badge.
+      Luke's dev app held the single-instance lock while I worked. His demo database has 3
+      pending test changes from the checks above (an MCP card at the top of the chat), which
+      exercise the UI: please accept or reject them.
+    - Concurrent turns in two threads with the same Claude Code model could claim each
+      other's MCP proposals (sealing matches on actor). It's rare; fixing it would need a
+      thread id per process.
+    - Pencil items on the calendar for pending proposals (D23) aren't drawn yet; the card is
+      in pencil.
+    - Next: #32a Undo batch for auto-applied changes.

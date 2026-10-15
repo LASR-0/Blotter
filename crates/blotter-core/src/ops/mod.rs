@@ -17,7 +17,7 @@ mod settings;
 mod slots;
 mod undo;
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, VecDeque};
 
 use rusqlite::Connection;
 use schemars::JsonSchema;
@@ -45,9 +45,27 @@ pub struct Ctx<'a> {
     /// Set while undoing or redoing: the batch being reversed or re-applied.
     reverts: Option<String>,
     changes: Vec<Change>,
+    ids: IdSource,
+}
+
+/// The ids of the entities an operation creates. Fresh ones normally; when
+/// a proposal is rehearsed again or accepted, the ids its first rehearsal
+/// made are handed out again in the same order, so later proposals that
+/// refer to them still find them.
+#[derive(Debug, Default)]
+struct IdSource {
+    replay: VecDeque<String>,
+    minted: Vec<String>,
 }
 
 impl Ctx<'_> {
+    /// An id for a new entity (item, block-out, reminder, …).
+    pub fn new_id(&mut self) -> String {
+        let id = self.ids.replay.pop_front().unwrap_or_else(new_id);
+        self.ids.minted.push(id.clone());
+        id
+    }
+
     /// Appends a change-log row for one entity. `before`/`after` are the
     /// full entity states (`None` for create/delete respectively).
     pub fn record<T: Serialize>(
@@ -304,12 +322,113 @@ pub(crate) fn execute(
             batch_id: &batch_id,
             reverts: None,
             changes: Vec::new(),
+            ids: IdSource::default(),
         };
         results.push((def.handler)(&mut ctx, call.args.clone())?);
         changes.append(&mut ctx.changes);
     }
     tx.commit()?;
     Ok((results, changes, batch_id))
+}
+
+/// One call for [`run_each`]: an operation, its arguments, and the entity
+/// ids to hand out again (empty for fresh ones).
+pub(crate) struct Planned<'a> {
+    pub name: &'a str,
+    pub args: &'a Value,
+    pub ids: &'a [String],
+}
+
+/// What one [`Planned`] call did.
+#[derive(Debug)]
+pub(crate) struct Ran {
+    pub result: Result<Value>,
+    /// The entity ids it created, in order.
+    pub ids: Vec<String>,
+    pub changes: Vec<Change>,
+}
+
+/// Runs calls one after another under one batch id, each in its own
+/// savepoint, so a call that fails leaves the others standing. With
+/// `commit` false everything is rolled back at the end: a rehearsal that
+/// shows what the calls would do without doing it.
+pub(crate) fn run_each(
+    conn: &mut Connection,
+    registry: &Registry,
+    settings: &PlannerSettings,
+    now: Instant,
+    actor: &Actor,
+    calls: &[Planned<'_>],
+    commit: bool,
+) -> Result<(Vec<Ran>, String)> {
+    let batch_id = new_id();
+    let mut tx = conn.transaction()?;
+    let mut out = Vec::with_capacity(calls.len());
+    for call in calls {
+        let def = match registry.get(call.name) {
+            Some(def) => def,
+            None => {
+                out.push(Ran {
+                    result: Err(CoreError::UnknownOp(call.name.to_owned())),
+                    ids: Vec::new(),
+                    changes: Vec::new(),
+                });
+                continue;
+            }
+        };
+        let args = if call.args.is_null() {
+            Value::Object(Default::default())
+        } else {
+            call.args.clone()
+        };
+        if let Err(err) = def.validate(&args) {
+            out.push(Ran {
+                result: Err(err),
+                ids: Vec::new(),
+                changes: Vec::new(),
+            });
+            continue;
+        }
+        let sp = tx.savepoint()?;
+        let mut ctx = Ctx {
+            conn: &sp,
+            now,
+            settings,
+            op: def.name,
+            actor,
+            batch_id: &batch_id,
+            reverts: None,
+            changes: Vec::new(),
+            ids: IdSource {
+                replay: call.ids.iter().cloned().collect(),
+                minted: Vec::new(),
+            },
+        };
+        let result = (def.handler)(&mut ctx, args);
+        let Ctx { changes, ids, .. } = ctx;
+        match result {
+            Ok(value) => {
+                sp.commit()?;
+                out.push(Ran {
+                    result: Ok(value),
+                    ids: ids.minted,
+                    changes,
+                });
+            }
+            // Dropping the savepoint rolls this call back.
+            Err(err) => out.push(Ran {
+                result: Err(err),
+                ids: Vec::new(),
+                changes: Vec::new(),
+            }),
+        }
+    }
+    if commit {
+        tx.commit()?;
+    } else {
+        tx.rollback()?;
+    }
+    Ok((out, batch_id))
 }
 
 /// Shared helper for handlers: the item, or `NotFound`.

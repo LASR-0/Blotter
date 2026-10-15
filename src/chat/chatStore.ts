@@ -8,6 +8,9 @@ import { applyEvent, type ChatEvent, type LiveTurn } from './transcript';
 
 export const THREADS_KEY = ['chat-threads'];
 export const messagesKey = (threadId: string | null) => ['chat-messages', threadId];
+/** Proposals (all of them; a thread's under ['chat-proposals', id], MCP clients' under null). */
+export const PROPOSALS_KEY = ['chat-proposals'];
+export const PENDING_KEY = ['pending-proposals'];
 
 interface ChatState {
   /** The panel docked in the main window is showing. */
@@ -72,7 +75,11 @@ export const useChat = create<ChatState>((set, get) => ({
 /** Once a turn ends, loads its saved copy and drops the live one. A notice
  *  (e.g. "Stopped.") isn't saved, so it stays until the next turn. */
 async function settle(threadId: string, e: ChatEvent) {
-  await queryClient.invalidateQueries({ queryKey: messagesKey(threadId) });
+  await Promise.all([
+    queryClient.invalidateQueries({ queryKey: messagesKey(threadId) }),
+    queryClient.invalidateQueries({ queryKey: PROPOSALS_KEY }),
+  ]);
+  void queryClient.invalidateQueries({ queryKey: PENDING_KEY });
   void queryClient.invalidateQueries({ queryKey: THREADS_KEY });
   useChat.setState((s) => {
     const live = { ...s.live };
@@ -84,14 +91,21 @@ async function settle(threadId: string, e: ChatEvent) {
   });
 }
 
-/** Feeds `chat:event`s into the store. Mount once per window. */
+/** Feeds `chat:event`s into the store, and refreshes proposals when the
+ *  planner changes (an MCP client may have proposed something). Mount once
+ *  per window. */
 export function useChatEvents() {
   useEffect(() => {
     const stop = listen<ChatEvent>('chat:event', (event) => {
       useChat.getState().onEvent(event.payload);
     });
+    const stopChanged = listen('planner:changed', () => {
+      void queryClient.invalidateQueries({ queryKey: PROPOSALS_KEY });
+      void queryClient.invalidateQueries({ queryKey: PENDING_KEY });
+    });
     return () => {
       void stop.then((unlisten) => unlisten());
+      void stopChanged.then((unlisten) => unlisten());
     };
   }, []);
 }

@@ -11,6 +11,7 @@ import {
   Info,
   Lightning,
   NotePencil,
+  PencilSimple,
   PushPin,
   SunHorizon,
   Stop,
@@ -29,7 +30,9 @@ import { Tooltip } from '@/components/ui/tooltip';
 import { AI_SETTINGS_KEY, type AiSettings } from '@/lib/aiSettings';
 import { addedAgo } from '@/lib/format';
 import { cn } from '@/lib/cn';
-import { messagesKey, THREADS_KEY, useChat } from './chatStore';
+import { messagesKey, PROPOSALS_KEY, THREADS_KEY, useChat } from './chatStore';
+import { ProposalCard } from './ProposalCard';
+import type { Proposal } from './proposals';
 import { Markdown } from './markdown';
 import { transcript, type Item, type SavedMessage, type Thread } from './transcript';
 
@@ -113,7 +116,15 @@ function ThreadList({ onPick }: { onPick: () => void }) {
   );
 }
 
-function Row({ item, streaming }: { item: Item; streaming: boolean }) {
+function Row({
+  item,
+  streaming,
+  proposals,
+}: {
+  item: Item;
+  streaming: boolean;
+  proposals: Map<string, Proposal>;
+}) {
   switch (item.kind) {
     case 'user':
       return (
@@ -171,6 +182,10 @@ function Row({ item, streaming }: { item: Item; streaming: boolean }) {
           {item.text}
         </span>
       );
+    case 'proposal': {
+      const p = proposals.get(item.id);
+      return p ? <ProposalCard proposal={p} /> : null;
+    }
   }
 }
 
@@ -178,6 +193,16 @@ function Row({ item, streaming }: { item: Item; streaming: boolean }) {
 export function ChatPanel({ mode }: { mode: 'docked' | 'popout' }) {
   const { threadId, live, sendError, send, stop, showThread, setOpen } = useChat();
   const provider = useProviderLabel();
+  const qc = useQueryClient();
+  const ai = useQuery({
+    queryKey: AI_SETTINGS_KEY,
+    queryFn: () => invoke<AiSettings>('get_ai_settings'),
+  });
+  const auto = ai.data?.mode === 'auto';
+  const toggleMode = () =>
+    void invoke<AiSettings>('set_ai_settings', { input: { mode: auto ? 'propose' : 'auto' } }).then(
+      (s) => qc.setQueryData(AI_SETTINGS_KEY, s),
+    );
   const [draft, setDraft] = useState('');
   const [threadsOpen, setThreadsOpen] = useState(false);
   const [onTop, setOnTop] = useState(true);
@@ -193,9 +218,23 @@ export function ChatPanel({ mode }: { mode: 'docked' | 'popout' }) {
     queryFn: () => invoke<SavedMessage[]>('chat_messages', { threadId }),
     enabled: threadId !== null,
   });
+  const threadProposals = useQuery({
+    queryKey: [...PROPOSALS_KEY, threadId],
+    queryFn: () => invoke<Proposal[]>('chat_proposals', { threadId }),
+    enabled: threadId !== null,
+  });
+  // Waiting changes from MCP clients (Claude Desktop, …), shown in every thread.
+  const external = useQuery({
+    queryKey: [...PROPOSALS_KEY, null],
+    queryFn: () => invoke<Proposal[]>('chat_proposals', { threadId: null }),
+  });
+  const proposalMap = new Map((threadProposals.data ?? []).map((p) => [p.id, p]));
   const turn = threadId ? live[threadId] : undefined;
   const running = turn?.running ?? false;
-  const items = [...transcript(saved.data ?? []), ...(turn?.items ?? [])];
+  const items = [
+    ...transcript(saved.data ?? [], threadProposals.data ?? []),
+    ...(turn?.items ?? []),
+  ];
   const title = threads.data?.find((t) => t.id === threadId)?.title ?? 'New thread';
   const empty = threadId === null && items.length === 0;
 
@@ -325,13 +364,24 @@ export function ChatPanel({ mode }: { mode: 'docked' | 'popout' }) {
             <span className="size-1.5 flex-none rounded-full bg-tag-health" />
             <span className="truncate font-mono">{provider}</span>
           </span>
-          <span
-            title="Changes apply straight away, after a safety snapshot; each can be undone with Ctrl+Z. Proposals you approve first come in a later version."
-            className="flex h-[22px] items-center gap-1 rounded-full bg-[color-mix(in_srgb,var(--color-warning)_14%,transparent)] px-2 font-medium whitespace-nowrap text-warning"
+          <button
+            onClick={toggleMode}
+            aria-label={auto ? 'Auto mode: switch to Propose' : 'Propose mode: switch to Auto'}
+            title={
+              auto
+                ? 'Auto: changes apply straight away, after a safety snapshot, and can be undone. Click for Propose.'
+                : 'Propose: changes wait for you to accept them. Click for Auto.'
+            }
+            className={cn(
+              'flex h-[22px] cursor-pointer items-center gap-1 rounded-full px-2 font-medium whitespace-nowrap',
+              auto
+                ? 'bg-[color-mix(in_srgb,var(--color-warning)_14%,transparent)] text-warning'
+                : 'bg-accent-tint text-accent-text',
+            )}
           >
-            <Lightning />
-            Auto
-          </span>
+            {auto ? <Lightning /> : <PencilSimple />}
+            {auto ? 'Auto' : 'Propose'}
+          </button>
         </div>
       </div>
 
@@ -340,13 +390,18 @@ export function ChatPanel({ mode }: { mode: 'docked' | 'popout' }) {
         className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto px-3 py-3.5"
         aria-live="polite"
       >
+        {(external.data ?? []).map((p) => (
+          <ProposalCard key={p.id} proposal={p} showActor />
+        ))}
         {empty && (
           <div className="my-auto flex flex-col gap-3 p-2">
             <ChatCircleText size={24} className="text-text-muted" />
             <span className="text-md font-semibold">New thread</span>
             <span className="leading-normal text-text-muted">
-              Ask about your plans or tell Blotter what to schedule. Changes apply straight away and
-              can be undone.
+              Ask about your plans or tell Blotter what to schedule.{' '}
+              {auto
+                ? 'Changes apply straight away and can be undone.'
+                : 'Changes arrive as proposals you accept or reject.'}
             </span>
             <div className="flex flex-col gap-1">
               {SUGGESTIONS.map(({ icon: Icon, text }) => (
@@ -366,7 +421,12 @@ export function ChatPanel({ mode }: { mode: 'docked' | 'popout' }) {
           <span className="font-mono text-xs text-text-muted">Loading thread…</span>
         )}
         {items.map((item, i) => (
-          <Row key={i} item={item} streaming={running && i === items.length - 1} />
+          <Row
+            key={i}
+            item={item}
+            streaming={running && i === items.length - 1}
+            proposals={proposalMap}
+          />
         ))}
         {running && items[items.length - 1]?.kind !== 'text' && (
           <span className="animate-pulse font-mono text-xs text-text-muted">Thinking…</span>

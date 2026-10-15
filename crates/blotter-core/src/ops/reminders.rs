@@ -7,7 +7,6 @@ use serde::{Deserialize, Serialize};
 use super::input::DateTimeInput;
 use super::{Ctx, OpDef, require_item};
 use crate::error::{CoreError, Result};
-use crate::id::new_id;
 use crate::model::Reminder;
 use crate::store;
 
@@ -113,7 +112,10 @@ fn set_reminder(ctx: &mut Ctx<'_>, a: SetReminderArgs) -> Result<Reminder> {
     };
 
     let reminder = Reminder {
-        id: before.as_ref().map(|r| r.id.clone()).unwrap_or_else(new_id),
+        id: match before.as_ref() {
+            Some(r) => r.id.clone(),
+            None => ctx.new_id(),
+        },
         item_id: item.id,
         offset_min: a.offset_min,
         at,

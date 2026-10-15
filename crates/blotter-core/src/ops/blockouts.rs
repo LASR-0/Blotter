@@ -7,7 +7,6 @@ use serde::{Deserialize, Serialize};
 use super::input::{DateInput, TimeInput, patch};
 use super::{Ctx, OpDef};
 use crate::error::{CoreError, Result};
-use crate::id::new_id;
 use crate::model::{Blockout, BlockoutException, Weekdays};
 use crate::store;
 
@@ -151,7 +150,7 @@ fn create_blockout(ctx: &mut Ctx<'_>, a: CreateBlockoutArgs) -> Result<Blockout>
         |r| r.get(0),
     )?;
     let mut b = Blockout {
-        id: new_id(),
+        id: ctx.new_id(),
         label: a.label,
         weekdays: a.weekdays,
         start_time: a.start_time.0,
@@ -239,7 +238,7 @@ fn add_blockout_exception(ctx: &mut Ctx<'_>, a: AddExceptionArgs) -> Result<Bloc
         return Ok(e);
     }
     let e = BlockoutException {
-        id: new_id(),
+        id: ctx.new_id(),
         blockout_id: a.blockout_id,
         date: a.date.0,
         note: a.note.trim().to_owned(),

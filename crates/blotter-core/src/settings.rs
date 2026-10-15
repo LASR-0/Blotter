@@ -36,6 +36,8 @@ pub const KEY_LAST_REMINDER_CHECK: &str = "last_reminder_check";
 pub const KEY_SNAPSHOT_KEEP: &str = "snapshot_keep";
 /// Where snapshots are written (default: a `snapshots` folder by the database).
 pub const KEY_SNAPSHOT_DIR: &str = "snapshot_dir";
+/// `"propose"` (default, D8) or `"auto"`: whether AI and MCP changes wait for approval.
+pub const KEY_AI_MODE: &str = "ai_mode";
 /// Which AI the chat uses: `"claude_code"` (default, D29) or `"api"` (the default provider).
 pub const KEY_AI_ROUTE: &str = "ai_route";
 /// The model Claude Code runs, as an alias (`sonnet`, `opus`, …) or full name.
@@ -45,7 +47,8 @@ pub const KEY_CLAUDE_CODE_PATH: &str = "claude_code_path";
 
 /// Settings that describe this install rather than the planner: they stay
 /// put through a restore or import, and aren't exported.
-pub const DEVICE_KEYS: [&str; 7] = [
+pub const DEVICE_KEYS: [&str; 8] = [
+    KEY_AI_MODE,
     KEY_LAST_REMINDER_CHECK,
     KEY_LAST_ROLLOVER,
     KEY_SNAPSHOT_DIR,

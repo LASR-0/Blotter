@@ -10,7 +10,6 @@ use super::Ctx;
 use super::items::ENTITY as ITEM_ENTITY;
 use super::reminders::ENTITY as REMINDER_ENTITY;
 use crate::error::{CoreError, Result};
-use crate::id::new_id;
 use crate::model::Item;
 use crate::recurrence::{self, Slot};
 use crate::store;
@@ -101,7 +100,7 @@ pub(crate) fn override_for(
         return Ok(o);
     }
     let mut child = recurrence::occurrence_item(series, slot);
-    child.id = new_id();
+    child.id = ctx.new_id();
     child.rrule = None;
     child.created_at = ctx.now;
     child.updated_at = ctx.now;
@@ -164,7 +163,7 @@ pub(crate) fn split(ctx: &mut Ctx<'_>, series: &Item, slot: Slot) -> Result<Item
     }
     let rule = series.rrule.clone().unwrap_or_default();
     let mut next = recurrence::occurrence_item(series, slot);
-    next.id = new_id();
+    next.id = ctx.new_id();
     next.parent_id = None;
     next.recurrence_id = None;
     next.rrule = Some(match recurrence::rule_count(&rule) {
@@ -185,7 +184,7 @@ pub(crate) fn split(ctx: &mut Ctx<'_>, series: &Item, slot: Slot) -> Result<Item
     }
     for r in store::reminders::list_for_item(ctx.conn, &series.id)? {
         let mut copy = r.clone();
-        copy.id = new_id();
+        copy.id = ctx.new_id();
         copy.item_id = next.id.clone();
         copy.fired_at = None;
         copy.snoozed_until = None;

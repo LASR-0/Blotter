@@ -79,6 +79,14 @@ pub fn snapshot(planner: &mut Planner) -> Result<String> {
 
     let mut out = String::from("Planner snapshot\n");
     let _ = writeln!(out, "Now: {} ({tz}).", local.format("%A %-d %B %Y, %H:%M"));
+    let mode = match crate::proposals::mode(planner.db().conn())? {
+        crate::proposals::Mode::Propose => {
+            "Changes: Propose mode. What you change is recorded as proposals the user accepts \
+             or rejects in Blotter; say what you proposed, not that it's done."
+        }
+        crate::proposals::Mode::Auto => "Changes: Auto mode. Changes apply straight away.",
+    };
+    let _ = writeln!(out, "{mode}");
 
     out.push_str("\nPlanning hours (when flexible tasks may be placed):\n");
     for day in [
@@ -261,16 +269,15 @@ mod tests {
             "{prompt}"
         );
         assert!(
-            prompt.contains(
-                "Inbox (1 unscheduled):
-- Buy milk"
-            ),
+            prompt.contains("Inbox (1 unscheduled):\n- Buy milk"),
             "{prompt}"
         );
-        assert!(snapshot(&mut p).unwrap().starts_with(
-            "Planner snapshot
-Now:"
-        ));
+        assert!(prompt.contains("Changes: Propose mode."), "{prompt}");
+        assert!(
+            snapshot(&mut p)
+                .unwrap()
+                .starts_with("Planner snapshot\nNow:")
+        );
         assert!(
             !instructions().contains("Dentist"),
             "instructions are fixed"

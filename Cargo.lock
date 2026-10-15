@@ -429,6 +429,7 @@ name = "blotter-mcp"
 version = "0.1.0"
 dependencies = [
  "blotter-core",
+ "chrono",
  "chrono-tz",
  "rmcp",
  "serde_json",
