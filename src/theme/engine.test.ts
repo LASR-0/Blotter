@@ -4,11 +4,12 @@ import {
   contrastRatio,
   copyName,
   currentChoice,
-  DENSITIES,
+  DENSITY,
   formatRatio,
   fromUserTheme,
-  HEADING_FONTS,
-  RADII,
+  HEADINGS,
+  baseRadius,
+  radiusVars,
   readTokens,
   TEXT_SIZES,
   TOKEN_NAMES,
@@ -49,11 +50,11 @@ describe('contrast', () => {
 
 describe('editor choices', () => {
   it('recognises the presets’ shape, type and density', () => {
-    expect(currentChoice(RADII, dark)).toBe('default');
+    expect(baseRadius(dark)).toBe(6);
     expect(currentChoice(TEXT_SIZES, dark)).toBe('default');
-    expect(currentChoice(DENSITIES, dark)).toBe('default');
-    expect(currentChoice(HEADING_FONTS, findPreset('paper')?.vars as ThemeVars)).toBe('serif');
-    expect(currentChoice(RADII, { ...dark, '--radius-md': '7px' })).toBeNull();
+    expect(currentChoice(DENSITY, dark)).toBe('comfortable');
+    expect(currentChoice(HEADINGS, findPreset('paper')?.vars as ThemeVars)).toBe('serif');
+    expect(currentChoice(DENSITY, { ...dark, '--density-row': '34px' })).toBeNull();
   });
 
   it('scales every text size together', () => {
@@ -96,5 +97,18 @@ describe('reading themes', () => {
     expect(copyName('Dark', ['Dark'])).toBe('Dark copy');
     expect(copyName('Dark', ['Dark copy'])).toBe('Dark copy 2');
     expect(copyName('Dark copy 2', ['Dark copy', 'Dark copy 2'])).toBe('Dark copy 3');
+  });
+});
+
+describe('radius slider', () => {
+  it('sets small, medium and large corners from one value', () => {
+    expect(radiusVars(6)).toEqual({
+      '--radius-sm': '4px',
+      '--radius-md': '6px',
+      '--radius-lg': '10px',
+    });
+    expect(radiusVars(0)['--radius-sm']).toBe('0px');
+    expect(radiusVars(40)['--radius-md']).toBe('12px');
+    expect(baseRadius(dark)).toBe(6);
   });
 });

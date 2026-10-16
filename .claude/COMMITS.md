@@ -95,8 +95,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 38 | 10 | `feat(ui): General settings page` | committed `f6b8d44` (split: first-run setup is #38a) |
 | 38a | 10 | `feat(ui): first-run setup` | committed `95b63fe` |
 | 39 | 11 | `feat(ui): completion history and streaks` | committed `4703da8` |
-| 36b | 10 | `fix(ui): Keybindings page to its design` | committed (hash in the next entry) |
-| 37a | 10 | `fix(ui): Theme page to its design` | planned |
+| 36b | 10 | `fix(ui): Keybindings page to its design` | committed `97bed23` |
+| 37a | 10 | `fix(ui): Theme page to its design` | committed (hash in the next entry) |
 | 38b | 10 | `fix(ui): first-run setup to its design` | planned |
 | 40 | 12 | ~~`feat(mcp): MCP server over the operation registry`~~ | superseded by #29a |
 | 41 | 13 | `build: Windows installers and Linux AppImage/deb bundles` | planned |
@@ -3323,7 +3323,7 @@ Notes:
       History at the right local time, the last two badged ai and mcp.
     - Phase 11 is complete in code. Next: Phase 12 (MCP acceptance checks and README notes).
 
-### #36b — Keybindings page to its design            [status: committed — hash in the next entry]
+### #36b — Keybindings page to its design            [status: committed 97bed23]
 Phase: 10 (fix; design: Settings Keybindings, which #36 was built without)
 Message:
     fix(ui): Keybindings page to its design
@@ -3354,3 +3354,41 @@ Notes:
       clashes, and the registry's own groups (Go to, View, …) so the page matches the
       palette and ? sheet.
     - Next: #37a Theme page.
+
+### #37a — Theme page to its design            [status: committed — hash in the next entry]
+Phase: 10 (fix; design: Settings Theme, which #37 was built without)
+Message:
+    fix(ui): Theme page to its design
+
+    #37 was built without the Settings Theme design; the page is now the
+    design's single editor screen:
+
+    - A header bar: Theme, a "draft · name (edited)" pill (the name is
+      editable there), "N below WCAG AA" when any, then Import,
+      Duplicate, Export, Delete (your own themes), Discard and Apply
+      (Ctrl+Enter; it reads Applied once done).
+    - A 340px editor beside the live preview ("only this panel uses the
+      draft until you apply"). "Start from preset" chips (a strip of
+      each theme's background and accent), with your own themes below
+      them, load a theme into the draft.
+    - Colour rows: swatch, token name, hex field; a pair below AA puts
+      "3.92:1 on surface — AA needs 4.5:1" under its text colour and
+      outlines the field.
+    - Shape & type: a Radius slider (0–12px, setting all three corner
+      sizes), Headings Sans/Serif, Density Compact/Comfortable, plus
+      Text size and Font from #37.
+
+    Apply on an edited preset saves it as a theme of your own (named
+    "Dark copy" unless renamed); on your own theme it saves over it.
+    The separate theme list screen is gone.
+Files:
+    M  src/views/settings/ThemePage.tsx
+    M  src/theme/engine.ts (+ test)                (radius slider; the design's heading and density choices)
+    M  .claude/COMMITS.md
+Test steps:
+    - pnpm check → clean; Vitest 213 (+1 radius slider)
+Notes:
+    - Kept beyond the design: your own themes as chips, Import, Delete, Text size, Font.
+      Density's Spacious (34px) from #37 is gone from the choices; a theme that has it
+      still works (neither choice shows selected).
+    - Next: #38b first-run setup.

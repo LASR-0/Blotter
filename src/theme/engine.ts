@@ -85,21 +85,6 @@ export interface Choice {
 
 const px = (n: number) => `${Math.round(n)}px`;
 
-export const RADII: readonly Choice[] = [
-  ['square', 'Square', 0, 0, 0],
-  ['subtle', 'Subtle', 2, 3, 5],
-  ['default', 'Default', 4, 6, 10],
-  ['round', 'Round', 6, 9, 14],
-].map(([id, label, sm, md, lg]) => ({
-  id: id as string,
-  label: label as string,
-  vars: {
-    '--radius-sm': px(sm as number),
-    '--radius-md': px(md as number),
-    '--radius-lg': px(lg as number),
-  },
-}));
-
 const TEXT_BASE: readonly [TokenName, number][] = [
   ['--text-xs', 11],
   ['--text-sm', 12],
@@ -121,12 +106,6 @@ export const TEXT_SIZES: readonly Choice[] = [
   vars: Object.fromEntries(TEXT_BASE.map(([t, n]) => [t, px(n * (k as number))])),
 }));
 
-export const DENSITIES: readonly Choice[] = [
-  { id: 'compact', label: 'Compact', vars: { '--density-row': '26px' } },
-  { id: 'default', label: 'Default', vars: { '--density-row': '30px' } },
-  { id: 'spacious', label: 'Spacious', vars: { '--density-row': '34px' } },
-];
-
 const SYSTEM_FONT = 'system-ui, "Segoe UI", Ubuntu, Cantarell, sans-serif';
 
 export const UI_FONTS: readonly Choice[] = [
@@ -134,18 +113,20 @@ export const UI_FONTS: readonly Choice[] = [
   { id: 'system', label: 'System', vars: { '--font-ui': SYSTEM_FONT } },
 ];
 
-export const HEADING_FONTS: readonly Choice[] = [
-  { id: 'geist', label: 'Geist', vars: { '--font-heading': FONT_UI, '--heading-weight': '600' } },
+/** Headings, as the editor offers them. */
+export const HEADINGS: readonly Choice[] = [
+  { id: 'sans', label: 'Sans', vars: { '--font-heading': FONT_UI, '--heading-weight': '600' } },
   {
     id: 'serif',
-    label: 'Newsreader (serif)',
+    label: 'Serif',
     vars: { '--font-heading': FONT_SERIF, '--heading-weight': '500' },
   },
-  {
-    id: 'system',
-    label: 'System',
-    vars: { '--font-heading': SYSTEM_FONT, '--heading-weight': '600' },
-  },
+];
+
+/** Density: control height (`--density-row`). */
+export const DENSITY: readonly Choice[] = [
+  { id: 'compact', label: 'Compact', vars: { '--density-row': '26px' } },
+  { id: 'comfortable', label: 'Comfortable', vars: { '--density-row': '30px' } },
 ];
 
 /** The choice whose tokens `vars` has, or null when edited some other way. */
@@ -215,4 +196,20 @@ export function luminance(hex: string): number | null {
   return (
     0.2126 * channel((n >> 16) & 255) + 0.7152 * channel((n >> 8) & 255) + 0.0722 * channel(n & 255)
   );
+}
+
+/** Corner tokens for a base radius `r` (the editor's slider, 0–12px). */
+export function radiusVars(r: number): Partial<ThemeVars> {
+  const n = Math.max(0, Math.min(12, Math.round(r)));
+  return {
+    '--radius-sm': `${Math.max(0, n - 2)}px`,
+    '--radius-md': `${n}px`,
+    '--radius-lg': `${n + 4}px`,
+  };
+}
+
+/** The base radius a theme uses (its `--radius-md`), for the slider. */
+export function baseRadius(vars: ThemeVars): number {
+  const n = parseInt(vars['--radius-md'] ?? '', 10);
+  return Number.isFinite(n) ? Math.max(0, Math.min(12, n)) : 6;
 }
