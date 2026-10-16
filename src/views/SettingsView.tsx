@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import {
   Bell,
@@ -39,9 +39,86 @@ const PAGES: readonly { id: SettingsPage; label: string; icon: Icon }[] = [
   { id: 'about', label: 'About', icon: Info },
 ];
 
+/** Windows at least this wide show every page but Theme on one scrolling page. */
+const ONE_PAGE_MIN_PX = 1600;
+
+function useWideWindow(): boolean {
+  const query = `(min-width: ${ONE_PAGE_MIN_PX}px)`;
+  const [wide, setWide] = useState(() => window.matchMedia(query).matches);
+  useEffect(() => {
+    const mq = window.matchMedia(query);
+    const update = () => setWide(mq.matches);
+    mq.addEventListener('change', update);
+    return () => mq.removeEventListener('change', update);
+  }, [query]);
+  return wide;
+}
+
+function PageBody({ page }: { page: SettingsPage }) {
+  switch (page) {
+    case 'general':
+      return <GeneralPage />;
+    case 'blockouts':
+      return <BlockoutsPage />;
+    case 'calendars':
+      return <CalendarsPage />;
+    case 'notifications':
+      return <NotificationsPage />;
+    case 'ai':
+      return <AiProvidersPage />;
+    case 'keybindings':
+      return <KeybindingsPage />;
+    case 'backups':
+      return <BackupsPage />;
+    case 'about':
+      return <AboutPage />;
+    case 'theme':
+      return <ThemePage />;
+  }
+}
+
+const sectionId = (p: SettingsPage) => `settings-${p}`;
+
 export function SettingsView() {
   const page = useNav((s) => s.settingsPage);
   const openSettings = useNav((s) => s.openSettings);
+  const wide = useWideWindow();
+  // Wide: every page but Theme on one long page; the nav scrolls to them.
+  const onePage = wide && page !== 'theme';
+  const mainRef = useRef<HTMLElement>(null);
+  /** The section in view, for the nav highlight on the long page. */
+  const [inView, setInView] = useState<SettingsPage>(page);
+
+  // Opening a page (from the nav, the palette or a link) scrolls to it.
+  useEffect(() => {
+    if (!onePage) return;
+    document.getElementById(sectionId(page))?.scrollIntoView({ block: 'start' });
+  }, [onePage, page]);
+
+  const onScroll = () => {
+    const main = mainRef.current;
+    if (!main) return;
+    const top = main.getBoundingClientRect().top + 80;
+    let current: SettingsPage = 'general';
+    for (const p of PAGES) {
+      const el = document.getElementById(sectionId(p.id));
+      if (el && el.getBoundingClientRect().top <= top) current = p.id;
+    }
+    setInView(current);
+  };
+
+  const pick = (id: SettingsPage) => {
+    if (wide && id !== 'theme' && page === id) {
+      // Already the open page: scroll back to it.
+      document
+        .getElementById(sectionId(id))
+        ?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    }
+    setInView(id);
+    openSettings(id);
+  };
+  const current = onePage ? inView : page;
+
   return (
     <div className="flex h-full min-h-0">
       <nav
@@ -55,11 +132,11 @@ export function SettingsView() {
           <button
             key={p.id}
             type="button"
-            onClick={() => openSettings(p.id)}
-            aria-current={page === p.id ? 'page' : undefined}
+            onClick={() => pick(p.id)}
+            aria-current={current === p.id ? 'page' : undefined}
             className={cn(
               'flex h-[30px] cursor-pointer items-center gap-2.5 rounded-md px-2 text-left hover:bg-hover',
-              page === p.id && 'bg-hover font-medium',
+              current === p.id && 'bg-hover font-medium',
             )}
           >
             <p.icon size={15} className="text-text-muted" />
@@ -67,25 +144,28 @@ export function SettingsView() {
           </button>
         ))}
       </nav>
-      <main className="min-w-0 flex-1 overflow-auto">
-        {page === 'general' ? (
-          <GeneralPage />
-        ) : page === 'about' ? (
-          <AboutPage />
-        ) : page === 'ai' ? (
-          <AiProvidersPage />
-        ) : page === 'backups' ? (
-          <BackupsPage />
-        ) : page === 'notifications' ? (
-          <NotificationsPage />
-        ) : page === 'blockouts' ? (
-          <BlockoutsPage />
-        ) : page === 'keybindings' ? (
-          <KeybindingsPage />
-        ) : page === 'calendars' ? (
-          <CalendarsPage />
+      <main
+        ref={mainRef}
+        onScroll={onePage ? onScroll : undefined}
+        className="min-w-0 flex-1 overflow-auto"
+      >
+        {onePage ? (
+          <>
+            {PAGES.filter((p) => p.id !== 'theme').map((p) => (
+              <section
+                key={p.id}
+                id={sectionId(p.id)}
+                aria-label={p.label}
+                className="border-b border-border last:border-b-0"
+              >
+                <PageBody page={p.id} />
+              </section>
+            ))}
+            {/* Room for the last section to scroll to the top. */}
+            <div aria-hidden className="h-[50vh]" />
+          </>
         ) : (
-          <ThemePage />
+          <PageBody page={page} />
         )}
       </main>
     </div>

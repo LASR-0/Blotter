@@ -177,10 +177,10 @@ function MiniWeek() {
           {col === 0 && block(0, hour * 5, 'Work')}
           {col === 0 && event(hour, hour, 'Standup', 'var(--tag-work)')}
           {col === 1 && event(hour * 1.5, hour * 1.5, 'Review', 'var(--tag-work)', true)}
-          {col === 1 && (
+          {col === 2 && (
             <div
-              className="absolute right-[3px] left-[45%] overflow-hidden rounded-sm border border-dashed border-pencil px-1.5 font-mono text-[10px] leading-6 text-pencil"
-              style={{ top: hour * 2, height: hour - 2 }}
+              className="absolute right-[3px] left-[3px] overflow-hidden rounded-sm border border-dashed border-pencil px-1.5 font-mono text-[10px] leading-6 text-pencil"
+              style={{ top: hour + 1, height: hour - 2 }}
             >
               ✎ Call
             </div>

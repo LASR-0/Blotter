@@ -99,7 +99,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 37a | 10 | `fix(ui): Theme page to its design` | committed `7a1f99f` |
 | 38b | 10 | `fix(ui): first-run setup to its design` | committed `b1efb94` |
 | 39a | polish | `style(theme): Luke's accents for Dark, Light and Paper` | committed `1b32ffd` |
-| 39b | polish | `style(ui): polish from Luke's list` | committed (hash in the next entry) |
+| 39b | polish | `style(ui): polish from Luke's list` | committed `0a92ee0` |
+| 39c | polish | `feat(ui): Settings on one page in wide windows` | committed (hash in the next entry) |
 | 40 | 12 | ~~`feat(mcp): MCP server over the operation registry`~~ | superseded by #29a |
 | 41 | 13 | `build: Windows installers and Linux AppImage/deb bundles` | planned |
 | 42 | 13 | `build: Flatpak manifest` | planned |
@@ -3464,7 +3465,7 @@ Notes:
     - The "… copy" themes in the demo database are untouched (delete them if no longer
       needed).
 
-### #39b — Polish from Luke's list            [status: committed — hash in the next entry]
+### #39b — Polish from Luke's list            [status: committed 0a92ee0]
 Phase: pre-release polish (Luke's list, 2026-10-16)
 Message:
     style(ui): polish from Luke's list
@@ -3499,3 +3500,28 @@ Test steps:
       minimum when the chat is open.
 Notes:
     - The new icon shows in the taskbar after a rebuild (pnpm tauri dev / build).
+
+### #39c — Settings on one page in wide windows            [status: committed — hash in the next entry]
+Phase: pre-release polish (Luke's list, 2026-10-16)
+Message:
+    feat(ui): Settings on one page in wide windows
+
+    In a window at least 1600px wide (maximised on most screens), every
+    settings page but Theme shows on one scrolling page: the nav jumps
+    to a section and highlights the one in view. Theme, being large,
+    stays on its own; picking another page from it goes back to the
+    long page at that section. Narrower windows show one page per
+    click, as before. Links into Settings (Edit block-outs, Edit
+    keybindings) scroll to their section.
+
+    Also: the theme preview's pencilled proposal sits in its own column
+    of the mini week instead of over the Review block.
+Files:
+    M  src/views/SettingsView.tsx, src/views/settings/ThemePreview.tsx
+    M  .claude/COMMITS.md
+Test steps:
+    - pnpm check → clean; Vitest 213
+    - In the running app (DevTools, copy of the demo database): at 1728px wide the long page
+      shows and clicking Backups scrolls there with Backups highlighted; at 1200px it's one
+      page per click; at 1200px the theme preview is one 358px column with nothing
+      overflowing.
