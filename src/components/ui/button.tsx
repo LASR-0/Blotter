@@ -21,9 +21,9 @@ const buttonVariants = cva(
         bare: 'text-text-muted hover:bg-hover hover:text-text',
       },
       size: {
-        md: 'h-[30px] px-3 text-base',
-        sm: 'h-[26px] px-2.5 text-sm',
-        icon: 'size-[30px] text-[15px]',
+        md: 'h-[var(--density-row)] px-3 text-base',
+        sm: 'h-[calc(var(--density-row)-4px)] px-2.5 text-sm',
+        icon: 'size-[var(--density-row)] text-[15px]',
         'icon-sm': 'size-6 rounded-sm text-sm',
       },
     },

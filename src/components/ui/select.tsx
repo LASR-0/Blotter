@@ -45,7 +45,7 @@ export function Select<T extends string>({
         aria-label={ariaLabel}
         autoFocus={autoFocus}
         className={cn(
-          'flex h-[30px] cursor-pointer items-center justify-between gap-2 rounded-md border border-border-strong bg-bg px-2.5 text-base text-text outline-none focus-visible:border-accent data-[placeholder]:text-text-muted data-[state=open]:border-accent',
+          'flex h-[var(--density-row)] cursor-pointer items-center justify-between gap-2 rounded-md border border-border-strong bg-bg px-2.5 text-base text-text outline-none focus-visible:border-accent data-[placeholder]:text-text-muted data-[state=open]:border-accent',
           className,
         )}
       >

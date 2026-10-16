@@ -3,7 +3,6 @@ import { invoke } from '@tauri-apps/api/core';
 import {
   Bell,
   CalendarDots,
-  Check,
   ClockCounterClockwise,
   Info,
   Keyboard,
@@ -15,9 +14,9 @@ import {
 import { useNav, type SettingsPage } from '@/app/nav';
 import { BlotterMark } from '@/components/BlotterMark';
 import { cn } from '@/lib/cn';
-import { PRESETS, type Theme } from '@/theme/presets';
-import { useTheme } from '@/theme/theme';
+
 import { AiProvidersPage } from './settings/AiProvidersPage';
+import { ThemePage } from './settings/ThemePage';
 import { BackupsPage } from './settings/BackupsPage';
 import { BlockoutsPage } from './settings/BlockoutsPage';
 import { CalendarsPage } from './settings/CalendarsPage';
@@ -84,71 +83,6 @@ export function SettingsView() {
           <ThemePage />
         )}
       </main>
-    </div>
-  );
-}
-
-function PresetCard({
-  theme,
-  active,
-  onPick,
-}: {
-  theme: Theme;
-  active: boolean;
-  onPick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      role="radio"
-      aria-checked={active}
-      onClick={onPick}
-      // The card renders in its own theme: tokens set on the element apply to its subtree.
-      style={theme.vars as React.CSSProperties}
-      className={cn(
-        'flex cursor-pointer flex-col gap-2.5 rounded-lg border bg-bg p-4 text-left font-ui text-base text-text',
-        active ? 'border-accent shadow-[0_0_0_1px_var(--color-accent)]' : 'border-border',
-      )}
-    >
-      <span className="flex items-center">
-        <span className="flex-1 font-heading text-[15px] font-heading-weight">{theme.label}</span>
-        {active && <Check weight="bold" className="text-accent-text" />}
-      </span>
-      <span className="flex flex-col gap-[3px] rounded-md border border-dashed border-pencil bg-[color-mix(in_srgb,var(--color-surface)_45%,transparent)] px-[11px] py-[9px]">
-        <span className="font-medium">Call Mum</span>
-        <span className="font-mono text-xs text-pencil">✎ proposed · 18:30</span>
-      </span>
-      <span className="flex flex-col gap-[3px] rounded-md border border-border bg-surface px-[11px] py-[9px]">
-        <span className="font-medium">Gym</span>
-        <span className="font-mono text-xs text-text-muted">17:30 · 45m · health</span>
-      </span>
-      <span className="h-[30px] rounded-sm bg-hatch px-1.5 py-[3px] font-mono text-[10px] text-text-muted">
-        Work
-      </span>
-      <span className="text-sm text-text-muted">{theme.note}</span>
-    </button>
-  );
-}
-
-function ThemePage() {
-  const { theme, setTheme } = useTheme();
-  return (
-    <div className="flex max-w-[960px] flex-col gap-4 px-8 pt-6 pb-12">
-      <h1 className="m-0 font-heading text-xl font-heading-weight">Theme</h1>
-      <p className="m-0 max-w-[560px] leading-normal text-text-muted">
-        Pick a built-in preset. The token editor with a live preview, plus import and export,
-        arrives in a later build.
-      </p>
-      <div role="radiogroup" aria-label="Theme preset" className="grid grid-cols-4 gap-3.5">
-        {PRESETS.map((t) => (
-          <PresetCard
-            key={t.id}
-            theme={t}
-            active={theme.id === t.id}
-            onPick={() => setTheme(t.id)}
-          />
-        ))}
-      </div>
     </div>
   );
 }

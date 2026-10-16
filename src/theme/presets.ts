@@ -12,9 +12,10 @@ export interface Theme {
   vars: ThemeVars;
 }
 
-const FONT_UI = '"Geist Variable", "Geist", "Segoe UI", system-ui, sans-serif';
-const FONT_MONO = '"Geist Mono Variable", "Geist Mono", "JetBrains Mono", ui-monospace, monospace';
-const FONT_SERIF = '"Newsreader Variable", "Newsreader", Georgia, serif';
+export const FONT_UI = '"Geist Variable", "Geist", "Segoe UI", system-ui, sans-serif';
+export const FONT_MONO =
+  '"Geist Mono Variable", "Geist Mono", "JetBrains Mono", ui-monospace, monospace';
+export const FONT_SERIF = '"Newsreader Variable", "Newsreader", Georgia, serif';
 const FONT_BRAND = '"Playfair Display Variable", "Playfair Display", Georgia, serif';
 
 const shared: ThemeVars = {

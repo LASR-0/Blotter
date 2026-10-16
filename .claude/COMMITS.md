@@ -90,8 +90,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 35 | 9 | `feat: ICS subscriptions with block-out option` | committed `73d43a7` |
 | 35a | 9 | `feat(ui): subscribed events in the calendar views` | committed `05cceab` |
 | 36 | 10 | `feat(ui): keybinding editor` | committed `aa8c036` |
-| 36a | 10 | `refactor(ui): quick capture info on the Keybindings page` | committed (hash in the next entry) |
-| 37 | 10 | `feat(ui): theme engine with live preview` | planned |
+| 36a | 10 | `refactor(ui): quick capture info on the Keybindings page` | committed `aa98dad` |
+| 37 | 10 | `feat(ui): theme engine with live preview` | committed (hash in the next entry) |
 | 38 | 10 | `feat(ui): remaining settings pages and first-run setup` | planned |
 | 39 | 11 | `feat(ui): completion history and streaks` | planned |
 | 40 | 12 | ~~`feat(mcp): MCP server over the operation registry`~~ | superseded by #29a |
@@ -3089,7 +3089,7 @@ Notes:
       a family shows as its own row instead.
     - Next: #37 theme engine.
 
-### #36a — Quick capture info on the Keybindings page            [status: committed — hash in the next entry]
+### #36a — Quick capture info on the Keybindings page            [status: committed aa98dad]
 Phase: 10
 Message:
     refactor(ui): quick capture info on the Keybindings page
@@ -3105,3 +3105,63 @@ Test steps:
     - pnpm check → clean; Vitest 197
 Notes:
     - Missed from #36. Next: #37 theme engine.
+
+### #37 — Theme engine with live preview            [status: committed — hash in the next entry]
+Phase: 10 (roadmap §5.5)
+Message:
+    feat(ui): theme engine with live preview
+
+    Settings → Theme now makes themes as well as picking them.
+
+    - Your themes sit beside the four presets. Customise (or Duplicate)
+      a preset to make your own copy; Edit, Export… or Delete your own.
+      Import… reads a .blotter-theme.json file into the editor.
+    - The editor: every colour token by group (picker and hex field),
+      plus Corners, Density, Text size, Font and Headings as choices
+      that set their tokens together. Save keeps it, Apply saves it and
+      switches the app to it, Cancel drops the draft.
+    - A live preview gallery beside it shows the draft on real
+      components, scoped to the gallery so the rest of the app keeps its
+      theme until Apply: buttons, a field, switches, a select, key chips
+      and a tooltip, Diary cards (with a conflict), a slice of the Week
+      grid with a block-out, a conflict, a pencilled proposal and the
+      now line, a chat bubble with a proposal card, a dialog, a reminder
+      toast and the command palette. It's inert: nothing in it can be
+      clicked or focused.
+    - Contrast: the nine text/background pairs the app draws are checked
+      against WCAG AA (4.5:1); pairs below it are listed above the
+      editor, worst first, and marked on the colours involved.
+    - Density is now real: buttons and selects take their height from
+      --density-row (26 / 30 / 34px).
+
+    Themes are stored in the themes table; a token must be a plain
+    custom property with a plain value (no url(), @import, braces or
+    semicolons), checked in the core and when reading a file. Missing
+    or unknown tokens fall back to Dark's, so themes from other versions
+    still draw everything. The active theme is cached whole, so a user
+    theme paints right on the first frame.
+Files:
+    A  crates/blotter-core/src/store/themes.rs
+    A  src-tauri/src/themes.rs                    (list/save/delete, export, pick import)
+    A  src/theme/engine.ts (+ test)               (contrast, choices, reading tokens; luminance moved here)
+    A  src/views/settings/ThemePage.tsx, ThemePreview.tsx
+    M  crates/blotter-core/src/store/mod.rs, src-tauri/src/lib.rs
+    M  src/theme/theme.ts                         (user themes, whole-theme cache, save/delete)
+    M  src/theme/presets.ts                       (font stacks exported)
+    M  src/components/ui/button.tsx, select.tsx   (density)
+    M  src/views/SettingsView.tsx                 (old theme page removed)
+    M  .claude/COMMITS.md, .claude/roadmap.md
+Test steps:
+    - cargo test --workspace → 169 core (+2: round trip, unsafe tokens refused) + 43 app (+1
+      the file format) + 6 mcp; clippy / fmt clean
+    - pnpm check → clean; Vitest 205 (+8: ratios, presets against AA, a bad draft's issues
+      worst first, choices recognised, text scaling, reading tokens, user themes, copy names)
+Notes:
+    - Not driven live by me. Please try: Customise Dark, drag the accent and watch only the
+      preview change; Apply; restart (it should open in your theme with no flash); set muted
+      text dark to see the warnings; Export…, Delete, Import… back; Compact density.
+    - Gruvbox's danger red (#fb4934, Gruvbox's own) is 4.2:1 on its background, just under
+      AA, so editing Gruvbox shows that warning. I left the colour as Gruvbox has it; say if
+      you'd rather it be lifted to pass.
+    - Your themes aren't in the command palette's theme list yet (presets only).
+    - Next: #38 remaining settings pages and first-run setup.

@@ -15,6 +15,7 @@ mod reminders;
 mod rollover;
 mod shell;
 mod subscriptions;
+mod themes;
 
 use std::path::PathBuf;
 use std::sync::Mutex;
@@ -164,6 +165,11 @@ pub fn run() {
             keybindings::replace_keybindings,
             keybindings::export_keybindings,
             keybindings::pick_keybindings_import,
+            themes::list_themes,
+            themes::save_theme,
+            themes::delete_theme,
+            themes::export_theme,
+            themes::pick_theme_import,
             capture::show_capture,
             capture::hide_capture,
             capture::fit_capture,
