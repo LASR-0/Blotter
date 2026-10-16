@@ -26,6 +26,7 @@ import {
 } from '@/keymap/overrides';
 import { isOpError } from '@/lib/api';
 import { cn } from '@/lib/cn';
+import { QuickCaptureInfo } from './QuickCaptureInfo';
 
 /** A chord's next key may follow within this long; then the capture ends. */
 const CAPTURE_PAUSE_MS = 1000;
@@ -312,6 +313,8 @@ export function KeybindingsPage() {
         Click a binding, or Tab to it and press Enter, then press the new keys. For a chord like g
         then w, press them one after the other. Changes work straight away.
       </p>
+
+      <QuickCaptureInfo />
 
       <label className="flex h-[34px] items-center gap-2 rounded-md border border-border-strong bg-bg px-2.5 focus-within:border-accent">
         <MagnifyingGlass className="text-text-muted" />

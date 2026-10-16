@@ -89,7 +89,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 34 | 9 | `feat: ICS export and file import` | committed `2551a8e` |
 | 35 | 9 | `feat: ICS subscriptions with block-out option` | committed `73d43a7` |
 | 35a | 9 | `feat(ui): subscribed events in the calendar views` | committed `05cceab` |
-| 36 | 10 | `feat(ui): keybinding editor` | committed (hash in the next entry) |
+| 36 | 10 | `feat(ui): keybinding editor` | committed `aa8c036` |
+| 36a | 10 | `refactor(ui): quick capture info on the Keybindings page` | committed (hash in the next entry) |
 | 37 | 10 | `feat(ui): theme engine with live preview` | planned |
 | 38 | 10 | `feat(ui): remaining settings pages and first-run setup` | planned |
 | 39 | 11 | `feat(ui): completion history and streaks` | planned |
@@ -3031,7 +3032,7 @@ Notes:
       Apple Calendar) and AC 2 live (a published Outlook URL as a block-out).
     - Next: Phase 10, #36 keybinding editor.
 
-### #36 — Keybinding editor            [status: committed — hash in the next entry]
+### #36 — Keybinding editor            [status: committed aa8c036]
 Phase: 10 (roadmap §5.4)
 Message:
     feat(ui): keybinding editor
@@ -3087,3 +3088,20 @@ Notes:
     - The ? sheet's family rows ("h j k l") describe the defaults; an overridden member of
       a family shows as its own row instead.
     - Next: #37 theme engine.
+
+### #36a — Quick capture info on the Keybindings page            [status: committed — hash in the next entry]
+Phase: 10
+Message:
+    refactor(ui): quick capture info on the Keybindings page
+
+    The Quick capture section (whether Ctrl+Shift+Space is registered,
+    or the command to bind on Wayland) moves from About to Settings →
+    Keybindings, as its comment planned, beside the locked capture row.
+Files:
+    A  src/views/settings/QuickCaptureInfo.tsx
+    M  src/views/SettingsView.tsx, src/views/settings/KeybindingsPage.tsx
+    M  .claude/COMMITS.md
+Test steps:
+    - pnpm check → clean; Vitest 197
+Notes:
+    - Missed from #36. Next: #37 theme engine.
