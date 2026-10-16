@@ -556,6 +556,17 @@ Each phase states the intent, then the acceptance criteria (AC) and leads to ver
 
 **AC:** completions from any path (UI, AI, MCP) appear, with correct local times.
 
+
+### Before Phase 12 — polish backlog (Luke, 2026-10-16)
+Done on 2026-10-16: #39a–#39e (presets, window size, About, Diary timeline, key hints, icon, one-page Settings, centring, sidebar chips) and #39f (Smart slot). Still to do before Phase 12:
+- **Sidebar:** remove the Inbox count (the "9") beside the `i` key chip.
+- **Diary:** give the day columns' card list some top padding, so a focused card's top focus ring isn't clipped by the day header.
+- **Theme page with the chat docked:** at the minimum window size, opening the AI chat on the Theme tab squeezes the preview again. Either make the page cope (e.g. hide the preview below a width, or stack it under the editor) or keep the chat closed/undocked on the Theme tab.
+- **Smart slot:** try it live (Inbox rail ✦, the bulk bar, or "Smart slot Inbox" in the palette) with Claude Code; tune the prompt from what it does.
+- **Preset contrast:** Luke's new accents leave some pairs under WCAG AA (Dark text on accent 3.33, danger 3.43; Light text on accent 2.01, accent text 2.60–2.99; Paper text on accent 2.72). Decide: keep, or darken text-on-accent / accent text while keeping the accent hues.
+- **Demo database:** delete the "Light copy", "Paper copy" and "Dark copy" themes now that the presets carry them.
+- **Other AI apps (question from Luke):** look at driving OpenAI's Codex CLI and GitHub Copilot CLI the way Claude Code is driven (headless, with Blotter's MCP server). Desktop chat apps (ChatGPT, Copilot app) can't be driven this way. Post-v1 unless cheap.
+
 ### Phase 12 — MCP server
 
 **Moved:** the MCP server is built in Phase 8 as #29a (D29). This phase keeps its acceptance checks with Claude Desktop and the README notes.

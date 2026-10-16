@@ -102,7 +102,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 39b | polish | `style(ui): polish from Luke's list` | committed `0a92ee0` |
 | 39c | polish | `feat(ui): Settings on one page in wide windows` | committed `5243959` |
 | 39d | polish | `style(ui): centred content, sidebar key chip, keybinding row` | committed `86f2a48` |
-| 39e | polish | `style(ui): one key chip per key in the sidebar` | committed (hash in the next entry) |
+| 39e | polish | `style(ui): one key chip per key in the sidebar` | committed `26d1f45` |
+| 39f | polish | `feat(ai): smart slot` | committed (hash in the next entry) |
 | 40 | 12 | ~~`feat(mcp): MCP server over the operation registry`~~ | superseded by #29a |
 | 41 | 13 | `build: Windows installers and Linux AppImage/deb bundles` | planned |
 | 42 | 13 | `build: Flatpak manifest` | planned |
@@ -3553,7 +3554,7 @@ Test steps:
     - In the running app (DevTools): Keybindings, History and Inbox centred; Ctrl , as a
       chip; after jumping between sections nothing outside the settings column is scrolled.
 
-### #39e — One key chip per key in the sidebar            [status: committed — hash in the next entry]
+### #39e — One key chip per key in the sidebar            [status: committed 26d1f45]
 Phase: pre-release polish (Luke's list, 2026-10-16)
 Message:
     style(ui): one key chip per key in the sidebar
@@ -3569,3 +3570,47 @@ Test steps:
     - pnpm check → clean; Vitest 213
     - In the running app: every view row, Settings and the search box show separate chips;
       "Search or command" is one line, not truncated (122 of 122px).
+
+### #39f — Smart slot            [status: committed — hash in the next entry]
+Phase: pre-release polish (Luke's list, 2026-10-16)
+Message:
+    feat(ai): smart slot
+
+    A second auto-slot that uses the connected AI, for the context the
+    deterministic one can't weigh. Auto-slot packs tasks one after
+    another; people need time between things, travel to get places,
+    and some tasks belong on a weekend.
+
+    The AI is asked to: fit the kind of task to the time (personal,
+    home and errands on weekends and evenings, work on working days,
+    exercise mornings or early evenings), leave at least 15 minutes
+    between items and more after long ones, spread tasks over days
+    rather than filling one, allow travel time around anything that
+    happens somewhere (a location or an errand) and group errands
+    together, respect due dates and priority, and put focused work
+    earlier in the day. It reads the calendar first, checks times with
+    find_free_slots, places with schedule_item, and replies with each
+    task, when, and why. Each task's tags, duration (or a guess),
+    priority, due date, location and notes go in the request.
+
+    It runs as a chat turn in a new "Smart slot · Fri 16 Oct" thread,
+    which opens. Propose mode (the default) means nothing moves until
+    the proposals are accepted; block-outs and planning hours are
+    enforced by the core whatever the AI picks.
+
+    Where: ✦ next to Auto-slot in the Diary's Inbox rail, Smart slot in
+    the Inbox's bulk bar (for the selected tasks), and "Smart slot
+    Inbox" in the palette.
+Files:
+    A  crates/blotter-core/src/smart_slot.rs       (prompt and title; test)
+    A  src/app/smartSlot.ts
+    M  crates/blotter-core/src/lib.rs
+    M  src-tauri/src/ai/chat.rs (chat_smart_slot), src-tauri/src/lib.rs
+    M  src/actions/actions.ts, src/views/diary/InboxRail.tsx, src/views/inbox/BulkBar.tsx
+    M  .claude/COMMITS.md, .claude/roadmap.md     (the pre-Phase 12 backlog)
+Test steps:
+    - cargo test --workspace → 173 core (+1 the prompt) + 44 app + 6 mcp; clippy / fmt clean
+    - pnpm check → clean; Vitest 213
+Notes:
+    - Not tried live yet (it needs an AI turn). On the backlog before Phase 12, with Luke's
+      other items from 2026-10-16 (roadmap: "Before Phase 12").

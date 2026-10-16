@@ -14,7 +14,7 @@ use blotter_core::settings::{KEY_AI_ROUTE, KEY_CLAUDE_CODE_MODEL, KEY_CLAUDE_COD
 use blotter_core::store::chat::{self, ChatMessage, ChatRole, Thread};
 use blotter_core::store::{self, providers};
 use blotter_core::{Actor, Planner};
-use blotter_core::{briefing, context};
+use blotter_core::{briefing, context, smart_slot};
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -486,6 +486,46 @@ pub fn chat_briefing(app: AppHandle) -> Result<String, CommandError> {
         Some(briefing::title(today)),
         false,
     )
+}
+
+/// Smart slot (an AI auto-slot): places `ids`, or every open Inbox task,
+/// using context the deterministic auto-slot can't weigh — what each task
+/// is, where it happens, breathing room between items. Runs as a turn in a
+/// new thread; Propose mode means nothing moves until the user accepts.
+#[tauri::command]
+pub fn chat_smart_slot(app: AppHandle, ids: Option<Vec<String>>) -> Result<String, CommandError> {
+    let (prompt, title) = with_planner(&app, |p| {
+        let settings = p.settings()?;
+        let conn = p.db().conn();
+        let tasks: Vec<_> = match &ids {
+            Some(ids) => ids
+                .iter()
+                .filter_map(|id| store::items::get(conn, id).transpose())
+                .collect::<blotter_core::Result<_>>()?,
+            None => store::items::list_inbox(conn)?,
+        };
+        let tasks: Vec<_> = tasks
+            .into_iter()
+            .filter(|t| t.status == blotter_core::model::ItemStatus::Open)
+            .collect();
+        if tasks.is_empty() {
+            return Err(blotter_core::CoreError::invalid(
+                "there are no open tasks to smart slot",
+            ));
+        }
+        let today = p.now().with_timezone(&settings.tz).date_naive();
+        Ok((
+            smart_slot::prompt(
+                &tasks,
+                settings.tz,
+                today,
+                settings.default_task_duration_min,
+            ),
+            smart_slot::title(today),
+        ))
+    })
+    .ok_or_else(lock_err)??;
+    start_turn(&app, None, prompt, Some(title), false)
 }
 
 /// The morning briefing, once a day after its time when it's turned on

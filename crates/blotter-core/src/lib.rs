@@ -20,6 +20,7 @@ pub mod proposals;
 pub mod recurrence;
 pub mod settings;
 pub mod slots;
+pub mod smart_slot;
 pub mod snapshots;
 pub mod store;
 pub mod subscriptions;

@@ -5,9 +5,11 @@ import {
   DotsSixVertical,
   MagicWand,
   Plus,
+  Sparkle,
   Tray,
 } from '@phosphor-icons/react';
 import { runAutoSlot } from '@/app/autoSlot';
+import { runSmartSlot } from '@/app/smartSlot';
 import { useNav } from '@/app/nav';
 import { startPointerDrag, useDrag } from '@/app/drag';
 import { useOverlay } from '@/app/overlay';
@@ -77,6 +79,18 @@ export function InboxRail() {
               className="grid size-6 cursor-pointer place-items-center rounded-sm text-accent-text hover:bg-hover"
             >
               <MagicWand />
+            </button>
+          </Tooltip>
+        )}
+        {items.length > 0 && (
+          <Tooltip label="Smart slot Inbox (AI)">
+            <button
+              type="button"
+              onClick={() => void runSmartSlot()}
+              aria-label="Smart slot Inbox"
+              className="grid size-6 cursor-pointer place-items-center rounded-sm text-accent-text hover:bg-hover"
+            >
+              <Sparkle />
             </button>
           </Tooltip>
         )}
