@@ -1,9 +1,8 @@
-import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Dialog } from 'radix-ui';
 import { invoke } from '@tauri-apps/api/core';
-import { Check } from '@phosphor-icons/react';
+import { LockKey, Power, PushPin } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/button';
-import { Segmented } from '@/components/ui/segmented';
 import { Switch } from '@/components/ui/switch';
 import { TimeField } from '@/components/ui/time-field';
 import { isOpError, runOp } from '@/lib/api';
@@ -12,68 +11,104 @@ import { parseTime } from '@/lib/format';
 import { DEFAULT_PLANNING, type WeekStart } from '@/lib/prefs';
 import { PRESETS } from '@/theme/presets';
 import { useTheme } from '@/theme/theme';
-import { useNav } from './nav';
 import { useOverlay } from './overlay';
 
-const STEPS = ['Theme', 'Your week', 'Work hours', 'AI', 'Start with your computer'] as const;
+const STEPS: readonly [string, string][] = [
+  ['Pick a theme', 'You can edit every colour later in Settings → Theme.'],
+  ['Your week', 'When does your week start, and when are you willing to do things?'],
+  [
+    'Block out your work hours',
+    'Flexible tasks will never be scheduled inside a block-out. Add more later.',
+  ],
+  [
+    'Connect an AI',
+    'Optional. Use Claude Code if you have it, bring your own provider, or a local model through any OpenAI-compatible endpoint.',
+  ],
+  [
+    'Keep reminders running',
+    'Closing the window hides Blotter to the tray. Quit from the tray menu.',
+  ],
+];
+
 const WEEKDAYS = [
-  ['mon', 'M'],
-  ['tue', 'T'],
-  ['wed', 'W'],
-  ['thu', 'T'],
-  ['fri', 'F'],
-  ['sat', 'S'],
-  ['sun', 'S'],
+  ['mon', 'M', 'Monday'],
+  ['tue', 'T', 'Tuesday'],
+  ['wed', 'W', 'Wednesday'],
+  ['thu', 'T', 'Thursday'],
+  ['fri', 'F', 'Friday'],
+  ['sat', 'S', 'Saturday'],
+  ['sun', 'S', 'Sunday'],
 ] as const;
 
-const errorText = (e: unknown) => (isOpError(e) ? e.message : String(e));
+type ApiKind = 'anthropic' | 'openai' | 'openai_compatible';
+type Provider = 'claude_code' | ApiKind;
+
+const PROVIDERS: Record<ApiKind, { name: string; desc: string; model: string }> = {
+  anthropic: { name: 'Anthropic', desc: 'Claude models', model: 'claude-sonnet-5-5' },
+  openai: { name: 'OpenAI', desc: 'GPT models', model: '' },
+  openai_compatible: { name: 'OpenAI-compatible', desc: 'Ollama, LM Studio…', model: '' },
+};
+const PROVIDER_NAME: Record<ApiKind, string> = {
+  anthropic: 'Anthropic',
+  openai: 'OpenAI',
+  openai_compatible: 'Ollama',
+};
+
+const errorText = (e: unknown) =>
+  isOpError(e) ? e.message : e instanceof Error ? e.message : String(e);
 const isTime = (t: string) => parseTime(t) === t;
+const minutes = (t: string) => {
+  const [h, m] = t.split(':').map(Number);
+  return (h ?? 0) * 60 + (m ?? 0);
+};
 
 interface ClaudeStatus {
   path: string | null;
   logged_in: boolean | null;
 }
 
-function Times({
-  label,
-  start,
-  end,
-  onStart,
-  onEnd,
-}: {
-  label: string;
-  start: string;
-  end: string;
-  onStart: (v: string) => void;
-  onEnd: (v: string) => void;
-}) {
+function Labelled({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <span className="flex items-center gap-1.5">
-      <TimeField
-        ariaLabel={`${label} start`}
-        value={start}
-        onChange={onStart}
-        className="w-[92px]"
-      />
-      <span className="text-text-muted">–</span>
-      <TimeField ariaLabel={`${label} end`} value={end} onChange={onEnd} className="w-[92px]" />
-    </span>
-  );
-}
-
-function Field({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div className="flex min-h-9 items-center gap-4">
-      <span className="w-[120px] flex-none text-text-muted">{label}</span>
+    <div className="flex flex-col gap-2">
+      <span className="text-sm text-text-muted">{label}</span>
       {children}
     </div>
   );
 }
 
+function ProviderCard({
+  on,
+  name,
+  desc,
+  onPick,
+}: {
+  on: boolean;
+  name: string;
+  desc: string;
+  onPick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={on}
+      onClick={onPick}
+      className={cn(
+        'flex cursor-pointer flex-col gap-[3px] rounded-md border p-3 text-left text-text',
+        on ? 'border-accent bg-accent-tint' : 'border-border bg-transparent',
+      )}
+    >
+      <span className="font-medium">{name}</span>
+      <span className="text-xs text-text-muted">{desc}</span>
+    </button>
+  );
+}
+
 /**
- * First-run setup (roadmap §5.10): five short steps, each skippable, all by
- * keyboard (Tab moves, Enter goes on, Esc ends the setup). Shown once, on a
- * fresh database; "Run setup again" in the palette brings it back.
+ * First-run setup (roadmap §5.10, design: First Run): five short steps,
+ * each skippable, all by keyboard. Enter continues, Esc skips the step.
+ * Shown once, on a fresh database; "Run setup again" in the palette brings
+ * it back.
  */
 export function FirstRun() {
   const open = useOverlay((s) => s.overlay === 'setup');
@@ -91,18 +126,25 @@ function SetupDialog() {
   const [weekStart, setWeekStart] = useState<WeekStart>('mon');
   const [planStart, setPlanStart] = useState('07:00');
   const [planEnd, setPlanEnd] = useState('22:00');
-  const [work, setWork] = useState(true);
+  const [label, setLabel] = useState('Work');
   const [workDays, setWorkDays] = useState<string[]>(['mon', 'tue', 'wed', 'thu', 'fri']);
   const [workStart, setWorkStart] = useState('08:30');
   const [workEnd, setWorkEnd] = useState('17:00');
-  const [openAi, setOpenAi] = useState(true);
   const [claude, setClaude] = useState<ClaudeStatus | null>(null);
+  const [provider, setProvider] = useState<Provider | null>(null);
+  const [secret, setSecret] = useState('');
+  const [providerId, setProviderId] = useState<string | null>(null);
+  const [tested, setTested] = useState<string | null>(null);
   const [autostart, setAutostart] = useState(true);
 
   useEffect(() => {
     invoke<ClaudeStatus>('claude_code_status')
-      .then(setClaude)
-      .catch(() => setClaude(null));
+      .then((s) => {
+        setClaude(s);
+        // Claude Code, when it's ready, is the tested route (D29).
+        setProvider((p) => p ?? (s.logged_in ? 'claude_code' : 'anthropic'));
+      })
+      .catch(() => setProvider((p) => p ?? 'anthropic'));
   }, []);
 
   const finish = async () => {
@@ -112,6 +154,49 @@ function SetupDialog() {
       console.error('Could not record the setup as done', e);
     }
     close();
+  };
+
+  /** Saves (or updates) the chosen API provider with the typed key or URL. */
+  const saveProvider = async (kind: ApiKind): Promise<string> => {
+    const compat = kind === 'openai_compatible';
+    const name = PROVIDER_NAME[kind];
+    const saved = await invoke<{ id: string; model: string }>('save_provider', {
+      input: {
+        id: providerId,
+        name,
+        kind,
+        base_url: compat ? secret.trim() || 'http://localhost:11434/v1' : null,
+        model: PROVIDERS[kind].model || null,
+        api_key: compat ? null : secret.trim(),
+        make_default: true,
+      },
+    });
+    setProviderId(saved.id);
+    if (!saved.model) {
+      // OpenAI and local endpoints: take the first model they list.
+      const models = await invoke<{ id: string }[]>('fetch_models', { id: saved.id });
+      const first = models[0]?.id;
+      if (first) {
+        await invoke('save_provider', { input: { id: saved.id, name, kind, model: first } });
+      }
+    }
+    await invoke('set_ai_settings', { input: { route: 'api' } });
+    return saved.id;
+  };
+
+  const test = async (kind: ApiKind) => {
+    setError(null);
+    setTested(null);
+    setBusy(true);
+    try {
+      const id = await saveProvider(kind);
+      const r = await invoke<{ ms: number }>('test_provider', { id });
+      setTested(`Connected · ${r.ms} ms`);
+    } catch (e) {
+      setError(errorText(e));
+    } finally {
+      setBusy(false);
+    }
   };
 
   /** Applies the current step's choices (not when skipped), then moves on. */
@@ -129,16 +214,23 @@ function SetupDialog() {
             planning_hours: Object.fromEntries(Object.keys(DEFAULT_PLANNING).map((d) => [d, span])),
           });
         }
-        if (step === 2 && work) {
+        if (step === 2) {
           if (!isTime(workStart) || !isTime(workEnd) || workDays.length === 0)
-            throw new Error('Pick the days and times you work, or skip this step.');
+            throw new Error('Pick the days and hours you work, or skip this step.');
           await runOp('create_blockout', {
-            label: 'Work',
+            label: label.trim() || 'Work',
             weekdays: workDays,
             start_time: workStart,
             end_time: workEnd,
             icon: 'briefcase',
           });
+        }
+        if (step === 3) {
+          if (provider === 'claude_code') {
+            await invoke('set_ai_settings', { input: { route: 'claude_code' } });
+          } else if (provider && secret.trim() && !tested) {
+            await saveProvider(provider);
+          }
         }
         if (step === 4) await invoke('set_autostart', { enabled: autostart });
       }
@@ -147,90 +239,143 @@ function SetupDialog() {
         return;
       }
       await finish();
-      if (openAi && !(claude?.logged_in ?? false)) useNav.getState().openSettings('ai');
     } catch (e) {
-      setError(e instanceof Error ? e.message : errorText(e));
+      setError(errorText(e));
     } finally {
       setBusy(false);
     }
   };
 
+  const [title, sub] = STEPS[step] as [string, string];
+  const planLeft = (minutes(planStart) / (24 * 60)) * 100;
+  const planRight = 100 - (minutes(planEnd) / (24 * 60)) * 100;
+  const claudeFound = !!claude?.path;
+
   const body = [
-    <div key="theme" role="radiogroup" aria-label="Theme" className="grid grid-cols-2 gap-2.5">
-      {PRESETS.map((t) => (
-        <button
-          key={t.id}
-          type="button"
-          role="radio"
-          aria-checked={theme.id === t.id}
-          onClick={() => setTheme(t.id)}
-          style={t.vars as CSSProperties}
-          className={cn(
-            'flex cursor-pointer flex-col gap-1.5 rounded-lg border bg-bg p-3 text-left font-ui text-text',
-            theme.id === t.id
-              ? 'border-accent shadow-[0_0_0_1px_var(--color-accent)]'
-              : 'border-border',
-          )}
+    <div key="theme" role="radiogroup" aria-label="Theme" className="grid grid-cols-4 gap-2.5">
+      {PRESETS.map((t) => {
+        const on = theme.id === t.id;
+        const v = t.vars;
+        return (
+          <button
+            key={t.id}
+            type="button"
+            role="radio"
+            aria-checked={on}
+            onClick={() => setTheme(t.id)}
+            className={cn(
+              'flex cursor-pointer flex-col gap-2 rounded-md border bg-transparent p-2 text-left text-text',
+              on ? 'border-accent outline-2 outline-offset-2 outline-focus-ring' : 'border-border',
+            )}
+          >
+            <span
+              className="flex h-[84px] flex-col gap-1 rounded-[6px] border p-2"
+              style={{ background: v['--color-bg'], borderColor: v['--color-border'] }}
+            >
+              <span
+                className="h-1.5 w-3/5 rounded-[2px]"
+                style={{ background: v['--color-text'] }}
+              />
+              <span
+                className="h-3.5 rounded-[3px]"
+                style={{
+                  background: v['--color-surface'],
+                  borderLeft: `3px solid ${v['--color-accent']}`,
+                }}
+              />
+              <span
+                className="h-3.5 rounded-[3px] border border-dashed opacity-50"
+                style={{ borderColor: v['--color-text'] }}
+              />
+            </span>
+            <span className="font-medium">{t.label}</span>
+          </button>
+        );
+      })}
+    </div>,
+
+    <div key="week" className="flex flex-col gap-4">
+      <Labelled label="Week starts on">
+        <div role="radiogroup" aria-label="Week starts on" className="flex gap-1.5">
+          {(['mon', 'sun', 'sat'] as const).map((d) => (
+            <button
+              key={d}
+              type="button"
+              role="radio"
+              aria-checked={weekStart === d}
+              onClick={() => setWeekStart(d)}
+              className={cn(
+                'flex h-8 cursor-pointer items-center rounded-md border px-3.5 text-text',
+                weekStart === d ? 'border-accent bg-accent-tint' : 'border-border-strong',
+              )}
+            >
+              {{ mon: 'Monday', sun: 'Sunday', sat: 'Saturday' }[d]}
+            </button>
+          ))}
+        </div>
+      </Labelled>
+      <Labelled label="Planning hours — flexible tasks are only placed in this window">
+        <span className="flex items-center gap-2.5">
+          <TimeField
+            ariaLabel="Planning hours start"
+            value={planStart}
+            onChange={setPlanStart}
+            className="w-[92px]"
+          />
+          <span className="text-text-muted">to</span>
+          <TimeField
+            ariaLabel="Planning hours end"
+            value={planEnd}
+            onChange={setPlanEnd}
+            className="w-[92px]"
+          />
+        </span>
+        <div
+          aria-hidden
+          className="relative h-[18px] rounded-[4px] border border-border bg-surface"
         >
-          <span className="flex items-center font-heading font-heading-weight">
-            <span className="flex-1">{t.label}</span>
-            {theme.id === t.id && <Check weight="bold" className="text-accent-text" />}
-          </span>
-          <span className="rounded-md border border-border bg-surface px-2 py-1.5 text-sm">
-            Gym <span className="font-mono text-xs text-text-muted">17:30</span>
-          </span>
-        </button>
-      ))}
+          {planStart < planEnd && (
+            <span
+              className="absolute inset-y-0 border-x-2 border-accent bg-accent-tint"
+              style={{ left: `${planLeft}%`, right: `${planRight}%` }}
+            />
+          )}
+          <span className="absolute top-px left-1 font-mono text-[10px] text-text-muted">00</span>
+          <span className="absolute top-px right-1 font-mono text-[10px] text-text-muted">24</span>
+        </div>
+      </Labelled>
     </div>,
-    <div key="week" className="flex flex-col gap-3">
-      <Field label="Week starts on">
-        <Segmented
-          ariaLabel="Week starts on"
-          value={weekStart}
-          onChange={setWeekStart}
-          options={[
-            { value: 'mon', label: 'Monday' },
-            { value: 'sun', label: 'Sunday' },
-            { value: 'sat', label: 'Saturday' },
-          ]}
-        />
-      </Field>
-      <Field label="Planning hours">
-        <Times
-          label="Planning hours"
-          start={planStart}
-          end={planEnd}
-          onStart={setPlanStart}
-          onEnd={setPlanEnd}
-        />
-      </Field>
-      <p className="m-0 text-sm leading-normal text-text-muted">
-        Flexible tasks are only placed between these times. You can set each weekday on its own
-        later, in Settings → General.
-      </p>
-    </div>,
-    <div key="work" className="flex flex-col gap-3">
+
+    <div
+      key="work"
+      className="flex flex-col gap-3.5 rounded-md border border-border bg-[repeating-linear-gradient(135deg,color-mix(in_srgb,var(--color-blockout)_14%,transparent)_0_1.5px,transparent_1.5px_7px)] p-3.5"
+    >
       <label className="flex items-center gap-2.5">
-        <Switch aria-label="Add a Work block-out" checked={work} onCheckedChange={setWork} />
-        Add a Work block-out
+        <span className="w-[60px] text-sm text-text-muted">Label</span>
+        <input
+          value={label}
+          onChange={(e) => setLabel(e.target.value)}
+          aria-label="Block-out label"
+          className="h-[30px] min-w-[160px] rounded-md border border-border-strong bg-surface-raised px-2.5 text-text outline-none focus:border-accent"
+        />
       </label>
-      <Field label="Days">
+      <div className="flex items-center gap-2.5">
+        <span className="w-[60px] text-sm text-text-muted">Days</span>
         <span className="flex gap-1">
-          {WEEKDAYS.map(([d, l]) => {
+          {WEEKDAYS.map(([d, l, name]) => {
             const on = workDays.includes(d);
             return (
               <button
                 key={d}
                 type="button"
                 aria-pressed={on}
-                aria-label={d}
-                disabled={!work}
+                aria-label={name}
                 onClick={() => setWorkDays(on ? workDays.filter((x) => x !== d) : [...workDays, d])}
                 className={cn(
-                  'size-[30px] cursor-pointer rounded-md border text-xs font-medium disabled:cursor-default disabled:opacity-50',
+                  'grid size-[30px] cursor-pointer place-items-center rounded-md border text-xs font-medium',
                   on
                     ? 'border-accent bg-accent-tint text-accent-text'
-                    : 'border-border-strong text-text-muted',
+                    : 'border-border-strong bg-surface-raised text-text-muted',
                 )}
               >
                 {l}
@@ -238,53 +383,109 @@ function SetupDialog() {
             );
           })}
         </span>
-      </Field>
-      <Field label="Hours">
-        <Times
-          label="Work"
-          start={workStart}
-          end={workEnd}
-          onStart={setWorkStart}
-          onEnd={setWorkEnd}
-        />
-      </Field>
-      <p className="m-0 text-sm leading-normal text-text-muted">
-        Flexible tasks never land in a block-out; fixed things like meetings still can. Lift it on a
-        day off with <span className="font-mono">b l</span>.
-      </p>
-    </div>,
-    <div key="ai" className="flex flex-col gap-3">
-      <p className="m-0 leading-normal">
-        Blotter&rsquo;s AI can plan your day with you: ask it to fit things in, and it pencils them
-        in for you to accept.
-      </p>
-      <p className="m-0 text-sm leading-normal text-text-muted">
-        {claude?.logged_in
-          ? 'Claude Code is installed and signed in on this computer, so the chat is ready to use.'
-          : claude?.path
-            ? 'Claude Code is installed but not signed in. Run "claude" in a terminal to sign in, or add an API key.'
-            : 'Use Claude Code if you have it, or an API key from Anthropic, OpenAI or a local model.'}
-      </p>
-      {!claude?.logged_in && (
-        <label className="flex items-center gap-2.5">
-          <Switch
-            aria-label="Open AI providers when done"
-            checked={openAi}
-            onCheckedChange={setOpenAi}
+      </div>
+      <div className="flex items-center gap-2.5">
+        <span className="w-[60px] text-sm text-text-muted">Hours</span>
+        <span className="flex items-center gap-2">
+          <TimeField
+            ariaLabel="Work start"
+            value={workStart}
+            onChange={setWorkStart}
+            className="w-[92px]"
           />
-          Open Settings → AI providers when I&rsquo;m done
-        </label>
-      )}
+          <span className="text-text-muted">–</span>
+          <TimeField
+            ariaLabel="Work end"
+            value={workEnd}
+            onChange={setWorkEnd}
+            className="w-[92px]"
+          />
+        </span>
+      </div>
+      <span className="flex items-center gap-1.5 text-sm text-text-muted">
+        <PushPin weight="fill" />
+        Fixed appointments, like a telehealth consult, can still go here.
+      </span>
     </div>,
-    <div key="autostart" className="flex flex-col gap-3">
-      <label className="flex items-center gap-2.5">
-        <Switch aria-label="Launch at login" checked={autostart} onCheckedChange={setAutostart} />
-        Launch Blotter when I sign in
-      </label>
-      <p className="m-0 text-sm leading-normal text-text-muted">
-        It starts quietly in the tray, so reminders fire even if you haven&rsquo;t opened it. You
-        can change this in Settings → General.
-      </p>
+
+    <div key="ai" className="flex flex-col gap-3">
+      <div
+        role="radiogroup"
+        aria-label="AI provider"
+        className={cn('grid gap-2', claudeFound ? 'grid-cols-4' : 'grid-cols-3')}
+      >
+        {claudeFound && (
+          <ProviderCard
+            on={provider === 'claude_code'}
+            name="Claude Code"
+            desc={claude?.logged_in ? 'Signed in · your subscription' : 'Installed, not signed in'}
+            onPick={() => setProvider('claude_code')}
+          />
+        )}
+        {(Object.keys(PROVIDERS) as ApiKind[]).map((k) => (
+          <ProviderCard
+            key={k}
+            on={provider === k}
+            name={PROVIDERS[k].name}
+            desc={PROVIDERS[k].desc}
+            onPick={() => {
+              setProvider(k);
+              setProviderId(null);
+              setTested(null);
+              setSecret('');
+            }}
+          />
+        ))}
+      </div>
+      {provider === 'claude_code' ? (
+        <p className="m-0 text-sm leading-normal text-text-muted">
+          {claude?.logged_in
+            ? 'The chat will use Claude Code on this computer. Nothing else to set up.'
+            : 'Run "claude" in a terminal to sign in, then the chat can use it.'}
+        </p>
+      ) : (
+        provider && (
+          <div className="flex gap-2">
+            <input
+              type={provider === 'openai_compatible' ? 'text' : 'password'}
+              value={secret}
+              onChange={(e) => {
+                setSecret(e.target.value);
+                setTested(null);
+              }}
+              placeholder={
+                provider === 'openai_compatible' ? 'http://localhost:11434/v1' : 'Paste API key'
+              }
+              aria-label={provider === 'openai_compatible' ? 'Endpoint URL' : 'API key'}
+              autoComplete="off"
+              spellCheck={false}
+              className="h-8 min-w-0 flex-1 rounded-md border border-border-strong bg-bg px-2.5 font-mono text-sm text-text outline-none focus:border-accent"
+            />
+            <Button
+              disabled={busy || (provider !== 'openai_compatible' && !secret.trim())}
+              onClick={() => void test(provider)}
+            >
+              Test
+            </Button>
+          </div>
+        )
+      )}
+      {tested && <span className="text-sm text-text-muted">{tested}</span>}
+      <span className="flex items-center gap-1.5 text-sm text-text-muted">
+        <LockKey />
+        Keys go to your OS keychain. AI changes start in Propose mode.
+      </span>
+    </div>,
+
+    <div key="autostart" className="flex items-center gap-3 rounded-md border border-border p-3.5">
+      <Power size={20} className="flex-none text-text-muted" />
+      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <span className="font-medium">Launch Blotter at login</span>
+        <span className="text-sm text-text-muted">
+          Blotter starts in the tray, so reminders fire even if you never open the window.
+        </span>
+      </span>
+      <Switch aria-label="Launch at login" checked={autostart} onCheckedChange={setAutostart} />
     </div>,
   ];
 
@@ -293,16 +494,21 @@ function SetupDialog() {
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-40 bg-[color-mix(in_srgb,var(--color-bg)_80%,transparent)]" />
         <Dialog.Content
-          aria-describedby={undefined}
+          aria-describedby="setup-sub"
+          onEscapeKeyDown={(e) => {
+            // Esc skips the step, as the design's hint says.
+            e.preventDefault();
+            if (!busy) void next(false);
+          }}
           onOpenAutoFocus={(e) => {
-            // Start on the step's own controls rather than the Skip button.
+            // Start on the step's own controls.
             e.preventDefault();
             (e.currentTarget as HTMLElement | null)
               ?.querySelector<HTMLElement>('[data-step] button, [data-step] input')
               ?.focus();
           }}
           onKeyDown={(e) => {
-            // Enter goes on, unless a control that uses Enter has focus.
+            // Enter continues, unless a control that uses Enter has focus.
             const t = e.target as HTMLElement;
             if (
               e.key === 'Enter' &&
@@ -310,54 +516,69 @@ function SetupDialog() {
               t.getAttribute('role') !== 'combobox'
             ) {
               e.preventDefault();
-              void next(true);
+              if (!busy) void next(true);
             }
           }}
-          className="fixed top-[90px] left-1/2 z-41 flex w-[540px] max-w-[calc(100vw-32px)] -translate-x-1/2 flex-col gap-4 rounded-lg bg-surface-raised p-6 text-base text-text shadow-overlay focus:outline-none"
+          className="fixed top-[80px] left-1/2 z-41 flex w-[620px] max-w-[calc(100vw-32px)] -translate-x-1/2 flex-col rounded-lg bg-surface-raised text-base text-text shadow-overlay focus:outline-none"
         >
-          <div className="flex items-center gap-1.5">
-            {STEPS.map((s, i) => (
-              <span
-                key={s}
-                aria-hidden
-                className={cn('h-1 flex-1 rounded-full', i <= step ? 'bg-accent' : 'bg-border')}
-              />
-            ))}
-          </div>
-          <div className="flex items-baseline gap-2">
-            <Dialog.Title className="m-0 flex-1 font-heading text-xl font-heading-weight">
-              {step === 0 ? 'Welcome to Blotter' : STEPS[step]}
-            </Dialog.Title>
+          <div className="flex items-center gap-2.5 px-[22px] pt-4">
+            <span className="grid size-6 place-items-center rounded-[6px] bg-accent text-[13px] font-semibold text-on-accent">
+              B
+            </span>
+            <span className="font-medium">Set up Blotter</span>
+            <span className="flex-1" />
+            <div aria-hidden className="flex gap-1">
+              {STEPS.map(([t], i) => (
+                <span
+                  key={t}
+                  className={cn(
+                    'h-1.5 rounded-[3px]',
+                    i === step ? 'w-[18px]' : 'w-1.5',
+                    i <= step ? 'bg-accent' : 'bg-border-strong',
+                  )}
+                />
+              ))}
+            </div>
             <span className="font-mono text-xs text-text-muted">
               {step + 1} / {STEPS.length}
             </span>
           </div>
-          {step === 0 && (
-            <p className="m-0 -mt-2 text-text-muted">
-              A few choices to start with. Skip any of them; everything is in Settings later.
-            </p>
-          )}
-          <div data-step className="min-h-[170px]">
-            {body[step]}
+          <div className="flex flex-col gap-1.5 px-[22px] pt-[22px] pb-2">
+            <Dialog.Title className="m-0 font-heading text-[24px] font-heading-weight tracking-[-.01em]">
+              {title}
+            </Dialog.Title>
+            <span id="setup-sub" className="max-w-[480px] leading-normal text-text-muted">
+              {sub}
+            </span>
           </div>
-          {error && <p className="m-0 text-sm text-danger">{error}</p>}
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" onClick={() => void finish()}>
-              Skip setup
+          <div data-step className="min-h-[210px] px-[22px] pt-3.5 pb-[22px]">
+            {body[step]}
+            {error && <p className="m-0 mt-3 text-sm text-danger">{error}</p>}
+          </div>
+          <div className="flex items-center gap-2 border-t border-border px-[22px] py-3.5">
+            <Button
+              variant="ghost"
+              disabled={busy || step === 0}
+              onClick={() => setStep(step - 1)}
+              className="disabled:opacity-40"
+            >
+              Back
             </Button>
+            <button
+              type="button"
+              onClick={() => void finish()}
+              className="cursor-pointer text-sm text-text-muted hover:text-text hover:underline"
+            >
+              Set up later
+            </button>
             <span className="flex-1" />
-            {step > 0 && (
-              <Button variant="ghost" disabled={busy} onClick={() => setStep(step - 1)}>
-                Back
-              </Button>
-            )}
-            {step > 0 && (
-              <Button disabled={busy} onClick={() => void next(false)}>
-                Skip
-              </Button>
-            )}
+            <Button disabled={busy} onClick={() => void next(false)}>
+              Skip
+              <span className="font-mono text-[10px] text-text-muted">Esc</span>
+            </Button>
             <Button variant="primary" disabled={busy} onClick={() => void next(true)}>
-              {step === STEPS.length - 1 ? 'Finish' : 'Next'}
+              {step === STEPS.length - 1 ? 'Finish' : 'Continue'}
+              <span className="font-mono text-[10px] opacity-75">↵</span>
             </Button>
           </div>
         </Dialog.Content>

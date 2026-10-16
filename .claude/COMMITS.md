@@ -96,8 +96,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 38a | 10 | `feat(ui): first-run setup` | committed `95b63fe` |
 | 39 | 11 | `feat(ui): completion history and streaks` | committed `4703da8` |
 | 36b | 10 | `fix(ui): Keybindings page to its design` | committed `97bed23` |
-| 37a | 10 | `fix(ui): Theme page to its design` | committed (hash in the next entry) |
-| 38b | 10 | `fix(ui): first-run setup to its design` | planned |
+| 37a | 10 | `fix(ui): Theme page to its design` | committed `7a1f99f` |
+| 38b | 10 | `fix(ui): first-run setup to its design` | committed (hash in the next entry) |
 | 40 | 12 | ~~`feat(mcp): MCP server over the operation registry`~~ | superseded by #29a |
 | 41 | 13 | `build: Windows installers and Linux AppImage/deb bundles` | planned |
 | 42 | 13 | `build: Flatpak manifest` | planned |
@@ -3355,7 +3355,7 @@ Notes:
       palette and ? sheet.
     - Next: #37a Theme page.
 
-### #37a — Theme page to its design            [status: committed — hash in the next entry]
+### #37a — Theme page to its design            [status: committed 7a1f99f]
 Phase: 10 (fix; design: Settings Theme, which #37 was built without)
 Message:
     fix(ui): Theme page to its design
@@ -3392,3 +3392,44 @@ Notes:
       Density's Spacious (34px) from #37 is gone from the choices; a theme that has it
       still works (neither choice shows selected).
     - Next: #38b first-run setup.
+
+### #38b — First-run setup to its design            [status: committed — hash in the next entry]
+Phase: 10 (fix; design: First Run, which #38a was built without; mixed with the Claude Code route)
+Message:
+    fix(ui): first-run setup to its design
+
+    #38a was built without the First Run design; the setup now follows
+    it, mixed with Blotter's Claude Code route where that fits:
+
+    - A header with the mark, "Set up Blotter", step dots and "n / 5";
+      each step has a large title and a line under it (Pick a theme,
+      Your week, Block out your work hours, Connect an AI, Keep
+      reminders running).
+    - Theme cards show a small sample of each theme.
+    - Your week: Monday/Sunday/Saturday, and planning hours with a bar
+      showing the window across the day.
+    - Work hours: a hatched panel with Label, Days and Hours, and the
+      note that fixed appointments can still go there.
+    - Connect an AI: provider cards, Anthropic, OpenAI and
+      OpenAI-compatible, plus Claude Code first when it's installed
+      (chosen for you when it's signed in). For an API provider, paste
+      a key (or an endpoint URL) and Test: it saves the provider, picks
+      a model if the endpoint lists them, and reports the round trip.
+      Continue saves a typed key even without a test. Keys go to the
+      keychain; AI changes start in Propose mode.
+    - Keep reminders running: Launch at login.
+    - Back, Skip (Esc) and Continue (Enter). Esc now skips the step, as
+      the design says, rather than ending the setup; "Set up later"
+      ends it.
+Files:
+    M  src/app/FirstRun.tsx
+    M  .claude/COMMITS.md
+Test steps:
+    - pnpm check → clean; Vitest 213
+    - cargo test --workspace → 172 core + 44 app + 6 mcp (unchanged)
+Notes:
+    - Not driven live by me. "Run setup again" from the palette shows it; note its steps
+      really apply (Continue on Work hours adds a block-out; Test saves a provider).
+    - Mixed in beyond the design: the Claude Code card, the "Set up later" link, and the
+      model being picked for OpenAI / local endpoints.
+    - Next: Phase 12 (MCP acceptance checks and README notes).
