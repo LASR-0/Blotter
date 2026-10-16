@@ -541,7 +541,7 @@ Each phase states the intent, then the acceptance criteria (AC) and leads to ver
 - A published Outlook calendar URL subscribes successfully, and those events block flexible slotting when `as_blockout` is set.
 
 ### Phase 10 — Keybinding editor, theme engine, remaining settings
-**Progress (2026-10-16):** #36 (keybinding editor, with #36a), #37 (theme engine) and #38 (General settings) are committed; every §5.9 page now exists. Next: #38a first-run setup.
+**Progress (2026-10-16):** #36 (keybinding editor, with #36a), #37 (theme engine), #38 (General settings) and #38a (first-run setup) are committed; every §5.9 page exists. **Phase 10 is complete in code**; its ACs need a live check by Luke. Next: Phase 11.
 **Intent:** the keybinding editor (§5.4), the theme engine page with live preview (§5.5), all settings pages (§5.9), and first-run setup (§5.10).
 
 **AC:**

@@ -9,6 +9,7 @@ mod chat_window;
 mod cli;
 mod commands;
 mod external;
+mod first_run;
 mod ics;
 mod keybindings;
 mod reminders;
@@ -160,6 +161,8 @@ pub fn run() {
             external::mcp_setup,
             commands::get_setting,
             commands::set_setting,
+            first_run::first_run_pending,
+            first_run::finish_first_run,
             keybindings::list_keybindings,
             keybindings::set_keybinding,
             keybindings::replace_keybindings,

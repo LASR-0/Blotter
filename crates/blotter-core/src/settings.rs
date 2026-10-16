@@ -53,6 +53,8 @@ pub const KEY_CLAUDE_CODE_PATH: &str = "claude_code_path";
 pub const KEY_WEEK_START: &str = "week_start";
 pub const KEY_CLOCK: &str = "clock";
 pub const KEY_CLOSE_TO_TRAY: &str = "close_to_tray";
+/// Set once the first-run setup is finished or skipped (per device).
+pub const KEY_SETUP_DONE: &str = "setup_done";
 
 crate::model::string_enum!(
     /// The first day of the week in Week, Month and Year views.
@@ -81,7 +83,8 @@ impl Default for ClockStyle {
 
 /// Settings that describe this install rather than the planner: they stay
 /// put through a restore or import, and aren't exported.
-pub const DEVICE_KEYS: [&str; 9] = [
+pub const DEVICE_KEYS: [&str; 10] = [
+    KEY_SETUP_DONE,
     KEY_LAST_BRIEFING,
     KEY_AI_MODE,
     KEY_LAST_REMINDER_CHECK,

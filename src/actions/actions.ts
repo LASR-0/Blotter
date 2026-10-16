@@ -429,6 +429,14 @@ export function buildActions(): Action[] {
       run: () => useNav.getState().openSettings('keybindings'),
     },
     {
+      id: 'setup.run',
+      label: 'Run setup again',
+      group: 'Actions',
+      icon: MagicWand,
+      keywords: ['first run', 'welcome', 'onboarding'],
+      run: () => overlay().open('setup'),
+    },
+    {
       id: 'item.new',
       label: 'New item',
       group: 'Actions',

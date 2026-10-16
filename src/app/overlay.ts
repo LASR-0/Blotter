@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import type { ItemDraft } from '@/lib/itemDraft';
 
 /** Modal overlays. One at a time; each traps focus and closes on Esc. */
-export type Overlay = 'palette' | 'shortcuts' | 'quickadd' | 'item' | 'confirm' | 'lift';
+export type Overlay = 'palette' | 'shortcuts' | 'quickadd' | 'item' | 'confirm' | 'lift' | 'setup';
 
 /** What the item dialog is editing: an existing item, or a new one with defaults. */
 export type ItemTarget = { id: string } | { defaults: Partial<ItemDraft> };
@@ -22,7 +22,7 @@ interface OverlayState {
   confirm: ConfirmRequest | null;
   /** The day the lift-block-outs dialog is for. */
   liftDate: Date | null;
-  open: (overlay: 'palette' | 'shortcuts' | 'quickadd') => void;
+  open: (overlay: 'palette' | 'shortcuts' | 'quickadd' | 'setup') => void;
   /** Opens `overlay`, or closes it if it is already open. */
   toggle: (overlay: 'palette' | 'shortcuts' | 'quickadd') => void;
   /** Opens the item dialog on an item, or blank for a new one. */

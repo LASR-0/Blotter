@@ -1,7 +1,9 @@
+import { invoke } from '@tauri-apps/api/core';
 import { useEffect, useMemo } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import { buildActions, NAV_CONTEXT, NAV_VIEWS } from '@/actions/actions';
 import { useKeybindings } from '@/keymap/keybindingStore';
+import { FirstRun } from './FirstRun';
 import { onPlannerChanged } from '@/lib/api';
 import { syncPrefs, usePrefs } from '@/lib/prefs';
 import { applyOverrides } from '@/keymap/overrides';
@@ -105,6 +107,12 @@ export function AppShell() {
   useChatOpeners();
 
   useEffect(() => syncPrefs(), []);
+  // First run: the setup, once, on a fresh database.
+  useEffect(() => {
+    invoke<boolean>('first_run_pending')
+      .then((pending) => pending && useOverlay.getState().open('setup'))
+      .catch((e: unknown) => console.error('Could not check first run', e));
+  }, []);
   // Calendar views read the week start, clock and planning hours as they
   // draw; a change redraws them (Settings itself keeps its place).
   const prefsKey = usePrefs((s) => `${s.weekStart}:${s.clock}:${JSON.stringify(s.planning)}`);
@@ -147,6 +155,7 @@ export function AppShell() {
       <ItemDialog />
       <ConfirmDialog />
       <LiftDialog />
+      <FirstRun />
       <AutoSlotPanel />
       <RolloverBanner />
       <ReminderToasts />

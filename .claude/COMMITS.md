@@ -92,8 +92,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 36 | 10 | `feat(ui): keybinding editor` | committed `aa8c036` |
 | 36a | 10 | `refactor(ui): quick capture info on the Keybindings page` | committed `aa98dad` |
 | 37 | 10 | `feat(ui): theme engine with live preview` | committed `daf1ff4` |
-| 38 | 10 | `feat(ui): General settings page` | committed (hash in the next entry) (split: first-run setup is #38a) |
-| 38a | 10 | `feat(ui): first-run setup` | planned |
+| 38 | 10 | `feat(ui): General settings page` | committed `f6b8d44` (split: first-run setup is #38a) |
+| 38a | 10 | `feat(ui): first-run setup` | committed (hash in the next entry) |
 | 39 | 11 | `feat(ui): completion history and streaks` | planned |
 | 40 | 12 | ~~`feat(mcp): MCP server over the operation registry`~~ | superseded by #29a |
 | 41 | 13 | `build: Windows installers and Linux AppImage/deb bundles` | planned |
@@ -3167,7 +3167,7 @@ Notes:
     - Your themes aren't in the command palette's theme list yet (presets only).
     - Next: #38 remaining settings pages and first-run setup.
 
-### #38 — General settings page            [status: committed — hash in the next entry]
+### #38 — General settings page            [status: committed f6b8d44]
 Phase: 10 (roadmap §5.9; design S1). Split from the planned #38: first-run setup is #38a.
 Message:
     feat(ui): General settings page
@@ -3229,3 +3229,45 @@ Notes:
       the views (drawn in the computer's zone) disagree with the core. The core still honours
       a timezone setting if one exists.
     - Next: #38a first-run setup.
+
+### #38a — First-run setup            [status: committed — hash in the next entry]
+Phase: 10 (roadmap §5.10)
+Message:
+    feat(ui): first-run setup
+
+    A short welcome on a fresh install, five steps, each skippable:
+
+    1. Theme: the four presets, applied as you pick.
+    2. Your week: week start and one planning-hours window.
+    3. Work hours: a Work block-out (Mon–Fri 08:30–17:00 to start with),
+       or none.
+    4. AI: says whether Claude Code is installed and signed in; if not,
+       offers to open Settings → AI providers at the end.
+    5. Start with your computer: Launch at login.
+
+    Keyboard throughout: Tab moves, Enter goes on, Esc (or Skip setup)
+    ends it. Next applies a step, Skip moves on without it, Back
+    returns. It shows once: the first time Blotter opens on a database
+    with no items and no block-outs, so existing databases are marked
+    done without seeing it. "Run setup again" in the palette brings it
+    back. The done flag (setup_done) is kept per device, outside the
+    JSON export.
+Files:
+    A  src-tauri/src/first_run.rs                 (first_run_pending, finish_first_run; test)
+    A  src/app/FirstRun.tsx
+    M  crates/blotter-core/src/settings.rs        (setup_done, a device key)
+    M  src-tauri/src/lib.rs
+    M  src/app/AppShell.tsx, src/app/overlay.ts, src/actions/actions.ts
+    M  .claude/COMMITS.md, .claude/roadmap.md
+Test steps:
+    - cargo test --workspace → 170 core + 44 app (+1: shown on a fresh database only, and
+      once) + 6 mcp; clippy / fmt clean
+    - pnpm check → clean; Vitest 209
+Notes:
+    - Not driven live by me. To see it: BLOTTER_DATA_DIR pointing at an empty folder, then
+      pnpm tauri dev; or "Run setup again" from the palette on your own database (its
+      steps really apply: Next on Work hours adds a block-out).
+    - Phase 10 is complete in code. AC checks for Luke: rebinding works at once and
+      persists; conflicts are caught; theme edits stay in the preview until Apply; contrast
+      warnings appear (e.g. muted text darkened).
+    - Next: Phase 11, #39 completion history and streaks.
