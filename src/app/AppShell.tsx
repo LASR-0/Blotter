@@ -3,6 +3,7 @@ import { listen } from '@tauri-apps/api/event';
 import { buildActions, NAV_CONTEXT, NAV_VIEWS } from '@/actions/actions';
 import { useKeybindings } from '@/keymap/keybindingStore';
 import { onPlannerChanged } from '@/lib/api';
+import { syncPrefs, usePrefs } from '@/lib/prefs';
 import { applyOverrides } from '@/keymap/overrides';
 import { useKeymap } from '@/keymap/useKeymap';
 import { usePlannerSync } from '@/lib/queries';
@@ -103,6 +104,12 @@ export function AppShell() {
   useChatEvents();
   useChatOpeners();
 
+  useEffect(() => syncPrefs(), []);
+  // Calendar views read the week start, clock and planning hours as they
+  // draw; a change redraws them (Settings itself keeps its place).
+  const prefsKey = usePrefs((s) => `${s.weekStart}:${s.clock}:${JSON.stringify(s.planning)}`);
+  const viewKey = view === 'settings' ? view : `${view}:${prefsKey}`;
+
   const loadTheme = useTheme((s) => s.load);
   useEffect(() => {
     loadTheme().catch((e: unknown) => console.error('Could not load theme', e));
@@ -114,9 +121,9 @@ export function AppShell() {
       <div className="flex min-w-0 flex-1 flex-col">
         <TopBar />
         <main className="relative min-h-0 flex-1">
-          {/* Keyed by view: a crash in one view doesn't take the app down, and
+          {/* Keyed by view (and prefs): a crash in one view doesn't take the app down, and
               navigating elsewhere starts it fresh. */}
-          <ErrorBoundary key={view} what="This view">
+          <ErrorBoundary key={viewKey} what="This view">
             {view === 'diary' && <DiaryView />}
             {view === 'inbox' && <InboxView />}
             {view === 'settings' && <SettingsView />}

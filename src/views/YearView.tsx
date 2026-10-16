@@ -17,14 +17,17 @@ import { isOpError } from '@/lib/api';
 import { cn } from '@/lib/cn';
 import { completionsByDay, dayKey, heatLevel, itemsByDay } from '@/lib/days';
 import { formatDuration } from '@/lib/duration';
-import { isoDate, WEEK_STARTS_ON } from '@/lib/period';
+import { isoDate, weekStartsOn } from '@/lib/period';
 import { useOp } from '@/lib/queries';
 import type { Agenda, Item } from '@/lib/types';
 import { useNow } from '@/lib/useNow';
 
 type Mode = 'scheduled' | 'completed';
 
-const WEEKDAY_INITIALS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+/** Weekday initials from Sunday; shown from the user's week start. */
+const WEEKDAY_INITIALS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+const initialsFromWeekStart = () =>
+  Array.from({ length: 7 }, (_, i) => WEEKDAY_INITIALS[(weekStartsOn() + i) % 7] as string);
 
 /** Minutes of timed work in a day's items (all-day items don't count). */
 function plannedMinutes(items: readonly Item[]): number {
@@ -49,8 +52,8 @@ export function YearView() {
     () =>
       Array.from({ length: 12 }, (_, m) => {
         const first = new Date(year, m, 1);
-        // Leading blanks so day 1 sits under its weekday (Monday first).
-        const lead = (first.getDay() - WEEK_STARTS_ON + 7) % 7;
+        // Leading blanks so day 1 sits under its weekday.
+        const lead = (first.getDay() - weekStartsOn() + 7) % 7;
         const days = Array.from({ length: getDaysInMonth(first) }, (_, d) => addDays(first, d));
         return { first, lead, days };
       }),
@@ -140,7 +143,7 @@ export function YearView() {
                 </span>
               </div>
               <div className="grid min-h-0 flex-1 grid-cols-7 grid-rows-[auto_repeat(6,minmax(0,1fr))] gap-[3px]">
-                {WEEKDAY_INITIALS.map((w, i) => (
+                {initialsFromWeekStart().map((w, i) => (
                   <span key={i} className="text-center font-mono text-[9.5px] text-text-muted">
                     {w}
                   </span>

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { QuickAddPanel } from '@/components/QuickAddPanel';
+import { syncPrefs } from '@/lib/prefs';
 import { useTheme } from '@/theme/theme';
 
 /**
@@ -15,6 +16,7 @@ export function CaptureApp() {
   const [session, setSession] = useState(0);
   const root = useRef<HTMLDivElement>(null);
 
+  useEffect(() => syncPrefs(), []);
   useEffect(() => {
     const unlisten = listen('capture:open', () => {
       root.current?.querySelector('input')?.focus();

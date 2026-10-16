@@ -9,9 +9,10 @@ import {
   startOfWeek,
   type Day,
 } from 'date-fns';
+import { weekStartsOn as userWeekStart } from './prefs';
 
-/** Week start (Monday). Becomes a General setting in Phase 10. */
-export const WEEK_STARTS_ON: Day = 1;
+/** The user's week start (Settings → General). */
+export const weekStartsOn = userWeekStart;
 
 export type CalendarView = 'week' | 'month' | 'year';
 export type View = 'diary' | CalendarView | 'inbox' | 'history' | 'settings';
@@ -53,7 +54,7 @@ export interface PeriodTitle {
 export function periodTitle(
   view: View,
   anchor: Date,
-  weekStartsOn: Day = WEEK_STARTS_ON,
+  weekStartsOn: Day = userWeekStart(),
 ): PeriodTitle {
   switch (view) {
     case 'diary':

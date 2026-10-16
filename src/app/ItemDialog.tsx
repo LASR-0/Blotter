@@ -26,7 +26,7 @@ import { TimeField } from '@/components/ui/time-field';
 import { isOpError, runBatch, runOp } from '@/lib/api';
 import { cn } from '@/lib/cn';
 import { formatDuration } from '@/lib/duration';
-import { parseTime, timeOf } from '@/lib/format';
+import { clockTime, parseTime, timeOf } from '@/lib/format';
 import {
   buildChanges,
   draftFromItem,
@@ -53,7 +53,7 @@ const errorText = (e: unknown) =>
 function reminderLabel(r: { offset_min: number | null; at: string | null }): string {
   if (r.offset_min !== null)
     return r.offset_min === 0 ? 'at start' : `${formatDuration(r.offset_min)} before`;
-  return r.at ? format(parseISO(r.at), 'EEE d MMM HH:mm') : '';
+  return r.at ? `${format(parseISO(r.at), 'EEE d MMM')} ${clockTime(parseISO(r.at))}` : '';
 }
 
 function Row({ label, children, top }: { label: string; children: ReactNode; top?: boolean }) {
@@ -538,7 +538,7 @@ function ItemForm({
         {item && edited && (
           <span className="font-mono text-[10.5px] text-text-muted">
             {item.source === 'user' ? 'created by you' : `created by ${item.source.toUpperCase()}`}{' '}
-            · edited {isToday(edited) ? format(edited, 'HH:mm') : format(edited, 'd MMM')}
+            · edited {isToday(edited) ? clockTime(edited) : format(edited, 'd MMM')}
           </span>
         )}
         <Dialog.Close asChild>

@@ -8,12 +8,13 @@ import { formatDuration } from '@/lib/duration';
 import type { AutoSlotResult } from '@/lib/types';
 import { runAutoSlot, useAutoSlot } from './autoSlot';
 import { useOverlay } from './overlay';
+import { clockTime } from '@/lib/format';
 
 type Placed = AutoSlotResult['placed'][number];
 type Unplaced = AutoSlotResult['unplaced'][number];
 
 const day = (iso: string) => format(parseISO(iso), 'EEE d MMM');
-const time = (iso: string) => format(parseISO(iso), 'HH:mm');
+const time = (iso: string) => clockTime(parseISO(iso));
 
 /** "Inbox → Sat 17 Oct 11:30–13:00", or where it was moved from. */
 function movedText(p: Placed): string {
@@ -97,7 +98,7 @@ export function AutoSlotPanel() {
         <MagicWand className="text-accent-text" />
         <span className="font-semibold">Auto-slot result</span>
         <span className="flex-1" />
-        {at && <span className="font-mono text-[11px] text-text-muted">{format(at, 'HH:mm')}</span>}
+        {at && <span className="font-mono text-[11px] text-text-muted">{clockTime(at)}</span>}
       </div>
       {error && (
         <p role="alert" className="m-0 text-danger">

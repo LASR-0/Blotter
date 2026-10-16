@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware';
 import { isCalendarView, stepPeriod, type CalendarView, type View } from '@/lib/period';
 
 export type SettingsPage =
+  | 'general'
   | 'blockouts'
   | 'calendars'
   | 'notifications'
@@ -57,7 +58,7 @@ export const useNav = create<NavState>()(
       anchor: midnight(),
       sidebarCollapsed: null,
       narrow: false,
-      settingsPage: 'theme',
+      settingsPage: 'general',
       blockoutId: null,
       diaryInbox: true,
       chord: null,

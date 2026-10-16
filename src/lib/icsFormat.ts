@@ -6,6 +6,7 @@ import {
   isSameYear,
   parseISO,
 } from 'date-fns';
+import { clockTime } from './format';
 
 /** Mirrors `ImportSummary` in crates/blotter-core/src/ics/import.rs. */
 export interface IcsSummary {
@@ -105,14 +106,14 @@ export function refreshLabel(min: number): string {
 /** When `iso` was: "10:30" today, "yesterday 10:30", else "Mon 12 Oct". */
 function when(iso: string, now: Date): string {
   const t = parseISO(iso);
-  if (isSameDay(t, now)) return format(t, 'HH:mm');
-  if (isSameDay(t, addDays(now, -1))) return `yesterday ${format(t, 'HH:mm')}`;
+  if (isSameDay(t, now)) return clockTime(t);
+  if (isSameDay(t, addDays(now, -1))) return `yesterday ${clockTime(t)}`;
   return format(t, isSameYear(t, now) ? 'EEE d MMM' : 'd MMM yyyy');
 }
 
 function ago(iso: string, now: Date): string {
   const days = differenceInCalendarDays(now, parseISO(iso));
-  if (days <= 0) return `at ${format(parseISO(iso), 'HH:mm')}`;
+  if (days <= 0) return `at ${clockTime(parseISO(iso))}`;
   return days === 1 ? 'yesterday' : `${days} days ago`;
 }
 

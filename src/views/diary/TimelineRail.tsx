@@ -8,6 +8,7 @@ import { isoDate } from '@/lib/period';
 import { blockedIntervals, windowTimes, windowTitle } from '@/lib/availability';
 import { eventTitle, type ShownEvent } from '@/lib/calendarEvents';
 import { cn } from '@/lib/cn';
+import { hourLabel } from '@/lib/format';
 import { layoutDay } from '@/lib/layout';
 import type { BlockoutWindow, Item } from '@/lib/types';
 import { itemColor } from '@/lib/tags';
@@ -109,7 +110,7 @@ export function TimelineRail({
               style={{ top: h * HOUR_PX }}
             >
               <span className="-mt-1.5 w-11 pr-2 text-right font-mono text-[10px] text-text-muted">
-                {h > 0 ? `${String(h).padStart(2, '0')}:00` : ''}
+                {h > 0 ? hourLabel(h) : ''}
               </span>
               <span className="flex-1 border-t border-border" />
             </div>

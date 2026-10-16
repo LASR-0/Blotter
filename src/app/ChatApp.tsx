@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import { ChatPanel } from '@/chat/ChatPanel';
 import { useChat, useChatEvents } from '@/chat/chatStore';
+import { syncPrefs } from '@/lib/prefs';
 import { usePlannerSync } from '@/lib/queries';
 import { useTheme } from '@/theme/theme';
 
@@ -10,6 +11,7 @@ export function ChatApp() {
   useChatEvents();
   usePlannerSync();
 
+  useEffect(() => syncPrefs(), []);
   useEffect(() => {
     const thread = new URLSearchParams(window.location.search).get('thread');
     useChat.getState().showThread(thread);

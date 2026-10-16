@@ -50,6 +50,34 @@ pub const KEY_AI_ROUTE: &str = "ai_route";
 pub const KEY_CLAUDE_CODE_MODEL: &str = "claude_code_model";
 /// Where the `claude` program is, when it isn't found on its own.
 pub const KEY_CLAUDE_CODE_PATH: &str = "claude_code_path";
+pub const KEY_WEEK_START: &str = "week_start";
+pub const KEY_CLOCK: &str = "clock";
+pub const KEY_CLOSE_TO_TRAY: &str = "close_to_tray";
+
+crate::model::string_enum!(
+    /// The first day of the week in Week, Month and Year views.
+    WeekStart { Mon => "mon", Sun => "sun", Sat => "sat" }
+);
+
+// string_enum! can't mark a #[default] variant.
+#[allow(clippy::derivable_impls)]
+impl Default for WeekStart {
+    fn default() -> Self {
+        Self::Mon
+    }
+}
+
+crate::model::string_enum!(
+    /// How times are shown: 24-hour (`17:30`) or 12-hour (`5:30 pm`).
+    ClockStyle { H24 => "24h", H12 => "12h" }
+);
+
+#[allow(clippy::derivable_impls)]
+impl Default for ClockStyle {
+    fn default() -> Self {
+        Self::H24
+    }
+}
 
 /// Settings that describe this install rather than the planner: they stay
 /// put through a restore or import, and aren't exported.

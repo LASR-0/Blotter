@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { addDays, differenceInMinutes, format, parseISO } from 'date-fns';
 import { formatDuration, parseDuration } from '@/lib/duration';
-import { parseTime } from '@/lib/format';
+import { clockTime, parseTime } from '@/lib/format';
 
 /** One reminder firing, as the engine sends it (`alerts::Due`). */
 export interface Due {
@@ -64,10 +64,7 @@ export function reminderStatus(due: Due, now: Date): string {
   if (due.all_day) return 'All day';
   const start = parseISO(due.start);
   const end = due.end ? parseISO(due.end) : null;
-  const when =
-    end && end > start
-      ? `${format(start, 'HH:mm')}–${format(end, 'HH:mm')}`
-      : format(start, 'HH:mm');
+  const when = end && end > start ? `${clockTime(start)}–${clockTime(end)}` : clockTime(start);
   const m = differenceInMinutes(start, now);
   const rel = m > 1 ? `in ${m} min` : m >= -1 ? 'now' : `started ${-m} min ago`;
   return `${rel} · ${when}${due.snoozed ? ' · snoozed' : ''}`;

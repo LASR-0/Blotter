@@ -1,3 +1,4 @@
+import { clockTime } from '@/lib/format';
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
@@ -78,7 +79,7 @@ function ReminderCard({ toastKey, due }: { toastKey: string; due: Due }) {
         reminder_id: due.reminder_id,
         ...req,
       });
-      setDone(`Snoozed ${label} · fires again ${format(parseISO(r.snoozed_until), 'HH:mm')}`);
+      setDone(`Snoozed ${label} · fires again ${clockTime(parseISO(r.snoozed_until))}`);
       setCustom(false);
     } catch (e) {
       setError(errorText(e));
@@ -252,7 +253,8 @@ function MissedCard({ toastKey, missed }: { toastKey: string; missed: Missed }) 
         <div className="flex min-w-0 flex-1 flex-col gap-[3px]">
           <span className="font-semibold">{missedTitle(missed)}</span>
           <span className="text-sm text-text-muted">
-            Since {format(parseISO(missed.since), 'EEE d MMM HH:mm')}
+            Since{' '}
+            {`${format(parseISO(missed.since), 'EEE d MMM')} ${clockTime(parseISO(missed.since))}`}
           </span>
         </div>
         <Button
@@ -271,7 +273,7 @@ function MissedCard({ toastKey, missed }: { toastKey: string; missed: Missed }) 
             className="flex h-[30px] items-center gap-2 border-b border-border last:border-b-0"
           >
             <span className="w-[84px] flex-none font-mono text-xs text-text-muted">
-              {format(parseISO(d.due), 'EEE HH:mm')}
+              {`${format(parseISO(d.due), 'EEE')} ${clockTime(parseISO(d.due))}`}
             </span>
             <span className="min-w-0 flex-1 truncate">{d.title}</span>
           </li>

@@ -1,11 +1,12 @@
 import { format, isToday, isYesterday, parseISO } from 'date-fns';
+import { clockTime } from './format';
 
 /** "Today 10:41", "Yesterday 07:02", "Mon 12 Oct 20:14". */
 export function takenAt(iso: string): string {
   const d = parseISO(iso);
-  if (isToday(d)) return `Today ${format(d, 'HH:mm')}`;
-  if (isYesterday(d)) return `Yesterday ${format(d, 'HH:mm')}`;
-  return format(d, 'EEE d MMM HH:mm');
+  if (isToday(d)) return `Today ${clockTime(d)}`;
+  if (isYesterday(d)) return `Yesterday ${clockTime(d)}`;
+  return `${format(d, 'EEE d MMM')} ${clockTime(d)}`;
 }
 
 /** "2.1 MB", "840 KB". */

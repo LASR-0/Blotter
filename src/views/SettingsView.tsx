@@ -8,6 +8,7 @@ import {
   Keyboard,
   Palette,
   Prohibit,
+  SlidersHorizontal,
   Sparkle,
   type Icon,
 } from '@phosphor-icons/react';
@@ -20,12 +21,14 @@ import { ThemePage } from './settings/ThemePage';
 import { BackupsPage } from './settings/BackupsPage';
 import { BlockoutsPage } from './settings/BlockoutsPage';
 import { CalendarsPage } from './settings/CalendarsPage';
+import { GeneralPage } from './settings/GeneralPage';
 import { KeybindingsPage } from './settings/KeybindingsPage';
 import { NotificationsPage } from './settings/NotificationsPage';
 
 // Pages appear here as their phases land: General, Block-outs, Calendars,
 // AI providers, Notifications, Keybindings and Backups (design S1–S9).
 const PAGES: readonly { id: SettingsPage; label: string; icon: Icon }[] = [
+  { id: 'general', label: 'General', icon: SlidersHorizontal },
   { id: 'blockouts', label: 'Block-outs', icon: Prohibit },
   { id: 'calendars', label: 'Calendars (ICS)', icon: CalendarDots },
   { id: 'notifications', label: 'Notifications', icon: Bell },
@@ -65,7 +68,9 @@ export function SettingsView() {
         ))}
       </nav>
       <main className="min-w-0 flex-1 overflow-auto">
-        {page === 'about' ? (
+        {page === 'general' ? (
+          <GeneralPage />
+        ) : page === 'about' ? (
           <AboutPage />
         ) : page === 'ai' ? (
           <AiProvidersPage />

@@ -6,6 +6,7 @@ import { ArrowBendDownRight, X } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/button';
 import { useNav } from './nav';
 import { useRollover, type RolloverResult } from './rollover';
+import { clockTime } from '@/lib/format';
 
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
@@ -19,7 +20,9 @@ function describe(r: RolloverResult): string {
   const parts: string[] = [];
   if (r.reslotted.length) {
     const first = r.reslotted[0];
-    const when = first ? ` (from ${format(parseISO(first.start), 'EEE HH:mm')})` : '';
+    const when = first
+      ? ` (from ${format(parseISO(first.start), 'EEE')} ${clockTime(parseISO(first.start))})`
+      : '';
     parts.push(
       `${plural(r.reslotted.length, 'unfinished task')} re-slotted${when}: ${names(r.reslotted.map((p) => p.item.title))}`,
     );

@@ -3,7 +3,7 @@ import { DayPicker } from 'react-day-picker';
 import { format, isThisYear, parseISO } from 'date-fns';
 import { CaretLeft, CaretRight } from '@phosphor-icons/react';
 import { cn } from '@/lib/cn';
-import { WEEK_STARTS_ON } from '@/lib/period';
+import { weekStartsOn } from '@/lib/period';
 import { Popover, PopoverContent, PopoverTrigger } from './popover';
 
 interface DatePickerProps {
@@ -67,7 +67,7 @@ export function DatePicker({
           mode="single"
           autoFocus
           showOutsideDays
-          weekStartsOn={WEEK_STARTS_ON}
+          weekStartsOn={weekStartsOn()}
           selected={selected}
           defaultMonth={selected}
           disabled={min ? { before: parseISO(min) } : undefined}

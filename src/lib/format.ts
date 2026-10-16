@@ -1,10 +1,27 @@
 import { format, parseISO } from 'date-fns';
 import { formatDuration } from './duration';
+import { usePrefs } from './prefs';
 import type { Item } from './types';
 
-/** Local `HH:mm` for an RFC 3339 instant. */
+/** The date-fns pattern for a shown time of day: `17:30`, or `5:30 pm` on a 12-hour clock. */
+export const timePattern = (): string =>
+  usePrefs.getState().clock === '12h' ? 'h:mm aaa' : 'HH:mm';
+
+/** A time of day as the user reads it (Settings → General → Clock). */
+export function clockTime(d: Date): string {
+  return format(d, timePattern());
+}
+
+/** An hour mark on a time scale: `09:00`, or `9 am` on a 12-hour clock. */
+export function hourLabel(h: number): string {
+  if (usePrefs.getState().clock !== '12h') return `${String(h).padStart(2, '0')}:00`;
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return `${h12} ${h < 12 || h === 24 ? 'am' : 'pm'}`;
+}
+
+/** Local time of day for an RFC 3339 instant, as the user reads it. */
 export function timeOf(iso: string): string {
-  return format(parseISO(iso), 'HH:mm');
+  return clockTime(parseISO(iso));
 }
 
 /** Card meta line, e.g. `17:30 · 45m · health` or `~20m` for unscheduled. */

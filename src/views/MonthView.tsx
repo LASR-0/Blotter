@@ -16,7 +16,7 @@ import { ErrorPanel } from '@/components/EmptyState';
 import { Kbd } from '@/components/ui/kbd';
 import { Popover, PopoverClose, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { isOpError } from '@/lib/api';
-import { blockedIntervals, PLANNING_HOURS, windowTitle } from '@/lib/availability';
+import { blockedIntervals, planningMinutes, windowTitle } from '@/lib/availability';
 import {
   eventsByDay,
   eventTimes,
@@ -27,7 +27,7 @@ import {
 import { cn } from '@/lib/cn';
 import { dayKey, itemsByDay } from '@/lib/days';
 import { timeOf } from '@/lib/format';
-import { isoDate, WEEK_STARTS_ON } from '@/lib/period';
+import { isoDate, weekStartsOn } from '@/lib/period';
 import { useOp } from '@/lib/queries';
 import { itemColor } from '@/lib/tags';
 import type { Agenda, Item } from '@/lib/types';
@@ -176,7 +176,7 @@ export function MonthView() {
   const openWeek = useNav((s) => s.openWeek);
   const now = useNow(60_000);
   const days = useMemo(() => {
-    const first = startOfWeek(startOfMonth(anchor), { weekStartsOn: WEEK_STARTS_ON });
+    const first = startOfWeek(startOfMonth(anchor), { weekStartsOn: weekStartsOn() });
     return Array.from({ length: CELLS }, (_, i) => addDays(first, i));
   }, [anchor]);
   const windows = useBlockoutWindows();
@@ -239,10 +239,11 @@ export function MonthView() {
           const shownEvents = dayEvents.slice(0, MAX_CHIPS - shown.length);
           const focused = isSameDay(day, focusDay);
           const hidden = items.length + dayEvents.length - shown.length - shownEvents.length;
+          const planning = planningMinutes(day) ?? { start: 0, end: 24 * 60 };
           const dayBlocks = blockedIntervals(
             windows.filter((w) => w.date === isoDate(day)),
             day,
-          ).filter((b) => b.end > PLANNING_HOURS.start && b.start < PLANNING_HOURS.end);
+          ).filter((b) => b.end > planning.start && b.start < planning.end);
           return (
             <div
               key={day.getTime()}

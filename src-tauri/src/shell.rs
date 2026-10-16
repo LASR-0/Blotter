@@ -47,6 +47,9 @@ pub fn handle_launch<R: Runtime>(app: &AppHandle<R>, args: &LaunchArgs) {
 /// The capture popup hides when closed or when it loses focus.
 pub fn on_window_event<R: Runtime>(window: &tauri::Window<R>, event: &WindowEvent) {
     match (window.label(), event) {
+        (MAIN_WINDOW, WindowEvent::CloseRequested { .. }) if !close_to_tray(window) => {
+            window.app_handle().exit(0);
+        }
         (MAIN_WINDOW | CAPTURE_WINDOW, WindowEvent::CloseRequested { api, .. }) => {
             api.prevent_close();
             let _ = window.hide();
@@ -95,4 +98,22 @@ pub fn build_tray<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
     }
     builder.build(app)?;
     Ok(())
+}
+
+/// Whether closing the main window hides it (Settings → General, on by
+/// default) rather than quitting.
+fn close_to_tray<R: Runtime>(window: &tauri::Window<R>) -> bool {
+    let Some(state) = window.app_handle().try_state::<crate::AppState>() else {
+        return true;
+    };
+    let Ok(planner) = state.planner.lock() else {
+        return true;
+    };
+    blotter_core::store::settings::get::<bool>(
+        planner.db().conn(),
+        blotter_core::settings::KEY_CLOSE_TO_TRAY,
+    )
+    .ok()
+    .flatten()
+    .unwrap_or(true)
 }

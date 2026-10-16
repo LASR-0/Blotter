@@ -37,11 +37,11 @@ import {
 import { cn } from '@/lib/cn';
 import { isRecurring } from '@/lib/itemDraft';
 import { conflictMap, conflictText } from '@/lib/conflicts';
-import { timeOf } from '@/lib/format';
+import { clockTime, hourLabel, timeOf } from '@/lib/format';
 import { moveInWeek, STEP_MIN } from '@/lib/focusNav';
 import { moveByDays, moveByMinutes, resizeByMinutes } from '@/lib/itemMoves';
 import { layoutAllDay, layoutDay, type Placed } from '@/lib/layout';
-import { isoDate, WEEK_STARTS_ON } from '@/lib/period';
+import { isoDate, weekStartsOn } from '@/lib/period';
 import { useOp } from '@/lib/queries';
 import { itemColor } from '@/lib/tags';
 import type { Agenda, Item } from '@/lib/types';
@@ -244,7 +244,7 @@ export function WeekView() {
   const anchor = useNav((s) => s.anchor);
   const now = useNow();
   const days = useMemo(() => {
-    const first = startOfWeek(anchor, { weekStartsOn: WEEK_STARTS_ON });
+    const first = startOfWeek(anchor, { weekStartsOn: weekStartsOn() });
     return Array.from({ length: 7 }, (_, i) => addDays(first, i));
   }, [anchor]);
   const first = days[0] as Date;
@@ -542,7 +542,7 @@ export function WeekView() {
                 className="absolute right-2 -mt-1.5 font-mono text-[10px] text-text-muted"
                 style={{ top: h * HOUR_PX }}
               >
-                {String(h).padStart(2, '0')}:00
+                {hourLabel(h)}
               </span>
             ))}
           </div>
@@ -641,7 +641,7 @@ export function WeekView() {
               className="pointer-events-none absolute left-2 z-4 rounded-[3px] bg-danger px-1 font-mono text-[10px] text-on-accent"
               style={{ top: nowTop - 7 }}
             >
-              {format(now, 'HH:mm')}
+              {clockTime(now)}
             </div>
           )}
         </div>

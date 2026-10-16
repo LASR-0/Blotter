@@ -11,7 +11,8 @@ use serde_json::Value;
 use super::rollover::RolloverMode;
 use super::{Ctx, OpDef};
 use crate::error::{CoreError, Result};
-use crate::settings::{self as keys, NotifySettings, PlannerSettings};
+use crate::settings::{self as keys, ClockStyle, NotifySettings, PlannerSettings, WeekStart};
+use crate::slots::PlanningHours;
 use crate::store;
 
 pub(crate) const ENTITY: &str = "setting";
@@ -25,8 +26,9 @@ pub(super) fn defs() -> Vec<OpDef> {
     vec![
         OpDef::new(
             "get_settings",
-            "Read the user's settings: timezone, default durations and reminder, rollover, \
-             how reminders are delivered (notifications, snooze options, catch-up) and how \
+            "Read the user's settings: timezone, default durations and reminder, planning \
+             hours (when flexible tasks may be placed), slot buffer, rollover, week start and \
+             clock, how reminders are delivered (notifications, snooze options, catch-up) and how \
              many automatic snapshots are kept.",
             false,
             get_settings,
@@ -67,6 +69,12 @@ pub struct Settings {
     pub briefing_enabled: bool,
     /// Local `HH:MM` it runs at.
     pub briefing_time: String,
+    /// When flexible tasks may be placed, per weekday (null = not that day).
+    pub planning_hours: PlanningHours,
+    pub week_start: WeekStart,
+    pub clock: ClockStyle,
+    /// Closing the main window hides it to the tray (true) or quits.
+    pub close_to_tray: bool,
 }
 
 #[derive(Debug, Default, Deserialize, JsonSchema)]
@@ -96,6 +104,23 @@ pub struct UpdateSettingsArgs {
     /// Local time of the morning briefing, `HH:MM`.
     #[schemars(regex(pattern = r"^([01]\d|2[0-3]):[0-5]\d$"))]
     pub briefing_time: Option<String>,
+    /// Minutes a task without a duration takes when it's slotted (5 to 480).
+    #[schemars(range(min = 5, max = 480))]
+    pub default_task_duration_min: Option<u32>,
+    /// Minutes a new event lasts when no end is given (5 to 1440).
+    #[schemars(range(min = 5, max = 1440))]
+    pub default_event_duration_min: Option<u32>,
+    /// Gap kept between slotted items, in minutes (0 to 60).
+    #[schemars(range(max = 60))]
+    pub slot_buffer_min: Option<u32>,
+    /// Where unfinished flexible tasks go at rollover.
+    pub rollover_mode: Option<RolloverMode>,
+    /// When flexible tasks may be placed, per weekday; a day set to null gets none.
+    pub planning_hours: Option<PlanningHours>,
+    pub week_start: Option<WeekStart>,
+    pub clock: Option<ClockStyle>,
+    /// Closing the main window hides it to the tray (true) or quits Blotter.
+    pub close_to_tray: Option<bool>,
 }
 
 fn read(conn: &Connection, planner: &PlannerSettings) -> Result<Settings> {
@@ -119,6 +144,10 @@ fn read(conn: &Connection, planner: &PlannerSettings) -> Result<Settings> {
             .time
             .format("%H:%M")
             .to_string(),
+        planning_hours: planner.planning_hours.clone(),
+        week_start: store::settings::get(conn, keys::KEY_WEEK_START)?.unwrap_or_default(),
+        clock: store::settings::get(conn, keys::KEY_CLOCK)?.unwrap_or_default(),
+        close_to_tray: store::settings::get(conn, keys::KEY_CLOSE_TO_TRAY)?.unwrap_or(true),
     })
 }
 
@@ -176,6 +205,42 @@ fn update_settings(ctx: &mut Ctx<'_>, a: UpdateSettingsArgs) -> Result<Settings>
     }
     if let Some(n) = a.snapshot_keep {
         write(ctx, keys::KEY_SNAPSHOT_KEEP, &n)?;
+    }
+    if let Some(m) = a.default_task_duration_min {
+        write(ctx, keys::KEY_DEFAULT_TASK_DURATION, &m)?;
+    }
+    if let Some(m) = a.default_event_duration_min {
+        write(ctx, keys::KEY_DEFAULT_EVENT_DURATION, &m)?;
+    }
+    if let Some(m) = a.slot_buffer_min {
+        write(ctx, keys::KEY_SLOT_BUFFER, &m)?;
+    }
+    if let Some(mode) = a.rollover_mode {
+        write(ctx, keys::KEY_ROLLOVER_MODE, &mode)?;
+    }
+    if let Some(hours) = &a.planning_hours {
+        for day in [
+            hours.mon, hours.tue, hours.wed, hours.thu, hours.fri, hours.sat, hours.sun,
+        ]
+        .into_iter()
+        .flatten()
+        {
+            if day.end <= day.start {
+                return Err(CoreError::invalid(
+                    "planning hours must end after they start, on the same day",
+                ));
+            }
+        }
+        write(ctx, keys::KEY_PLANNING_HOURS, hours)?;
+    }
+    if let Some(w) = a.week_start {
+        write(ctx, keys::KEY_WEEK_START, &w)?;
+    }
+    if let Some(c) = a.clock {
+        write(ctx, keys::KEY_CLOCK, &c)?;
+    }
+    if let Some(on) = a.close_to_tray {
+        write(ctx, keys::KEY_CLOSE_TO_TRAY, &on)?;
     }
     // Re-read so a changed default reminder shows; the zone is unchanged.
     let planner = PlannerSettings::load(ctx.conn, ctx.settings.tz)?;
@@ -239,6 +304,66 @@ mod tests {
         let id = e.result["id"].as_str().unwrap();
         let reminders = crate::store::reminders::list_for_item(p.db().conn(), id).unwrap();
         assert!(reminders.is_empty());
+    }
+
+    #[test]
+    fn general_settings() {
+        let mut p = crate::planner::tests::planner();
+        let s = run(&mut p, "get_settings", json!({})).unwrap().result;
+        assert_eq!(
+            (&s["week_start"], &s["clock"], &s["close_to_tray"]),
+            (&json!("mon"), &json!("24h"), &json!(true))
+        );
+        assert_eq!(
+            s["planning_hours"]["mon"],
+            json!({ "start": "07:00", "end": "22:00" })
+        );
+        assert_eq!(s["rollover_mode"], "inbox");
+
+        let hours = json!({
+            "mon": { "start": "09:00", "end": "17:00" }, "tue": { "start": "09:00", "end": "17:00" },
+            "wed": { "start": "09:00", "end": "17:00" }, "thu": { "start": "09:00", "end": "17:00" },
+            "fri": { "start": "09:00", "end": "17:00" }, "sat": null, "sun": null
+        });
+        let out = run(
+            &mut p,
+            "update_settings",
+            json!({ "week_start": "sun", "clock": "12h", "close_to_tray": false,
+                    "default_task_duration_min": 45, "slot_buffer_min": 10,
+                    "rollover_mode": "reslot", "planning_hours": hours }),
+        )
+        .unwrap()
+        .result;
+        assert_eq!(
+            (&out["week_start"], &out["clock"]),
+            (&json!("sun"), &json!("12h"))
+        );
+        assert_eq!(out["default_task_duration_min"], 45);
+        assert_eq!(out["slot_buffer_min"], 10);
+        assert_eq!(out["rollover_mode"], "reslot");
+        assert_eq!(out["planning_hours"]["sat"], Value::Null);
+
+        // The slot engine uses the new hours: nothing on a Saturday.
+        let slots = run(
+            &mut p,
+            "find_free_slots",
+            json!({ "duration_min": 30, "from": "2026-10-17T00:00", "until": "2026-10-18T00:00" }),
+        )
+        .unwrap()
+        .result;
+        assert!(slots["slots"].as_array().unwrap().is_empty());
+
+        let backwards = json!({ "mon": { "start": "17:00", "end": "09:00" } });
+        assert!(
+            run(
+                &mut p,
+                "update_settings",
+                json!({ "planning_hours": backwards })
+            )
+            .is_err()
+        );
+        assert!(run(&mut p, "update_settings", json!({ "week_start": "wed" })).is_err());
+        assert!(run(&mut p, "update_settings", json!({ "slot_buffer_min": 90 })).is_err());
     }
 
     #[test]

@@ -91,8 +91,9 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 35a | 9 | `feat(ui): subscribed events in the calendar views` | committed `05cceab` |
 | 36 | 10 | `feat(ui): keybinding editor` | committed `aa8c036` |
 | 36a | 10 | `refactor(ui): quick capture info on the Keybindings page` | committed `aa98dad` |
-| 37 | 10 | `feat(ui): theme engine with live preview` | committed (hash in the next entry) |
-| 38 | 10 | `feat(ui): remaining settings pages and first-run setup` | planned |
+| 37 | 10 | `feat(ui): theme engine with live preview` | committed `daf1ff4` |
+| 38 | 10 | `feat(ui): General settings page` | committed (hash in the next entry) (split: first-run setup is #38a) |
+| 38a | 10 | `feat(ui): first-run setup` | planned |
 | 39 | 11 | `feat(ui): completion history and streaks` | planned |
 | 40 | 12 | ~~`feat(mcp): MCP server over the operation registry`~~ | superseded by #29a |
 | 41 | 13 | `build: Windows installers and Linux AppImage/deb bundles` | planned |
@@ -3106,7 +3107,7 @@ Test steps:
 Notes:
     - Missed from #36. Next: #37 theme engine.
 
-### #37 — Theme engine with live preview            [status: committed — hash in the next entry]
+### #37 — Theme engine with live preview            [status: committed daf1ff4]
 Phase: 10 (roadmap §5.5)
 Message:
     feat(ui): theme engine with live preview
@@ -3165,3 +3166,66 @@ Notes:
       you'd rather it be lifted to pass.
     - Your themes aren't in the command palette's theme list yet (presets only).
     - Next: #38 remaining settings pages and first-run setup.
+
+### #38 — General settings page            [status: committed — hash in the next entry]
+Phase: 10 (roadmap §5.9; design S1). Split from the planned #38: first-run setup is #38a.
+Message:
+    feat(ui): General settings page
+
+    Settings → General, first in the list and where Settings opens:
+
+    - Week starts on Monday, Sunday or Saturday: Week, Month and Year
+      views, the Year view's weekday initials and the date pickers.
+    - Clock: 24-hour (17:30) or 12-hour (5:30 pm), for every time shown
+      (cards, the grid's hour marks, toasts, the chat, backups…). Times
+      you type are still read either way.
+    - Timezone, shown: Blotter follows the computer's zone (the views
+      draw in it, so a separate zone would put them out of step).
+    - Planning hours: one window for every day, or per weekday with days
+      off. The slot engine, the Diary's free-time meter and the Month's
+      block-out marks all use them (the frontend's fixed 07:00–22:00 is
+      gone).
+    - Default task duration, default event length, buffer between items.
+    - Unfinished flexible tasks: Re-slot or Return to Inbox at rollover.
+    - Launch at login (moved here from Notifications) and Close to tray:
+      off, closing the main window quits.
+
+    Core: get_settings / update_settings gain planning_hours (checked:
+    each day's window must end after it starts), week_start, clock,
+    close_to_tray, and make default durations, slot_buffer_min and
+    rollover_mode settable. Like other settings they're change-logged,
+    so Ctrl+Z undoes them, and agents can read them.
+
+    The frontend keeps a copy of week start, clock and planning hours
+    (reloaded after a settings change, undo, restore or import) that the
+    date helpers read; the calendar views redraw when they change.
+Files:
+    A  src/lib/prefs.ts (+ test)
+    A  src/views/settings/GeneralPage.tsx, src/views/settings/SettingRow.tsx
+    M  crates/blotter-core/src/settings.rs          (week_start, clock, close_to_tray keys)
+    M  crates/blotter-core/src/ops/settings.rs      (new fields, validation, tests)
+    M  crates/blotter-core/src/slots.rs             (Span/PlanningHours schemas)
+    M  src-tauri/src/shell.rs                       (close to tray)
+    M  src/lib/format.ts (clockTime, hourLabel), src/lib/period.ts (weekStartsOn),
+       src/lib/availability.ts (planningMinutes)
+    M  src/app/AppShell.tsx, ChatApp.tsx, CaptureApp.tsx, nav.ts
+    M  display times: src/app/AutoSlotPanel.tsx, ItemDialog.tsx, reminders.ts,
+       ReminderToasts.tsx, RolloverBanner.tsx, src/chat/proposals.ts, src/lib/backupFormat.ts,
+       src/lib/icsFormat.ts, src/views/WeekView.tsx, MonthView.tsx, YearView.tsx,
+       diary/TimelineRail.tsx, src/components/ui/date-picker.tsx
+    M  src/views/SettingsView.tsx, src/views/settings/NotificationsPage.tsx
+    M  .claude/COMMITS.md, .claude/roadmap.md
+Test steps:
+    - cargo test --workspace → 170 core (+1: new settings round trip, Saturday off empties
+      find_free_slots, backwards hours / unknown week start / big buffer refused) + 43 app
+      + 6 mcp; clippy / fmt clean
+    - pnpm check → clean; Vitest 209 (+4: 12/24-hour times and hour marks, Sunday weeks,
+      per-weekday planning, shared span)
+Notes:
+    - Not driven live by me. Please try: Sunday weeks in Week/Month/Year; 12-hour clock on
+      cards, the Week grid and a reminder toast; Saturday off then auto-slot; Close to tray
+      off then close the window (it should quit).
+    - Timezone is shown, not chosen: a setting that differs from the computer's would make
+      the views (drawn in the computer's zone) disagree with the core. The core still honours
+      a timezone setting if one exists.
+    - Next: #38a first-run setup.

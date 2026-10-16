@@ -1,5 +1,6 @@
 import { format, parseISO } from 'date-fns';
 import { summarizeArgs } from './transcript';
+import { clockTime } from '@/lib/format';
 
 /** Mirrors `proposals::ProposalOp`. */
 export interface ProposalOp {
@@ -54,8 +55,8 @@ export function itemWhen(item: Record<string, unknown> | null): string {
   if (!start) return 'Inbox';
   const s = parseISO(start);
   return end
-    ? `${format(s, 'EEE d MMM HH:mm')}–${format(parseISO(end), 'HH:mm')}`
-    : format(s, 'EEE d MMM HH:mm');
+    ? `${format(s, 'EEE d MMM')} ${clockTime(s)}–${clockTime(parseISO(end))}`
+    : `${format(s, 'EEE d MMM')} ${clockTime(s)}`;
 }
 
 function symbolFor(op: string): ChangeLine['symbol'] {

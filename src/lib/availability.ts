@@ -1,12 +1,23 @@
-import { addDays, format, parseISO } from 'date-fns';
+import { addDays, parseISO } from 'date-fns';
+import { clockTime } from './format';
+import { usePrefs } from './prefs';
 import type { BlockoutWindow } from './types';
 
+const DAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const;
+const toMinutes = (hhmm: string) => {
+  const [h, m] = hhmm.split(':').map(Number);
+  return (h ?? 0) * 60 + (m ?? 0);
+};
+
 /**
- * Planning hours: the window flexible tasks may be placed in (roadmap §4.5,
- * default 07:00–22:00). Minutes from midnight. The core has the per-weekday
- * setting since #20; this mirror goes when General settings land in #38.
+ * Planning hours on `day` (roadmap §4.5; Settings → General): the window
+ * flexible tasks may be placed in, in minutes from midnight, or null on a
+ * day with none.
  */
-export const PLANNING_HOURS = { start: 7 * 60, end: 22 * 60 } as const;
+export function planningMinutes(day: Date): { start: number; end: number } | null {
+  const span = usePrefs.getState().planning[DAY_KEYS[day.getDay()] ?? 'mon'];
+  return span ? { start: toMinutes(span.start), end: toMinutes(span.end) } : null;
+}
 
 export interface BlockedInterval {
   window: BlockoutWindow;
@@ -40,7 +51,7 @@ export function blockedIntervals(windows: readonly BlockoutWindow[], day: Date):
 
 /** Local `HH:mm–HH:mm` of a whole window, for labels. */
 export function windowTimes(w: BlockoutWindow): string {
-  return `${format(parseISO(w.start), 'HH:mm')}–${format(parseISO(w.end), 'HH:mm')}`;
+  return `${clockTime(parseISO(w.start))}–${clockTime(parseISO(w.end))}`;
 }
 
 /** Total minutes covered by intervals within [lo, hi], counting overlaps once. */
@@ -67,7 +78,9 @@ export function coveredMinutes(
 
 /** Minutes inside planning hours on `day` not covered by a block-out. */
 export function availableMinutes(windows: readonly BlockoutWindow[], day: Date): number {
-  const { start, end } = PLANNING_HOURS;
+  const hours = planningMinutes(day);
+  if (!hours) return 0;
+  const { start, end } = hours;
   return end - start - coveredMinutes(blockedIntervals(windows, day), start, end);
 }
 

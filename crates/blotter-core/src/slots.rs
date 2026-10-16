@@ -23,11 +23,15 @@ pub type Interval = (Instant, Instant);
 const STEP_MIN: i64 = 5;
 
 /// A wall-clock window within one day.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct Span {
+    /// `HH:MM`.
     #[serde(with = "crate::time::hhmm")]
+    #[schemars(with = "String", regex(pattern = r"^([01]\d|2[0-3]):[0-5]\d$"))]
     pub start: NaiveTime,
+    /// `HH:MM`, after `start`.
     #[serde(with = "crate::time::hhmm")]
+    #[schemars(with = "String", regex(pattern = r"^([01]\d|2[0-3]):[0-5]\d$"))]
     pub end: NaiveTime,
 }
 
@@ -44,7 +48,7 @@ impl Span {
 /// When flexible tasks may be placed, per weekday; `None` means not at all
 /// that day. Stored as JSON like `{"mon": {"start": "07:00", "end": "22:00"},
 /// …, "sun": null}`; days left out keep the default 07:00–22:00.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(default)]
 pub struct PlanningHours {
     pub mon: Option<Span>,

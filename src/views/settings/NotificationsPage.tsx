@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { BellRinging, Info, Plus, X } from '@phosphor-icons/react';
 import { ErrorPanel } from '@/components/EmptyState';
@@ -10,6 +10,7 @@ import { isOpError, runOp } from '@/lib/api';
 import { formatDuration, parseDuration } from '@/lib/duration';
 import { parseTime } from '@/lib/format';
 import { useOp } from '@/lib/queries';
+import { SettingRow } from './SettingRow';
 
 /** The `get_settings` fields this page shows. */
 interface Settings {
@@ -32,28 +33,6 @@ const MAX_SNOOZES = 6;
 /** "6h", "24h", "48h", "7d": hours up to two days, then days. */
 const lookbackLabel = (h: number) => (h > 48 && h % 24 === 0 ? `${h / 24}d` : `${h}h`);
 const errorText = (e: unknown) => (isOpError(e) ? e.message : String(e));
-
-function Row({
-  label,
-  description,
-  children,
-}: {
-  label: string;
-  description?: ReactNode;
-  children: ReactNode;
-}) {
-  return (
-    <div className="flex items-center gap-6 border-b border-border py-3">
-      <div className="flex min-w-0 flex-1 flex-col gap-[3px]">
-        <span className="font-medium">{label}</span>
-        {description && (
-          <span className="text-sm leading-[1.45] text-text-muted">{description}</span>
-        )}
-      </div>
-      {children}
-    </div>
-  );
-}
 
 /** The snooze lengths offered on a reminder, as removable chips plus an add field. */
 function SnoozeChips({ value, onChange }: { value: number[]; onChange: (next: number[]) => void }) {
@@ -141,15 +120,8 @@ export function NotificationsPage() {
   const settings = useOp<Settings>('get_settings');
   const [error, setError] = useState<string | null>(null);
   const [test, setTest] = useState<string | null>(null);
-  const [autostart, setAutostart] = useState<boolean | null>(null);
   const [rollover, setRollover] = useState<string | null>(null);
   const [briefing, setBriefing] = useState<string | null>(null);
-
-  useEffect(() => {
-    invoke<boolean>('get_autostart')
-      .then(setAutostart)
-      .catch((e: unknown) => setError(errorText(e)));
-  }, []);
 
   const save = (patch: Patch) => {
     setError(null);
@@ -189,7 +161,7 @@ export function NotificationsPage() {
       {test && <p className="m-0 mb-2 text-sm text-text-muted">{test}</p>}
       {error && <p className="m-0 mb-2 text-sm text-danger">{error}</p>}
 
-      <Row
+      <SettingRow
         label="Notifications"
         description="Desktop notifications for reminders. Reminders still show inside Blotter when this is off."
       >
@@ -198,8 +170,8 @@ export function NotificationsPage() {
           checked={s.notifications_enabled}
           onCheckedChange={(on) => save({ notifications_enabled: on })}
         />
-      </Row>
-      <Row
+      </SettingRow>
+      <SettingRow
         label="Default event reminder"
         description="Events only. Tasks have no default reminder."
       >
@@ -213,8 +185,8 @@ export function NotificationsPage() {
           }))}
           className="min-w-[130px] font-mono text-sm"
         />
-      </Row>
-      <Row
+      </SettingRow>
+      <SettingRow
         label="Snooze options"
         description="The lengths offered on a reminder, on keys 1 to 6. Custom… takes any length or a time."
       >
@@ -222,8 +194,8 @@ export function NotificationsPage() {
           value={s.snooze_options_min}
           onChange={(next) => save({ snooze_options_min: next })}
         />
-      </Row>
-      <Row
+      </SettingRow>
+      <SettingRow
         label="Catch up on missed reminders"
         description="Reminders missed while Blotter was closed or your computer was asleep arrive together as one notification."
       >
@@ -232,8 +204,8 @@ export function NotificationsPage() {
           checked={s.catch_up_enabled}
           onCheckedChange={(on) => save({ catch_up_enabled: on })}
         />
-      </Row>
-      <Row label="Catch-up lookback" description="Anything older is skipped quietly.">
+      </SettingRow>
+      <SettingRow label="Catch-up lookback" description="Anything older is skipped quietly.">
         <Select
           ariaLabel="Catch-up lookback"
           value={String(s.catch_up_hours)}
@@ -243,8 +215,8 @@ export function NotificationsPage() {
             .map((h) => ({ value: String(h), label: lookbackLabel(h) }))}
           className="min-w-[130px] font-mono text-sm"
         />
-      </Row>
-      <Row
+      </SettingRow>
+      <SettingRow
         label="Daily briefing"
         description="Each morning the AI sums up your day and suggests times for Inbox tasks. It arrives as a notification and opens in the chat. Off by default."
       >
@@ -253,9 +225,12 @@ export function NotificationsPage() {
           checked={s.briefing_enabled}
           onCheckedChange={(on) => save({ briefing_enabled: on })}
         />
-      </Row>
+      </SettingRow>
       {s.briefing_enabled && (
-        <Row label="Briefing time" description="Or ask for one any time from the command palette.">
+        <SettingRow
+          label="Briefing time"
+          description="Or ask for one any time from the command palette."
+        >
           <TimeField
             ariaLabel="Briefing time"
             value={briefing ?? s.briefing_time}
@@ -264,9 +239,9 @@ export function NotificationsPage() {
               if (parseTime(v) === v && v !== s.briefing_time) save({ briefing_time: v });
             }}
           />
-        </Row>
+        </SettingRow>
       )}
-      <Row
+      <SettingRow
         label="Rollover time"
         description="When unfinished tasks from earlier days are moved on."
       >
@@ -279,23 +254,7 @@ export function NotificationsPage() {
             if (parseTime(v) === v && v !== s.rollover_time) save({ rollover_time: v });
           }}
         />
-      </Row>
-      <Row
-        label="Launch at login"
-        description="Starts Blotter in the tray when you sign in, so reminders keep firing after a restart."
-      >
-        <Switch
-          aria-label="Launch at login"
-          disabled={autostart === null}
-          checked={autostart ?? false}
-          onCheckedChange={(on) => {
-            setError(null);
-            invoke<boolean>('set_autostart', { enabled: on })
-              .then(setAutostart)
-              .catch((e: unknown) => setError(errorText(e)));
-          }}
-        />
-      </Row>
+      </SettingRow>
 
       <div className="mt-3.5 flex gap-2.5 rounded-md border border-border px-3.5 py-3 text-sm leading-normal text-text-muted">
         <Info size={15} className="mt-px flex-none" />
