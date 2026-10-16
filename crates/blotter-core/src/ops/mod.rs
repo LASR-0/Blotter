@@ -7,6 +7,7 @@
 //! transaction that also writes its change-log rows under one batch id.
 
 mod blockouts;
+mod ics;
 pub mod input;
 mod items;
 mod occurrences;
@@ -200,8 +201,9 @@ fn schema_for<A: JsonSchema>() -> Value {
 /// Operations only the user (and the system) may run. They are left out of
 /// the tools offered to the AI and MCP clients, and refused if an agent
 /// calls them anyway: undo/redo work through the user's own history, the
-/// rollover is the system's daily job, settings are the user's, and
-/// snoozing answers a notification on screen.
+/// rollover is the system's daily job, settings are the user's, snoozing
+/// answers a notification on screen, and an import is a file the user
+/// picked (with a snapshot first).
 pub const USER_ONLY_OPS: &[&str] = &[
     "undo",
     "redo",
@@ -209,6 +211,7 @@ pub const USER_ONLY_OPS: &[&str] = &[
     "rollover",
     "update_settings",
     "snooze_reminder",
+    "import_ics",
 ];
 
 /// Whether agents (the AI and MCP clients) may run the operation `name`.
@@ -233,6 +236,7 @@ impl Registry {
             .chain(rollover::defs())
             .chain(settings::defs())
             .chain(undo::defs())
+            .chain(ics::defs())
         {
             let previous = ops.insert(def.name, def);
             debug_assert!(previous.is_none(), "duplicate operation name");

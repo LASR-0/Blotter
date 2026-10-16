@@ -30,6 +30,8 @@ export interface Item {
   recurrence_id: string | null;
   completed_at: string | null;
   source: Source;
+  /** The iCalendar UID it was imported with. */
+  ics_uid?: string | null;
   created_at: string;
   updated_at: string;
 }

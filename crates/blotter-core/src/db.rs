@@ -14,6 +14,7 @@ const MIGRATION_LIST: &[M<'static>] = &[
     M::up(include_str!("../migrations/0003_snapshot_note.sql")),
     M::up(include_str!("../migrations/0004_chat_session.sql")),
     M::up(include_str!("../migrations/0005_proposal_ids.sql")),
+    M::up(include_str!("../migrations/0006_item_ics_uid.sql")),
 ];
 const MIGRATIONS: Migrations<'static> = Migrations::from_slice(MIGRATION_LIST);
 
@@ -110,7 +111,7 @@ mod tests {
     #[test]
     fn in_memory_database_is_migrated() {
         let db = Database::open_in_memory().unwrap();
-        assert_eq!(db.schema_version().unwrap(), 5);
+        assert_eq!(db.schema_version().unwrap(), 6);
         let fk: i64 = db
             .conn()
             .pragma_query_value(None, "foreign_keys", |r| r.get(0))
@@ -127,7 +128,7 @@ mod tests {
             assert_eq!(db.journal_mode().unwrap(), "wal");
         }
         let db = Database::open(&path).unwrap();
-        assert_eq!(db.schema_version().unwrap(), 5);
+        assert_eq!(db.schema_version().unwrap(), 6);
     }
 
     #[test]

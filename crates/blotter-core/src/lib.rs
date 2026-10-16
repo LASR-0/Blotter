@@ -11,6 +11,7 @@ pub mod context;
 pub mod db;
 pub mod error;
 pub mod export;
+pub mod ics;
 pub mod id;
 pub mod model;
 pub mod ops;

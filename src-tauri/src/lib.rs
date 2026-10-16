@@ -9,6 +9,7 @@ mod chat_window;
 mod cli;
 mod commands;
 mod external;
+mod ics;
 mod reminders;
 mod rollover;
 mod shell;
@@ -171,6 +172,9 @@ pub fn run() {
             backups::export_json,
             backups::pick_import,
             backups::apply_import,
+            ics::export_ics,
+            ics::pick_ics_import,
+            ics::apply_ics_import,
             ai::commands::list_providers,
             ai::commands::save_provider,
             ai::commands::delete_provider,

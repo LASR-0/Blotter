@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import {
   Bell,
+  CalendarDots,
   Check,
   ClockCounterClockwise,
   Info,
@@ -19,12 +20,14 @@ import { useTheme } from '@/theme/theme';
 import { AiProvidersPage } from './settings/AiProvidersPage';
 import { BackupsPage } from './settings/BackupsPage';
 import { BlockoutsPage } from './settings/BlockoutsPage';
+import { CalendarsPage } from './settings/CalendarsPage';
 import { NotificationsPage } from './settings/NotificationsPage';
 
 // Pages appear here as their phases land: General, Block-outs, Calendars,
 // AI providers, Notifications, Keybindings and Backups (design S1–S9).
 const PAGES: readonly { id: SettingsPage; label: string; icon: Icon }[] = [
   { id: 'blockouts', label: 'Block-outs', icon: Prohibit },
+  { id: 'calendars', label: 'Calendars (ICS)', icon: CalendarDots },
   { id: 'notifications', label: 'Notifications', icon: Bell },
   { id: 'ai', label: 'AI providers', icon: Sparkle },
   { id: 'theme', label: 'Theme', icon: Palette },
@@ -71,6 +74,8 @@ export function SettingsView() {
           <NotificationsPage />
         ) : page === 'blockouts' ? (
           <BlockoutsPage />
+        ) : page === 'calendars' ? (
+          <CalendarsPage />
         ) : (
           <ThemePage />
         )}

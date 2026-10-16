@@ -157,7 +157,8 @@ fn op_label(op: &str) -> String {
     let words = op
         .replace('_', " ")
         .replace("blockout", "block-out")
-        .replace("auto slot", "auto-slot");
+        .replace("auto slot", "auto-slot")
+        .replace("import ics", "import ICS");
     let mut chars = words.chars();
     chars
         .next()

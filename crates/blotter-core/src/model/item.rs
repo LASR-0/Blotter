@@ -65,6 +65,9 @@ pub struct Item {
     pub recurrence_id: Option<String>,
     pub completed_at: Option<Instant>,
     pub source: Source,
+    /// The iCalendar UID it was imported with; exports reuse it.
+    #[serde(default)]
+    pub ics_uid: Option<String>,
     pub created_at: Instant,
     pub updated_at: Instant,
 }
@@ -97,6 +100,7 @@ impl Item {
             recurrence_id: None,
             completed_at: None,
             source: Source::User,
+            ics_uid: None,
             created_at: now,
             updated_at: now,
         }

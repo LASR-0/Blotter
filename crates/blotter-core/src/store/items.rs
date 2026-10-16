@@ -8,7 +8,7 @@ use crate::time::{self, Instant};
 
 const COLUMNS: &str = "id, kind, anchoring, status, title, notes, all_day, start_at, end_at, \
      start_date, end_date, tz, duration_min, due_at, priority, tags, color, sort_order, rrule, \
-     parent_id, recurrence_id, completed_at, source, created_at, updated_at";
+     parent_id, recurrence_id, completed_at, source, ics_uid, created_at, updated_at";
 
 /// A window to list items in. Timed items overlapping `[start, end)` and
 /// all-day items overlapping `[start_date, end_date]` are returned. The
@@ -50,6 +50,7 @@ fn read(row: &Row<'_>) -> Result<Item> {
         recurrence_id: row.get("recurrence_id")?,
         completed_at: opt_instant("completed_at", row.get("completed_at")?)?,
         source: parse_enum("source", row.get("source")?)?,
+        ics_uid: row.get("ics_uid")?,
         created_at: time::parse_instant("created_at", &row.get::<_, String>("created_at")?)?,
         updated_at: time::parse_instant("updated_at", &row.get::<_, String>("updated_at")?)?,
     })
@@ -77,7 +78,8 @@ fn write(conn: &Connection, item: &Item, upsert: bool) -> Result<usize> {
          priority = excluded.priority, tags = excluded.tags, color = excluded.color, \
          sort_order = excluded.sort_order, rrule = excluded.rrule, parent_id = excluded.parent_id, \
          recurrence_id = excluded.recurrence_id, completed_at = excluded.completed_at, \
-         source = excluded.source, created_at = excluded.created_at, \
+         source = excluded.source, ics_uid = excluded.ics_uid, \
+         created_at = excluded.created_at, \
          updated_at = excluded.updated_at"
     } else {
         ""
@@ -86,7 +88,7 @@ fn write(conn: &Connection, item: &Item, upsert: bool) -> Result<usize> {
         "INSERT INTO items ({COLUMNS}) VALUES (:id, :kind, :anchoring, :status, :title, :notes, \
          :all_day, :start_at, :end_at, :start_date, :end_date, :tz, :duration_min, :due_at, \
          :priority, :tags, :color, :sort_order, :rrule, :parent_id, :recurrence_id, \
-         :completed_at, :source, :created_at, :updated_at){tail}"
+         :completed_at, :source, :ics_uid, :created_at, :updated_at){tail}"
     );
     Ok(conn.execute(
         &sql,
@@ -114,6 +116,7 @@ fn write(conn: &Connection, item: &Item, upsert: bool) -> Result<usize> {
             ":recurrence_id": item.recurrence_id,
             ":completed_at": fmt_opt_instant(item.completed_at),
             ":source": item.source.as_str(),
+            ":ics_uid": item.ics_uid,
             ":created_at": time::fmt_instant(item.created_at),
             ":updated_at": time::fmt_instant(item.updated_at),
         },

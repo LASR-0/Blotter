@@ -533,6 +533,7 @@ Each phase states the intent, then the acceptance criteria (AC) and leads to ver
 **Leads:** check each provider's current tool-call formats and streaming events.
 
 ### Phase 9 — ICS
+**Progress (2026-10-16):** #34 (ICS export and file import, Settings → Calendars) is committed; an exported file still needs trying in Google Calendar and Apple Calendar (AC 1). Next: #35 subscriptions, which needs a published calendar URL from Luke.
 **Intent:** export, file import, and subscriptions with the block-out option.
 
 **AC:**

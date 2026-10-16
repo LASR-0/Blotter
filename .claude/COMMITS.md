@@ -85,8 +85,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 32 | 8 | `feat(ai): proposal review and auto-apply mode` | committed `0a2b64a` (Undo batch split out as #32a) |
 | 32a | 8 | `feat(ui): undo batch for auto-applied AI changes` | committed `d8bc8d7` |
 | 33 | 8 | `feat(ai): daily briefing` | committed `e43ac71` |
-| 33a | 8 | `docs: Phase 8 wrap-up and open items` | committed (hash in the next entry) |
-| 34 | 9 | `feat: ICS export and file import` | planned |
+| 33a | 8 | `docs: Phase 8 wrap-up and open items` | committed `9af9c7c` |
+| 34 | 9 | `feat: ICS export and file import` | committed (hash in the next entry) |
 | 35 | 9 | `feat: ICS subscriptions with block-out option` | planned |
 | 36 | 10 | `feat(ui): keybinding editor` | planned |
 | 37 | 10 | `feat(ui): theme engine with live preview` | planned |
@@ -2814,7 +2814,7 @@ Notes:
       the API providers against real services (experimental, D29).
     - Next: Phase 9, #34 ICS export and file import.
 
-### #33a — Phase 8 wrap-up and open items            [status: committed — hash in the next entry]
+### #33a — Phase 8 wrap-up and open items            [status: committed 9af9c7c]
 Phase: 8
 Message:
     docs: Phase 8 wrap-up and open items
@@ -2831,3 +2831,78 @@ Test steps:
     - none (docs only)
 Notes:
     - Next: #34 ICS export and file import.
+
+### #34 — ICS export and file import            [status: committed — hash in the next entry]
+Phase: 9 (roadmap §5.8; design: Settings, Calendars (ICS))
+Message:
+    feat: ICS export and file import
+
+    Core (blotter-core::ics, no new dependencies):
+    - An RFC 5545 text layer: unfolding, quoted parameters, TEXT escaping,
+      lenient component parsing, and output folded at 75 octets.
+    - Export of everything or a date range. Scheduled items become
+      VEVENTs (so tasks show in Google and Apple Calendar), Inbox tasks
+      VTODOs. Plain items are written in UTC. A series is written in its
+      zone with a VTIMEZONE, so its wall-clock time survives DST; changed
+      occurrences follow with RECURRENCE-ID, deleted ones as EXDATE.
+      Reminders become VALARMs, tags CATEGORIES. Kind, anchoring,
+      completion, colour and due go in X-BLOTTER-* properties, so a
+      Blotter export imports back whole.
+    - Import reads VEVENT/VTODO, DTSTART/DTEND/DURATION in UTC, floating,
+      IANA, prefixed or Windows (Outlook) zones, RRULE (UNTIL made UTC),
+      EXDATE, RECURRENCE-ID, VALARMs before the start, CATEGORIES,
+      PRIORITY and LOCATION (into notes). Rules Blotter can't expand
+      (hourly, broken) import once with a warning; unknown zones are read
+      in the user's with a warning; cancelled events are left out.
+    - Items keep their UID (migration 0006: items.ics_uid). Importing the
+      same file twice, or a Blotter export into the Blotter it came from,
+      adds nothing.
+    - A preview says what a file adds before anything is written. The
+      import itself is the user-only operation import_ics: one batch, so
+      Ctrl+Z undoes it whole ("Import ICS (12 items)"), after a "Before
+      ICS import" snapshot (none when nothing is new). A flexible item
+      that would land in a block-out is made fixed.
+
+    App/UI: Settings → Calendars (ICS) with Import .ics (native picker,
+    then a confirm listing what it adds, its date span and warnings) and
+    Export… (Everything or a date range). Subscriptions join this page in
+    #35.
+Files:
+    A  crates/blotter-core/migrations/0006_item_ics_uid.sql
+    A  crates/blotter-core/src/ics/mod.rs        (import with snapshot; round-trip tests)
+    A  crates/blotter-core/src/ics/text.rs
+    A  crates/blotter-core/src/ics/zones.rs
+    A  crates/blotter-core/src/ics/export.rs
+    A  crates/blotter-core/src/ics/import.rs
+    A  crates/blotter-core/src/ops/ics.rs        (import_ics)
+    A  src-tauri/src/ics.rs                      (export_ics, pick_ics_import, apply_ics_import)
+    A  src/lib/icsFormat.ts, src/lib/icsFormat.test.ts
+    A  src/views/settings/CalendarsPage.tsx
+    M  crates/blotter-core/src/db.rs             (migration 0006, schema v6)
+    M  crates/blotter-core/src/lib.rs
+    M  crates/blotter-core/src/model/item.rs     (ics_uid)
+    M  crates/blotter-core/src/store/items.rs    (ics_uid column)
+    M  crates/blotter-core/src/ops/mod.rs        (registry; import_ics is user-only)
+    M  crates/blotter-core/src/ops/undo.rs       ("Import ICS" label)
+    M  src-tauri/src/lib.rs
+    M  src/app/nav.ts, src/lib/types.ts, src/views/SettingsView.tsx
+    M  .claude/COMMITS.md, .claude/roadmap.md
+Test steps:
+    - cargo test --workspace → 159 core (+14: text layer, zones and VTIMEZONEs, durations,
+      UNTIL, export→import gives the same items incl. series overrides and reminders,
+      re-import adds nothing, one undoable batch and agents refused, date ranges, an
+      Outlook/Google-style file, snapshot only when something is new) + 36 app + 6 mcp;
+      clippy / fmt clean
+    - pnpm check → clean; Vitest 183 (+4 wording)
+    - A copy of the demo database: exported 26 calendar items and 9 Inbox tasks (no line over
+      75 octets); imported into an empty database → the same 35, 14 reminders, no warnings;
+      previewed into its own database → 35 already there, nothing new
+Notes:
+    - Not driven live by me: the page, the native Save/Open dialogs and the confirm.
+      Luke's dev:demo was running while I worked. Please try Settings → Calendars: Export…
+      both ways, then Import .ics that file (expect "nothing new"), and an export from
+      Google or Outlook.
+    - Roadmap AC 1 still needs Luke: import an exported file into Google Calendar and the
+      Apple Calendar app.
+    - Google Calendar ignores VTODOs, so Inbox tasks only reach calendars that read to-dos.
+    - Next: #35 subscriptions (needs a published calendar URL).
