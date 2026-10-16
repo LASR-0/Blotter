@@ -10,9 +10,15 @@ export const dayKey = (d: Date): string => format(d, 'yyyy-MM-dd');
  * into the next day), all-day items on each date from start to end.
  * Within a day, all-day items come first, then by start time.
  */
-export function itemsByDay(items: readonly Item[]): Map<string, Item[]> {
-  const out = new Map<string, Item[]>();
-  const add = (key: string, item: Item) => {
+/** What `itemsByDay` needs of an item (calendar events have it too). */
+export type DaySpan = Pick<
+  Item,
+  'all_day' | 'start_at' | 'end_at' | 'start_date' | 'end_date' | 'sort_order'
+>;
+
+export function itemsByDay<T extends DaySpan>(items: readonly T[]): Map<string, T[]> {
+  const out = new Map<string, T[]>();
+  const add = (key: string, item: T) => {
     const list = out.get(key);
     if (list) list.push(item);
     else out.set(key, [item]);

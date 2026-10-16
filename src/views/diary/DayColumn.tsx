@@ -1,10 +1,11 @@
 import { useState, type FormEvent } from 'react';
 import { format, isSameDay } from 'date-fns';
-import { Plus, SunHorizon } from '@phosphor-icons/react';
+import { LinkSimple, Plus, SunHorizon } from '@phosphor-icons/react';
 import { useDrag } from '@/app/drag';
 import { EmptyState } from '@/components/EmptyState';
 import { ItemCard } from '@/components/ItemCard';
 import { isOpError, runOp } from '@/lib/api';
+import { eventTimes, eventTitle, type ShownEvent } from '@/lib/calendarEvents';
 import { cn } from '@/lib/cn';
 import { formatDuration } from '@/lib/duration';
 import { isoDate } from '@/lib/period';
@@ -14,6 +15,8 @@ export interface DayColumnProps {
   day: Date;
   today: boolean;
   items: Item[];
+  /** Events from subscribed calendars on this day (read-only). */
+  events: ShownEvent[];
   /** Open tasks from earlier days, shown at the top of today's column. */
   overdue: Item[];
   plannedMin: number;
@@ -28,6 +31,28 @@ function InsertLine() {
   return (
     <div aria-hidden className="relative h-0.5 flex-none rounded-[1px] bg-accent">
       <span className="absolute -top-[3px] -left-[3px] size-2 rounded-full border-2 border-accent bg-bg" />
+    </div>
+  );
+}
+
+/** A subscribed calendar's event: one quiet, read-only line. */
+function EventLine({ event }: { event: ShownEvent }) {
+  return (
+    <div
+      title={eventTitle(event)}
+      style={{ borderLeft: `3px solid ${event.color}` }}
+      className={cn(
+        'flex h-[26px] flex-none items-center gap-2 rounded-sm border border-dashed border-border bg-surface px-2 text-sm',
+        !event.busy && 'text-text-muted',
+      )}
+    >
+      <span className="flex-none font-mono text-xs text-text-muted">{eventTimes(event)}</span>
+      <span className="min-w-0 flex-1 truncate">{event.title}</span>
+      <LinkSimple
+        size={12}
+        aria-label={`From ${event.calendar}`}
+        className="flex-none text-text-muted"
+      />
     </div>
   );
 }
@@ -97,6 +122,7 @@ export function DayColumn({
   day,
   today,
   items,
+  events,
   overdue,
   plannedMin,
   availableMin,
@@ -188,6 +214,14 @@ export function DayColumn({
             />
           ))}
 
+        {events.length > 0 && (
+          <div aria-label="From your calendars" className="flex flex-col gap-1">
+            {events.map((e) => (
+              <EventLine key={e.key} event={e} />
+            ))}
+          </div>
+        )}
+
         {overdue.length > 0 && (
           <>
             <SectionLabel danger>Overdue</SectionLabel>
@@ -207,7 +241,7 @@ export function DayColumn({
           </>
         )}
 
-        {!loading && items.length === 0 && overdue.length === 0 && today && (
+        {!loading && items.length === 0 && overdue.length === 0 && events.length === 0 && today && (
           <EmptyState
             icon={SunHorizon}
             title="Nothing planned yet"

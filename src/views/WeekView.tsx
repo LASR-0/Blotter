@@ -16,7 +16,7 @@ import {
   parseISO,
   startOfWeek,
 } from 'date-fns';
-import { ArrowsClockwise, PushPin, Warning } from '@phosphor-icons/react';
+import { ArrowsClockwise, LinkSimple, PushPin, Warning } from '@phosphor-icons/react';
 import { withFocusedItem } from '@/actions/itemActions';
 import { startPointerDrag, useDrag } from '@/app/drag';
 import { useFocus, useScrollFocusIntoView, useViewController } from '@/app/focus';
@@ -27,6 +27,13 @@ import { ErrorPanel } from '@/components/EmptyState';
 import { Kbd } from '@/components/ui/kbd';
 import { isOpError } from '@/lib/api';
 import { blockedIntervals, windowTitle } from '@/lib/availability';
+import {
+  eventTimes,
+  eventTitle,
+  isEventKey,
+  useCalendarEvents,
+  type ShownEvent,
+} from '@/lib/calendarEvents';
 import { cn } from '@/lib/cn';
 import { isRecurring } from '@/lib/itemDraft';
 import { conflictMap, conflictText } from '@/lib/conflicts';
@@ -191,6 +198,48 @@ function EventBlock({
   );
 }
 
+/** A subscribed calendar's event: read-only, so no focus, drag or resize. */
+function CalendarBlock({ event, placed }: { event: ShownEvent; placed: Placed }) {
+  const height = Math.max(minutesToPx(placed.end - placed.start) - 2, 17);
+  const compact = height < 30;
+  return (
+    <div
+      title={eventTitle(event)}
+      onClick={(e) => e.stopPropagation()}
+      style={{
+        top: minutesToPx(placed.start) + 1,
+        height,
+        left: `calc(${(placed.lane / placed.lanes) * 100}% + ${placed.lane === 0 ? 3 : 1}px)`,
+        width: `calc(${100 / placed.lanes}% - ${placed.lanes > 1 ? 4 : 6}px)`,
+        background: `color-mix(in srgb, ${event.color} ${event.busy ? 11 : 5}%, var(--color-bg))`,
+        border: `1px dashed color-mix(in srgb, ${event.color} 55%, transparent)`,
+        borderLeft: `3px solid ${event.color}`,
+        lineHeight: compact ? `${height - 2}px` : 1.3,
+      }}
+      className={cn(
+        'absolute z-1 cursor-default overflow-hidden rounded-sm',
+        compact
+          ? 'flex flex-row items-center gap-1 px-[5px] text-[10.5px]'
+          : 'flex flex-col gap-px px-1.5 py-[3px] text-xs',
+      )}
+    >
+      <span className="flex min-w-0 items-center gap-1">
+        <span className="truncate font-medium text-text">{event.title}</span>
+        <LinkSimple
+          size={10}
+          aria-label="From a subscribed calendar"
+          className="ml-auto flex-none text-text-muted"
+        />
+      </span>
+      {height > 34 && (
+        <span className="truncate font-mono text-[10px] text-text-muted">
+          {eventTimes(event)} · {event.calendar}
+        </span>
+      )}
+    </div>
+  );
+}
+
 export function WeekView() {
   const anchor = useNav((s) => s.anchor);
   const now = useNow();
@@ -205,6 +254,8 @@ export function WeekView() {
   });
   const items = useMemo(() => agenda.data?.items ?? [], [agenda.data]);
   const windows = useBlockoutWindows();
+  const events = useCalendarEvents();
+  const eventByKey = useMemo(() => new Map(events.map((e) => [e.key, e])), [events]);
   const byId = useMemo(() => new Map(items.map((i) => [i.id, i])), [items]);
   const conflicts = useMemo(() => conflictMap(agenda.data?.conflicts), [agenda.data]);
   const titleOf = (id: string) => byId.get(id)?.title;
@@ -212,28 +263,32 @@ export function WeekView() {
   const allDay = useMemo(
     () =>
       layoutAllDay(
-        items
+        [...items.map((i) => ({ ...i, key: i.id })), ...events.map((e) => ({ ...e, key: e.key }))]
           .filter((i) => i.all_day && i.start_date)
           .map((i) => {
             const firstIdx = differenceInCalendarDays(parseISO(i.start_date as string), first);
             const lastIdx = i.end_date
               ? differenceInCalendarDays(parseISO(i.end_date), first)
               : firstIdx;
-            return { id: i.id, first: firstIdx, last: lastIdx };
+            return { id: i.key, first: firstIdx, last: lastIdx };
           }),
         7,
       ),
-    [items, first],
+    [items, events, first],
   );
   const allDayRows = Math.max(1, ...allDay.map((p) => p.row + 1));
 
   const columns = useMemo(
     () =>
       days.map((day) => {
-        const spans = items
+        // Calendar events share the lanes, so nothing hides behind them.
+        const spans = [
+          ...items.map((i) => ({ ...i, key: i.id })),
+          ...events.map((e) => ({ ...e, key: e.key })),
+        ]
           .filter((i) => !i.all_day && i.start_at)
           .map((i) => ({
-            id: i.id,
+            id: i.key,
             start: minutesInto(day, i.start_at as string),
             end: minutesInto(day, i.end_at ?? (i.start_at as string)),
           }))
@@ -241,7 +296,7 @@ export function WeekView() {
           .map((s) => ({ ...s, start: Math.max(0, s.start), end: Math.min(DAY_MIN, s.end) }));
         return { day, placed: layoutDay(spans), blocks: blockedIntervals(windows, day) };
       }),
-    [days, items, windows],
+    [days, items, events, windows],
   );
 
   // Open each week scrolled to the morning, or to just before now.
@@ -263,7 +318,10 @@ export function WeekView() {
   const [mode, setMode] = useState<'item' | 'cell'>('item');
   const [cursor, setCursor] = useState({ day: 0, minute: 9 * 60 });
   useScrollFocusIntoView(mode === 'cell' ? `cursor-${cursor.day}-${cursor.minute}` : focusedId);
-  const timedByDay = columns.map(({ placed }) => placed.map((p) => ({ id: p.id, start: p.start })));
+  // Keyboard focus moves over items only; calendar events are read-only.
+  const timedByDay = columns.map(({ placed }) =>
+    placed.filter((p) => !isEventKey(p.id)).map((p) => ({ id: p.id, start: p.start })),
+  );
   const clampMinute = (m: number) => Math.max(0, Math.min(DAY_MIN - CURSOR_MIN, m));
   // While the cursor is active the item focus is parked, so Enter, x and Del
   // never act on an item you can't see; Tab back restores it.
@@ -426,6 +484,29 @@ export function WeekView() {
               all-day
             </div>
             {allDay.map((p) => {
+              const event = eventByKey.get(p.id);
+              if (event) {
+                return (
+                  <div
+                    key={p.id}
+                    title={eventTitle(event)}
+                    style={{
+                      gridRow: p.row + 1,
+                      gridColumn: `${p.first + 2} / span ${p.last - p.first + 1}`,
+                      background: `color-mix(in srgb, ${event.color} 10%, var(--color-bg))`,
+                      border: `1px dashed color-mix(in srgb, ${event.color} 55%, transparent)`,
+                      borderLeft: `3px solid ${event.color}`,
+                    }}
+                    className="mx-1 flex items-center gap-[5px] overflow-hidden rounded-sm px-1.5 text-xs"
+                  >
+                    <span className="truncate">{event.title}</span>
+                    <LinkSimple
+                      aria-label="From a subscribed calendar"
+                      className="ml-auto flex-none text-text-muted"
+                    />
+                  </div>
+                );
+              }
               const item = byId.get(p.id);
               if (!item) return null;
               const color = itemColor(item);
@@ -510,6 +591,8 @@ export function WeekView() {
                 </div>
               ))}
               {placed.map((p) => {
+                const event = eventByKey.get(p.id);
+                if (event) return <CalendarBlock key={p.id} event={event} placed={p} />;
                 const item = byId.get(p.id);
                 return item ? (
                   <EventBlock

@@ -1,11 +1,12 @@
 import { useLayoutEffect, useRef } from 'react';
 import { format, isSameDay, parseISO } from 'date-fns';
-import { Clock, PushPin } from '@phosphor-icons/react';
+import { Clock, LinkSimple, PushPin } from '@phosphor-icons/react';
 import { startPointerDrag } from '@/app/drag';
 import { useOverlay } from '@/app/overlay';
 import { DropPreview } from '@/components/DropPreview';
 import { isoDate } from '@/lib/period';
 import { blockedIntervals, windowTimes, windowTitle } from '@/lib/availability';
+import { eventTitle, type ShownEvent } from '@/lib/calendarEvents';
 import { cn } from '@/lib/cn';
 import { layoutDay } from '@/lib/layout';
 import type { BlockoutWindow, Item } from '@/lib/types';
@@ -32,10 +33,13 @@ function laneStyle(p: { lane: number; lanes: number } | undefined) {
 export function TimelineRail({
   day,
   items,
+  events,
   windows,
 }: {
   day: Date;
   items: Item[];
+  /** Subscribed calendars' events on this day (read-only). */
+  events: ShownEvent[];
   windows: BlockoutWindow[];
 }) {
   const now = useNow();
@@ -57,25 +61,28 @@ export function TimelineRail({
   }, [dayKey]);
 
   const blocks = blockedIntervals(windows, day);
+  const minutes = (i: { start_at: string | null; end_at: string | null }) => {
+    const start = (parseISO(i.start_at as string).getTime() - day.getTime()) / MS_PER_MIN;
+    const end =
+      (parseISO(i.end_at ?? (i.start_at as string)).getTime() - day.getTime()) / MS_PER_MIN;
+    return { start: Math.max(0, start), end: Math.min(24 * 60, Math.max(end, start + 15)) };
+  };
+  const onRail = (t: { start: number; end: number }) => t.end > 0 && t.start < 24 * 60;
   const timed = items
     .filter((i) => !i.all_day && i.start_at)
-    .map((i) => {
-      const start = (parseISO(i.start_at as string).getTime() - day.getTime()) / MS_PER_MIN;
-      const end =
-        (parseISO(i.end_at ?? (i.start_at as string)).getTime() - day.getTime()) / MS_PER_MIN;
-      return {
-        item: i,
-        start: Math.max(0, start),
-        end: Math.min(24 * 60, Math.max(end, start + 15)),
-      };
-    })
-    .filter((t) => t.end > 0 && t.start < 24 * 60);
-  // Overlapping items share the rail's width in lanes, as in the Week grid.
+    .map((i) => ({ item: i, ...minutes(i) }))
+    .filter(onRail);
+  const timedEvents = events
+    .filter((e) => !e.all_day && e.start_at)
+    .map((e) => ({ event: e, ...minutes(e) }))
+    .filter(onRail);
+  // Overlapping items (and calendar events) share the rail's width in lanes,
+  // as in the Week grid.
   const lanes = new Map(
-    layoutDay(timed.map((t) => ({ id: t.item.id, start: t.start, end: t.end }))).map((p) => [
-      p.id,
-      p,
-    ]),
+    layoutDay([
+      ...timed.map((t) => ({ id: t.item.id, start: t.start, end: t.end })),
+      ...timedEvents.map((t) => ({ id: t.event.key, start: t.start, end: t.end })),
+    ]).map((p) => [p.id, p]),
   );
   const inBlock = (s: number, e: number) => blocks.some((b) => s >= b.start && e <= b.end);
 
@@ -154,6 +161,25 @@ export function TimelineRail({
               </div>
             );
           })}
+
+          {timedEvents.map(({ event, start, end }) => (
+            <div
+              key={event.key}
+              title={eventTitle(event)}
+              className="absolute flex cursor-default items-center gap-1 overflow-hidden rounded-[3px] px-1.5 text-[10.5px]"
+              style={{
+                ...laneStyle(lanes.get(event.key)),
+                top: px(start) + 1,
+                height: Math.max(px(end - start) - 2, 14),
+                background: `color-mix(in srgb, ${event.color} ${event.busy ? 11 : 5}%, var(--color-bg))`,
+                border: `1px dashed color-mix(in srgb, ${event.color} 55%, transparent)`,
+                borderLeft: `2px solid ${event.color}`,
+              }}
+            >
+              <span className="truncate font-medium">{event.title}</span>
+              <LinkSimple size={10} className="ml-auto flex-none text-text-muted" />
+            </div>
+          ))}
 
           <DropPreview scope="timeline" date={day} hourPx={HOUR_PX} className="right-1 left-12" />
 

@@ -6,6 +6,7 @@ import { useNav } from '@/app/nav';
 import { ErrorPanel } from '@/components/EmptyState';
 import { isOpError } from '@/lib/api';
 import { availableMinutes } from '@/lib/availability';
+import { eventsByDay, useCalendarEvents } from '@/lib/calendarEvents';
 import { dayKey, itemsByDay } from '@/lib/days';
 import { moveInColumns, STEP_MIN } from '@/lib/focusNav';
 import { moveByDays, moveByMinutes, resizeByMinutes } from '@/lib/itemMoves';
@@ -48,6 +49,8 @@ export function DiaryView() {
   });
   const overdue = useOp<Item[]>('list_overdue');
   const windows = useBlockoutWindows();
+  const calendarEvents = useCalendarEvents();
+  const eventDays = useMemo(() => eventsByDay(calendarEvents), [calendarEvents]);
   const conflicts = useMemo(() => conflictMap(agenda.data?.conflicts), [agenda.data]);
   const titleOf = titles(agenda.data?.items ?? []);
   const conflictOf = (id: string) => conflictText(conflicts.get(id), titleOf);
@@ -101,6 +104,7 @@ export function DiaryView() {
               day={day}
               today={isToday}
               items={items}
+              events={eventDays.get(dayKey(day)) ?? []}
               // Overdue tasks surface on today's column only, unless already listed there.
               overdue={lateItems}
               plannedMin={plannedMinutes(items, day)}
@@ -111,7 +115,12 @@ export function DiaryView() {
           );
         })}
       </div>
-      <TimelineRail day={anchor} items={anchorItems} windows={windows} />
+      <TimelineRail
+        day={anchor}
+        items={anchorItems}
+        events={eventDays.get(dayKey(anchor)) ?? []}
+        windows={windows}
+      />
     </div>
   );
 }

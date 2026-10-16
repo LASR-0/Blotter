@@ -8,7 +8,7 @@ import {
   startOfMonth,
   startOfWeek,
 } from 'date-fns';
-import { X } from '@phosphor-icons/react';
+import { LinkSimple, X } from '@phosphor-icons/react';
 import { useViewController } from '@/app/focus';
 import { useNav } from '@/app/nav';
 import { useOverlay } from '@/app/overlay';
@@ -17,6 +17,13 @@ import { Kbd } from '@/components/ui/kbd';
 import { Popover, PopoverClose, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { isOpError } from '@/lib/api';
 import { blockedIntervals, PLANNING_HOURS, windowTitle } from '@/lib/availability';
+import {
+  eventsByDay,
+  eventTimes,
+  eventTitle,
+  useCalendarEvents,
+  type ShownEvent,
+} from '@/lib/calendarEvents';
 import { cn } from '@/lib/cn';
 import { dayKey, itemsByDay } from '@/lib/days';
 import { timeOf } from '@/lib/format';
@@ -56,7 +63,36 @@ function Chip({ item }: { item: Item }) {
   );
 }
 
-function DayPopover({ day, items, count }: { day: Date; items: Item[]; count: number }) {
+/** A subscribed calendar's event; read-only. */
+function EventChip({ event }: { event: ShownEvent }) {
+  return (
+    <div
+      title={eventTitle(event)}
+      style={{
+        background: `color-mix(in srgb, ${event.color} ${event.busy ? 10 : 5}%, var(--color-bg))`,
+        borderLeft: `3px solid ${event.color}`,
+      }}
+      className="flex h-[19px] min-w-0 flex-none items-center gap-[5px] rounded-[3px] border border-dashed border-[color-mix(in_srgb,var(--color-border-strong)_60%,transparent)] px-[5px] text-xs"
+    >
+      <span className="flex-none font-mono text-[10px] text-text-muted">
+        {event.all_day ? 'all day' : eventTimes(event).split('–')[0]}
+      </span>
+      <span className="truncate font-medium">{event.title}</span>
+    </div>
+  );
+}
+
+function DayPopover({
+  day,
+  items,
+  events,
+  count,
+}: {
+  day: Date;
+  items: Item[];
+  events: ShownEvent[];
+  count: number;
+}) {
   const openWeek = useNav((s) => s.openWeek);
   return (
     <Popover>
@@ -105,6 +141,23 @@ function DayPopover({ day, items, count }: { day: Date; items: Item[]; count: nu
               </button>
             );
           })}
+          {events.map((e) => (
+            <div
+              key={e.key}
+              title={eventTitle(e)}
+              style={{
+                background: `color-mix(in srgb, ${e.color} 10%, var(--color-surface-raised))`,
+                borderLeft: `3px solid ${e.color}`,
+              }}
+              className="flex items-center gap-2 rounded-sm px-2 py-1.5 text-sm"
+            >
+              <span className="w-[84px] flex-none font-mono text-xs text-text-muted">
+                {eventTimes(e)}
+              </span>
+              <span className="flex-1 font-medium">{e.title}</span>
+              <LinkSimple aria-label={`From ${e.calendar}`} className="flex-none text-text-muted" />
+            </div>
+          ))}
         </div>
         <button
           type="button"
@@ -132,6 +185,8 @@ export function MonthView() {
     end: isoDate(days[CELLS - 1] as Date),
   });
   const byDay = useMemo(() => itemsByDay(agenda.data?.items ?? []), [agenda.data]);
+  const events = useCalendarEvents();
+  const eventDays = useMemo(() => eventsByDay(events), [events]);
 
   // Keyboard focus is a day: the chosen one if it's in this month, else today
   // (when shown) or the 1st.
@@ -179,8 +234,11 @@ export function MonthView() {
           const today = isSameDay(day, now);
           const items = byDay.get(dayKey(day)) ?? [];
           const shown = items.slice(0, MAX_CHIPS);
+          // Calendar events take the chips left after the items.
+          const dayEvents = eventDays.get(dayKey(day)) ?? [];
+          const shownEvents = dayEvents.slice(0, MAX_CHIPS - shown.length);
           const focused = isSameDay(day, focusDay);
-          const hidden = items.length - shown.length;
+          const hidden = items.length + dayEvents.length - shown.length - shownEvents.length;
           const dayBlocks = blockedIntervals(
             windows.filter((w) => w.date === isoDate(day)),
             day,
@@ -228,7 +286,12 @@ export function MonthView() {
                 {shown.map((item) => (
                   <Chip key={item.id} item={item} />
                 ))}
-                {hidden > 0 && <DayPopover day={day} items={items} count={hidden} />}
+                {shownEvents.map((e) => (
+                  <EventChip key={e.key} event={e} />
+                ))}
+                {hidden > 0 && (
+                  <DayPopover day={day} items={items} events={dayEvents} count={hidden} />
+                )}
               </div>
             </div>
           );

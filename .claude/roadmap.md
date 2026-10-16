@@ -533,7 +533,7 @@ Each phase states the intent, then the acceptance criteria (AC) and leads to ver
 **Leads:** check each provider's current tool-call formats and streaming events.
 
 ### Phase 9 — ICS
-**Progress (2026-10-16):** #34 (ICS export and file import, Settings → Calendars) and #35 (subscriptions with the block-out option) are committed. Still needing Luke: an exported file tried in Google Calendar and Apple Calendar (AC 1), and a published Outlook URL subscribed in the app (AC 2; the logic is tested against an Outlook-style feed). Next: #35a, subscribed events drawn in the views.
+**Progress (2026-10-16):** #34 (ICS export and file import), #35 (subscriptions with the block-out option) and #35a (subscribed events drawn read-only in Diary, Week and Month) are committed. **Phase 9 is complete in code.** Still needing Luke: an exported file tried in Google Calendar and Apple Calendar (AC 1), and a published Outlook URL subscribed in the app (AC 2; the logic is tested against an Outlook-style feed and a local server). Open: subscriptions aren't in the JSON export. Next: Phase 10.
 **Intent:** export, file import, and subscriptions with the block-out option.
 
 **AC:**

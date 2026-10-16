@@ -87,8 +87,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 33 | 8 | `feat(ai): daily briefing` | committed `e43ac71` |
 | 33a | 8 | `docs: Phase 8 wrap-up and open items` | committed `9af9c7c` |
 | 34 | 9 | `feat: ICS export and file import` | committed `2551a8e` |
-| 35 | 9 | `feat: ICS subscriptions with block-out option` | committed (hash in the next entry) |
-| 35a | 9 | `feat(ui): subscribed events in the calendar views` | planned |
+| 35 | 9 | `feat: ICS subscriptions with block-out option` | committed `73d43a7` |
+| 35a | 9 | `feat(ui): subscribed events in the calendar views` | committed (hash in the next entry) |
 | 36 | 10 | `feat(ui): keybinding editor` | planned |
 | 37 | 10 | `feat(ui): theme engine with live preview` | planned |
 | 38 | 10 | `feat(ui): remaining settings pages and first-run setup` | planned |
@@ -2908,7 +2908,7 @@ Notes:
     - Google Calendar ignores VTODOs, so Inbox tasks only reach calendars that read to-dos.
     - Next: #35 subscriptions (needs a published calendar URL).
 
-### #35 — ICS subscriptions with block-out option            [status: committed — hash in the next entry]
+### #35 — ICS subscriptions with block-out option            [status: committed 73d43a7]
 Phase: 9 (roadmap §5.8, §4.5; design: Settings, Calendars (ICS))
 Message:
     feat: ICS subscriptions with block-out option
@@ -2989,3 +2989,44 @@ Notes:
     - Subscriptions aren't in the JSON export (AI providers aren't either); a database
       snapshot keeps them.
     - Next: #35a.
+
+### #35a — Subscribed events in the calendar views            [status: committed — hash in the next entry]
+Phase: 9 (roadmap §5.8: "Subscribed items are read-only, have their own colour")
+Message:
+    feat(ui): subscribed events in the calendar views
+
+    Events from subscribed calendars now show in Diary, Week and Month,
+    read-only and in their calendar's colour (a dashed edge and a link
+    icon set them apart from your own items; free events are fainter).
+
+    - Week: timed events share the lanes with items, all-day ones the
+      all-day row. They can't be focused, dragged or resized; arrow
+      keys skip them.
+    - Month: events take the chips left after a day's items, and the
+      "+N more" popover lists them too.
+    - Diary: each day column lists its events as quiet lines above the
+      cards, and the timeline rail draws the timed ones.
+    - Hover shows time, location, calendar, and whether it's free.
+    - Settings → Calendars: each calendar's dot picks its colour (the
+      theme's calendar colour, or one of the tag colours).
+
+    One cached list_calendar_events query covers every view, over the
+    same range as the block-out windows.
+Files:
+    A  src/lib/calendarEvents.ts (+ test)
+    M  src/lib/days.ts                      (itemsByDay takes anything with a day span)
+    M  src/views/WeekView.tsx, src/views/MonthView.tsx
+    M  src/views/diary/DiaryView.tsx, DayColumn.tsx, TimelineRail.tsx
+    M  src/views/settings/SubscriptionsSection.tsx (colour)
+    M  .claude/COMMITS.md, .claude/roadmap.md
+Test steps:
+    - pnpm check → clean; Vitest 190 (+3: calendars resolved and keyed apart from items,
+      times and hover text, bucketing by day)
+    - Rust unchanged (166 core + 41 app + 6 mcp still pass)
+Notes:
+    - Not driven live by me. With a subscription added (#35), please look at a week with
+      its meetings: they should sit beside your items without covering them, ignore arrow
+      keys and drags, and recolour when you pick a colour in Settings → Calendars.
+    - Phase 9 is complete in code. Open for Luke: AC 1 (an export into Google Calendar and
+      Apple Calendar) and AC 2 live (a published Outlook URL as a block-out).
+    - Next: Phase 10, #36 keybinding editor.

@@ -11,9 +11,11 @@ import {
 } from '@phosphor-icons/react';
 import { useOverlay } from '@/app/overlay';
 import { Button } from '@/components/ui/button';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { isOpError, onPlannerChanged } from '@/lib/api';
+import { DEFAULT_CALENDAR_COLOR } from '@/lib/calendarEvents';
 import { cn } from '@/lib/cn';
 import {
   REFRESH_CHOICES,
@@ -35,6 +37,51 @@ const STATUS_ICON = {
   pending: CircleDashed,
   off: PauseCircle,
 } as const;
+
+/** Colours a calendar can take (the tag palette); none uses the theme's calendar colour. */
+const CALENDAR_COLORS = ['#6c9cf2', '#56c49b', '#e5995a', '#e77aa9', '#a48ef2'];
+
+function ColorPicker({
+  name,
+  value,
+  onChange,
+}: {
+  name: string;
+  value: string | null;
+  onChange: (color: string | null) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const swatch = (color: string | null, label: string) => (
+    <button
+      key={label}
+      type="button"
+      aria-label={label}
+      aria-pressed={value === color}
+      onClick={() => {
+        setOpen(false);
+        if (color !== value) onChange(color);
+      }}
+      style={{ background: color ?? DEFAULT_CALENDAR_COLOR }}
+      className={cn(
+        'size-5 cursor-pointer rounded-full border-2',
+        value === color ? 'border-text' : 'border-transparent',
+      )}
+    />
+  );
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger
+        aria-label={`Colour of ${name}`}
+        style={{ background: value ?? DEFAULT_CALENDAR_COLOR }}
+        className="size-3 flex-none cursor-pointer rounded-full border-0"
+      />
+      <PopoverContent align="start" className="flex w-auto gap-1.5 p-2">
+        {swatch(null, 'Theme colour')}
+        {CALENDAR_COLORS.map((c) => swatch(c, c))}
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 function SubscriptionCard({ s, onChanged }: { s: Subscription; onChanged: () => void }) {
   const ask = useOverlay((o) => o.ask);
@@ -75,11 +122,7 @@ function SubscriptionCard({ s, onChanged }: { s: Subscription; onChanged: () => 
       )}
     >
       <div className="flex items-center gap-2">
-        <span
-          aria-hidden
-          className="size-2.5 flex-none rounded-full"
-          style={{ background: s.color ?? 'var(--color-blockout)' }}
-        />
+        <ColorPicker name={s.name} value={s.color} onChange={(color) => void patch({ color })} />
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
