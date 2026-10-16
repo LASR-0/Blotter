@@ -12,7 +12,7 @@ import {
   type Icon,
 } from '@phosphor-icons/react';
 import { BlotterMark } from '@/components/BlotterMark';
-import { Kbd } from '@/components/ui/kbd';
+import { KeyChips } from '@/components/ui/kbd';
 import { Tooltip } from '@/components/ui/tooltip';
 import { cn } from '@/lib/cn';
 import type { View } from '@/lib/period';
@@ -95,12 +95,8 @@ function RailButton({
         <>
           <span className="flex-1 text-left">{label}</span>
           {trailing}
-          {/* Modifier shortcuts as a key chip (like Ctrl K above); chords stay plain text. */}
-          {/^(Ctrl|Alt|Shift)\b/.test(keys) ? (
-            <Kbd>{keys}</Kbd>
-          ) : (
-            <span className="font-mono text-[10px] text-text-muted opacity-80">{keys}</span>
-          )}
+          {/* One key chip per key, as in the palette: [Ctrl] [,], [g] [d]. */}
+          <KeyChips binding={keys} compact />
         </>
       )}
     </button>
@@ -170,15 +166,15 @@ export function Sidebar() {
             onClick={() => openOverlay('palette')}
             aria-label={collapsed ? 'Search or command' : undefined}
             className={cn(
-              'flex h-[30px] w-full cursor-pointer items-center gap-2 rounded-md border border-border bg-bg text-text-muted hover:border-border-strong',
+              'flex h-[30px] w-full cursor-pointer items-center gap-1.5 rounded-md border border-border bg-bg text-text-muted hover:border-border-strong',
               collapsed ? 'justify-center' : 'px-2',
             )}
           >
             <MagnifyingGlass />
             {!collapsed && (
               <>
-                <span className="flex-1 text-left">Search or command</span>
-                <Kbd>Ctrl K</Kbd>
+                <span className="min-w-0 flex-1 truncate text-left">Search or command</span>
+                <KeyChips binding="Ctrl+K" compact />
               </>
             )}
           </button>
@@ -233,7 +229,7 @@ export function Sidebar() {
           active={view === 'settings'}
           icon={Gear}
           label="Settings"
-          keys="Ctrl ,"
+          keys="Ctrl+,"
           onClick={() => openSettings()}
         />
       </div>

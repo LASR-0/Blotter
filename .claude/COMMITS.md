@@ -101,7 +101,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 39a | polish | `style(theme): Luke's accents for Dark, Light and Paper` | committed `1b32ffd` |
 | 39b | polish | `style(ui): polish from Luke's list` | committed `0a92ee0` |
 | 39c | polish | `feat(ui): Settings on one page in wide windows` | committed `5243959` |
-| 39d | polish | `style(ui): centred content, sidebar key chip, keybinding row` | committed (hash in the next entry) |
+| 39d | polish | `style(ui): centred content, sidebar key chip, keybinding row` | committed `86f2a48` |
+| 39e | polish | `style(ui): one key chip per key in the sidebar` | committed (hash in the next entry) |
 | 40 | 12 | ~~`feat(mcp): MCP server over the operation registry`~~ | superseded by #29a |
 | 41 | 13 | `build: Windows installers and Linux AppImage/deb bundles` | planned |
 | 42 | 13 | `build: Flatpak manifest` | planned |
@@ -3527,7 +3528,7 @@ Test steps:
       page per click; at 1200px the theme preview is one 358px column with nothing
       overflowing.
 
-### #39d — Centred content, sidebar key chip, keybinding row            [status: committed — hash in the next entry]
+### #39d — Centred content, sidebar key chip, keybinding row            [status: committed 86f2a48]
 Phase: pre-release polish (Luke's list, 2026-10-16)
 Message:
     style(ui): centred content, sidebar key chip, keybinding row
@@ -3551,3 +3552,20 @@ Test steps:
     - pnpm check → clean; Vitest 213
     - In the running app (DevTools): Keybindings, History and Inbox centred; Ctrl , as a
       chip; after jumping between sections nothing outside the settings column is scrolled.
+
+### #39e — One key chip per key in the sidebar            [status: committed — hash in the next entry]
+Phase: pre-release polish (Luke's list, 2026-10-16)
+Message:
+    style(ui): one key chip per key in the sidebar
+
+    Every sidebar shortcut is drawn as key chips, one per key, as in
+    the palette: [g] [d] for the views, [Ctrl] [,] for Settings and
+    [Ctrl] [K] in the search box. KeyChips gains a compact size for
+    narrow places, so "Search or command" still fits on one line.
+Files:
+    M  src/app/Sidebar.tsx, src/components/ui/kbd.tsx
+    M  .claude/COMMITS.md
+Test steps:
+    - pnpm check → clean; Vitest 213
+    - In the running app: every view row, Settings and the search box show separate chips;
+      "Search or command" is one line, not truncated (122 of 122px).

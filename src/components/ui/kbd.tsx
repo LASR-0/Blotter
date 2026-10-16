@@ -31,16 +31,28 @@ export function Kbd({ size = 'sm', onAccent, className, ...props }: KbdProps) {
  * A binding as one chip per key, as in the palette and shortcut sheet:
  * `Ctrl+K` → [Ctrl] [K], `g w` → [g] [w].
  */
-export function KeyChips({ binding, className }: { binding: string; className?: string }) {
+export function KeyChips({
+  binding,
+  compact,
+  className,
+}: {
+  binding: string;
+  /** Tighter chips, for narrow places like the sidebar. */
+  compact?: boolean;
+  className?: string;
+}) {
   const keys = formatBinding(binding)
     .split(' ')
     .flatMap((step) => step.split(/\+(?!$)/));
   return (
-    <span className={cn('inline-flex gap-[3px]', className)}>
+    <span className={cn('inline-flex flex-none', compact ? 'gap-0.5' : 'gap-[3px]', className)}>
       {keys.map((k, i) => (
         <kbd
           key={i}
-          className="min-w-[18px] rounded-[3px] border border-b-2 border-border-strong bg-surface px-[5px] text-center font-mono text-[10.5px] text-text-muted"
+          className={cn(
+            'rounded-[3px] border border-b-2 border-border-strong bg-surface text-center font-mono text-[10.5px] text-text-muted',
+            compact ? 'min-w-4 px-[3px]' : 'min-w-[18px] px-[5px]',
+          )}
         >
           {k}
         </kbd>
