@@ -86,8 +86,9 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 32a | 8 | `feat(ui): undo batch for auto-applied AI changes` | committed `d8bc8d7` |
 | 33 | 8 | `feat(ai): daily briefing` | committed `e43ac71` |
 | 33a | 8 | `docs: Phase 8 wrap-up and open items` | committed `9af9c7c` |
-| 34 | 9 | `feat: ICS export and file import` | committed (hash in the next entry) |
-| 35 | 9 | `feat: ICS subscriptions with block-out option` | planned |
+| 34 | 9 | `feat: ICS export and file import` | committed `2551a8e` |
+| 35 | 9 | `feat: ICS subscriptions with block-out option` | committed (hash in the next entry) |
+| 35a | 9 | `feat(ui): subscribed events in the calendar views` | planned |
 | 36 | 10 | `feat(ui): keybinding editor` | planned |
 | 37 | 10 | `feat(ui): theme engine with live preview` | planned |
 | 38 | 10 | `feat(ui): remaining settings pages and first-run setup` | planned |
@@ -2832,7 +2833,7 @@ Test steps:
 Notes:
     - Next: #34 ICS export and file import.
 
-### #34 — ICS export and file import            [status: committed — hash in the next entry]
+### #34 — ICS export and file import            [status: committed 2551a8e]
 Phase: 9 (roadmap §5.8; design: Settings, Calendars (ICS))
 Message:
     feat: ICS export and file import
@@ -2906,3 +2907,85 @@ Notes:
       Apple Calendar app.
     - Google Calendar ignores VTODOs, so Inbox tasks only reach calendars that read to-dos.
     - Next: #35 subscriptions (needs a published calendar URL).
+
+### #35 — ICS subscriptions with block-out option            [status: committed — hash in the next entry]
+Phase: 9 (roadmap §5.8, §4.5; design: Settings, Calendars (ICS))
+Message:
+    feat: ICS subscriptions with block-out option
+
+    Subscribe to a calendar published as a link (webcal:// or https://),
+    such as an Outlook work calendar. It stays read-only, refreshes on
+    its own, and with "Treat as block-out" on, its busy times keep
+    flexible tasks out.
+
+    Core:
+    - blotter-core::subscriptions: add, update, remove and list
+      subscriptions, and record a fetch. webcal:// is fetched over https;
+      other schemes are refused. Refresh every 5 minutes to 7 days
+      (default 1 hour). Like AI providers they are the user's settings,
+      outside the operation registry and undo, so agents can't make the
+      app fetch URLs.
+    - ics::feed reads a feed with the import's reader (Windows zones,
+      RRULE, EXDATE, RECURRENCE-ID) and expands each series from a year
+      ago to two years ahead into the existing ics_events cache. Events
+      marked free (TRANSP:TRANSPARENT or Outlook's FREE) never block. The
+      calendar's own name (X-WR-CALNAME) replaces the host name it starts
+      with. A failed fetch, or a page that isn't a calendar, keeps the
+      previous events and records why.
+    - windows::load (now given the user's zone) adds the busy timed
+      events of block-out calendars as windows with `calendar` set. So
+      find_free_slots, auto_slot, the placement check, drag refusal, the
+      Diary meter and the shading all respect them; fixed items may sit
+      in them without a conflict. All-day events never block (on
+      Outlook they're usually free, or leave).
+    - New read operation list_calendar_events, so the AI sees subscribed
+      events too.
+
+    App: a fetch loop checks once a minute for subscriptions due (HTTP
+    outside the planner lock, 20 MB cap, timeouts), and a Refresh never
+    runs twice at once. Commands list/add/update/remove/refresh_subscription.
+
+    UI: Settings → Calendars gets Subscriptions: paste a URL and
+    Subscribe (fetched at once), then per calendar its name (editable),
+    status ("Fetched 10:30 · 48 events", or the error and the last
+    success), refresh interval, Treat as block-out, Refresh/Retry and
+    Unsubscribe. Shading from a calendar says so on hover ("Team sync
+    10:00–11:00 (busy in Work)").
+Files:
+    A  crates/blotter-core/src/model/subscription.rs
+    A  crates/blotter-core/src/store/subscriptions.rs
+    A  crates/blotter-core/src/subscriptions.rs     (management, record_fetch; AC tests)
+    A  crates/blotter-core/src/ics/feed.rs           (feed → cached occurrences)
+    A  src-tauri/src/subscriptions.rs                (fetcher, minute check, commands)
+    A  src/views/settings/SubscriptionsSection.tsx
+    M  crates/blotter-core/src/ics/import.rs         (plan_feed; busy and location kept)
+    M  crates/blotter-core/src/windows.rs            (subscription windows; load takes the zone)
+    M  crates/blotter-core/src/ops/reads.rs          (list_calendar_events)
+    M  crates/blotter-core/src/ops/slots.rs          (zone; refusal names the calendar)
+    M  crates/blotter-core/src/slots.rs, lib.rs, model/mod.rs, store/mod.rs, ics/mod.rs
+    M  src-tauri/src/lib.rs
+    M  src/lib/icsFormat.ts (+ test), src/lib/availability.ts (+ test), src/lib/types.ts,
+       src/lib/dnd.test.ts
+    M  src/views/WeekView.tsx, MonthView.tsx, diary/TimelineRail.tsx (hover text)
+    M  src/views/settings/CalendarsPage.tsx
+    M  .claude/COMMITS.md, .claude/roadmap.md
+Test steps:
+    - cargo test --workspace → 166 core (+7: an Outlook-style feed with Windows zones, a
+      moved and a cancelled occurrence, free and all-day events; a Blotter export as a feed;
+      URLs; add/update/remove; fetches fill the cache and failures keep it; a block-out
+      calendar moves find_free_slots past its meeting, refuses a flexible task with the
+      calendar named, allows a fixed one without a conflict, and stops when off or paused)
+      + 41 app (+5: fetch over local HTTP, 404, over 20 MB, nothing listening, and fetch →
+      cache → a refused task end to end) + 6 mcp; clippy / fmt clean
+    - pnpm check → clean; Vitest 187 (+4: refresh labels, status wording, hover text)
+Notes:
+    - Not driven live by me: the page and the minute check in the running app. Please try
+      Settings → Calendars → Subscriptions with your published Outlook URL (Outlook on the
+      web → Settings → Calendar → Shared calendars → Publish a calendar → ICS link), turn
+      on Treat as block-out, then drag a flexible task onto one of its meetings (expect a
+      refusal) and run auto-slot. That's roadmap AC 2.
+    - Subscribed events aren't drawn as events yet, only as block-out shading when that's
+      on; #35a draws them read-only in Diary, Week and Month (with the calendar's colour).
+    - Subscriptions aren't in the JSON export (AI providers aren't either); a database
+      snapshot keeps them.
+    - Next: #35a.

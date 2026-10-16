@@ -70,3 +70,9 @@ export function availableMinutes(windows: readonly BlockoutWindow[], day: Date):
   const { start, end } = PLANNING_HOURS;
   return end - start - coveredMinutes(blockedIntervals(windows, day), start, end);
 }
+
+/** Hover text for a window: "Work 08:30–17:00 (block-out)", or "Team sync 10:00–11:00 (busy in Work calendar)". */
+export function windowTitle(w: BlockoutWindow): string {
+  const what = w.calendar ? `busy in ${w.calendar}` : 'block-out';
+  return `${w.label} ${windowTimes(w)} (${what})`;
+}

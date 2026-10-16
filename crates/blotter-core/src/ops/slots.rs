@@ -100,7 +100,7 @@ fn buffer(ctx: &Ctx<'_>) -> Duration {
 fn find_free_slots(ctx: &mut Ctx<'_>, a: FindFreeSlotsArgs) -> Result<FreeSlots> {
     let (from, until) = search_window(ctx, a.from, a.until)?;
     let buffer = buffer(ctx);
-    let blockouts = windows::load(ctx.conn, from, until)?;
+    let blockouts = windows::load(ctx.conn, ctx.settings.tz, from, until)?;
     let exclude: HashSet<String> = a.exclude_item.into_iter().collect();
     let busy = busy_time(ctx, from - buffer, until + buffer, &exclude)?;
     let engine = SlotEngine {
@@ -273,7 +273,7 @@ pub(crate) fn place(
     });
 
     let buffer = buffer(ctx);
-    let blockouts = windows::load(ctx.conn, from, until)?;
+    let blockouts = windows::load(ctx.conn, ctx.settings.tz, from, until)?;
     // The tasks being placed don't block each other's old spots.
     let moving: HashSet<String> = tasks.iter().map(|i| i.id.clone()).collect();
     let mut busy = busy_time(ctx, from - buffer, until + buffer, &moving)?;
@@ -423,7 +423,7 @@ pub(crate) fn conflicts(ctx: &Ctx<'_>, items: &[Item]) -> Result<Vec<Conflict>> 
         return Ok(Vec::new());
     };
     let hi = timed.iter().map(|t| t.2).max().unwrap_or(lo);
-    let strict: Vec<_> = windows::load(ctx.conn, lo, hi)?
+    let strict: Vec<_> = windows::load(ctx.conn, ctx.settings.tz, lo, hi)?
         .into_iter()
         .filter(|w| !w.permits_fixed)
         .collect();
@@ -471,12 +471,23 @@ pub(crate) fn check_placement(ctx: &Ctx<'_>, before: Option<&Item>, item: &Item)
     }
     // A zero-length item still occupies its start minute.
     let end = end.max(start + Duration::minutes(1));
-    let blocking = windows::load(ctx.conn, start, end)?;
+    let blocking = windows::load(ctx.conn, ctx.settings.tz, start, end)?;
     let Some(w) = blocking.iter().find(|w| w.overlaps(start, end)) else {
         return Ok(());
     };
     let tz = ctx.settings.tz;
     let (ws, we) = (w.start.with_timezone(&tz), w.end.with_timezone(&tz));
+    if let Some(calendar) = &w.calendar {
+        return Err(CoreError::invalid(format!(
+            "'{}' would clash with '{}' ({} {}–{}) from {calendar}, which blocks time like a \
+             block-out. Flexible tasks can't go there: pick another time, or make it fixed.",
+            item.title,
+            w.label,
+            ws.format("%a %-d %b"),
+            ws.format("%H:%M"),
+            we.format("%H:%M"),
+        )));
+    }
     Err(CoreError::invalid(format!(
         "'{}' would be inside the {} block-out ({} {}–{}). Flexible tasks can't go in \
          block-outs: pick another time, or make it fixed.",

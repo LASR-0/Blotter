@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { exportedText, importNotes, importSpan, importWhat, type IcsSummary } from './icsFormat';
+import {
+  exportedText,
+  importNotes,
+  importSpan,
+  importWhat,
+  refreshLabel,
+  subscriptionStatus,
+  type IcsSummary,
+  type Subscription,
+} from './icsFormat';
 
 const base: IcsSummary = {
   scheduled: 0,
@@ -62,5 +71,64 @@ describe('ICS import wording', () => {
       'Exported 5 calendar items and 1 Inbox task to C:\\b.ics',
     );
     expect(exportedText(1, 0, '/b.ics')).toBe('Exported 1 calendar item to /b.ics');
+  });
+});
+
+describe('subscription wording', () => {
+  const now = new Date(2026, 9, 16, 11, 0);
+  const sub: Subscription = {
+    id: 's',
+    name: 'Work',
+    url: 'https://outlook.office365.com/c.ics',
+    refresh_min: 60,
+    color: null,
+    as_blockout: true,
+    enabled: true,
+    last_fetch_at: null,
+    last_ok_at: null,
+    last_status: null,
+    last_error: null,
+    created_at: '2026-10-16T00:00:00Z',
+    updated_at: '2026-10-16T00:00:00Z',
+    events: 0,
+  };
+  const local = (d: number, h: number, m = 0) => new Date(2026, 9, d, h, m).toISOString();
+
+  it('labels refresh intervals', () => {
+    expect([15, 60, 180, 1440, 2880, 90].map(refreshLabel)).toEqual([
+      '15 min',
+      '1 hour',
+      '3 hours',
+      'Daily',
+      '2 days',
+      '90 min',
+    ]);
+  });
+
+  it('says when it last fetched', () => {
+    expect(subscriptionStatus(sub, now)).toEqual({ tone: 'pending', text: 'Not fetched yet' });
+    const ok = { ...sub, last_fetch_at: local(16, 10, 30), last_status: 'ok' as const, events: 48 };
+    expect(subscriptionStatus(ok, now).text).toBe('Fetched 10:30 · 48 events');
+    expect(subscriptionStatus({ ...ok, last_fetch_at: local(15, 9, 5) }, now).text).toBe(
+      'Fetched yesterday 09:05 · 48 events',
+    );
+    expect(subscriptionStatus({ ...ok, enabled: false }, now).tone).toBe('off');
+  });
+
+  it('explains failures and the last success', () => {
+    const failed = {
+      ...sub,
+      last_fetch_at: local(16, 10),
+      last_ok_at: local(13, 10),
+      last_status: 'error' as const,
+      last_error: 'HTTP 404 Not Found',
+    };
+    expect(subscriptionStatus(failed, now)).toEqual({
+      tone: 'error',
+      text: 'HTTP 404 Not Found · last success 3 days ago',
+    });
+    expect(
+      subscriptionStatus({ ...failed, last_ok_at: null, last_error: 'couldn’t connect' }, now).text,
+    ).toBe('Couldn’t connect · never fetched');
   });
 });

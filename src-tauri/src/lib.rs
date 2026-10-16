@@ -13,6 +13,7 @@ mod ics;
 mod reminders;
 mod rollover;
 mod shell;
+mod subscriptions;
 
 use std::path::PathBuf;
 use std::sync::Mutex;
@@ -136,6 +137,8 @@ pub fn run() {
             ai::chat::start_session_reaper(app.handle().clone());
             rollover::start(app.handle().clone());
             reminders::start(app.handle().clone());
+            app.manage(subscriptions::Fetching::default());
+            subscriptions::start(app.handle().clone());
             // The main window starts hidden (tauri.conf.json) so `--hidden`
             // launches never flash it.
             shell::handle_launch(app.handle(), &launch);
@@ -175,6 +178,11 @@ pub fn run() {
             ics::export_ics,
             ics::pick_ics_import,
             ics::apply_ics_import,
+            subscriptions::list_subscriptions,
+            subscriptions::add_subscription,
+            subscriptions::update_subscription,
+            subscriptions::remove_subscription,
+            subscriptions::refresh_subscription,
             ai::commands::list_providers,
             ai::commands::save_provider,
             ai::commands::delete_provider,

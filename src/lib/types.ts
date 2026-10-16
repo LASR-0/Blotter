@@ -74,6 +74,10 @@ export interface BlockoutWindow {
   end: string;
   permits_fixed: boolean;
   color: string | null;
+  /** Set for a busy event of a subscribed calendar treated as a block-out (can't be lifted). */
+  subscription_id: string | null;
+  /** That calendar's name. */
+  calendar: string | null;
 }
 
 export interface BlockoutWindows {

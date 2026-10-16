@@ -4,6 +4,7 @@ import { addDays, format } from 'date-fns';
 import { DownloadSimple, UploadSimple } from '@phosphor-icons/react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useOverlay } from '@/app/overlay';
+import { SubscriptionsSection } from './SubscriptionsSection';
 import { Button } from '@/components/ui/button';
 import { DatePicker } from '@/components/ui/date-picker';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -194,6 +195,7 @@ export function CalendarsPage() {
         </div>
       )}
       {error && <p className="m-0 text-sm text-danger">{error}</p>}
+      <SubscriptionsSection />
     </div>
   );
 }

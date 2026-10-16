@@ -3,6 +3,7 @@
 //! written by the `import_ics` operation, so it is one undoable batch.
 
 pub mod export;
+pub mod feed;
 pub mod import;
 pub mod text;
 pub mod zones;

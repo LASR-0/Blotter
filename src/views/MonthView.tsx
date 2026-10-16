@@ -16,7 +16,7 @@ import { ErrorPanel } from '@/components/EmptyState';
 import { Kbd } from '@/components/ui/kbd';
 import { Popover, PopoverClose, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { isOpError } from '@/lib/api';
-import { blockedIntervals, PLANNING_HOURS, windowTimes } from '@/lib/availability';
+import { blockedIntervals, PLANNING_HOURS, windowTitle } from '@/lib/availability';
 import { cn } from '@/lib/cn';
 import { dayKey, itemsByDay } from '@/lib/days';
 import { timeOf } from '@/lib/format';
@@ -219,9 +219,7 @@ export function MonthView() {
                 </button>
                 {dayBlocks.length > 0 && (
                   <span
-                    title={dayBlocks
-                      .map((b) => `${b.window.label} ${windowTimes(b.window)} (block-out)`)
-                      .join('\n')}
+                    title={dayBlocks.map((b) => windowTitle(b.window)).join('\n')}
                     className="h-1 w-7 rounded-[2px] bg-[repeating-linear-gradient(135deg,color-mix(in_srgb,var(--color-blockout)_70%,transparent)_0_1.5px,transparent_1.5px_4px)]"
                   />
                 )}

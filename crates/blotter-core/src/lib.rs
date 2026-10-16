@@ -22,6 +22,7 @@ pub mod settings;
 pub mod slots;
 pub mod snapshots;
 pub mod store;
+pub mod subscriptions;
 pub mod time;
 pub mod windows;
 

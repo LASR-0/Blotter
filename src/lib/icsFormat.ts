@@ -1,4 +1,11 @@
-import { format, isSameYear, parseISO } from 'date-fns';
+import {
+  addDays,
+  differenceInCalendarDays,
+  format,
+  isSameDay,
+  isSameYear,
+  parseISO,
+} from 'date-fns';
 
 /** Mirrors `ImportSummary` in crates/blotter-core/src/ics/import.rs. */
 export interface IcsSummary {
@@ -63,4 +70,73 @@ export function exportedText(events: number, todos: number, path: string): strin
     todos > 0 && count(todos, 'Inbox task', 'Inbox tasks'),
   ].filter(Boolean);
   return `Exported ${parts.join(' and ')} to ${path}`;
+}
+
+/** Mirrors `SubscriptionInfo` in crates/blotter-core/src/subscriptions.rs. */
+export interface Subscription {
+  id: string;
+  name: string;
+  url: string;
+  refresh_min: number;
+  color: string | null;
+  as_blockout: boolean;
+  enabled: boolean;
+  last_fetch_at: string | null;
+  last_ok_at: string | null;
+  last_status: 'ok' | 'error' | null;
+  last_error: string | null;
+  created_at: string;
+  updated_at: string;
+  /** Events in the cache. */
+  events: number;
+}
+
+/** Refresh intervals offered, in minutes (the core takes 5 minutes to 7 days). */
+export const REFRESH_CHOICES = [15, 30, 60, 180, 360, 720, 1440] as const;
+
+/** "15 min", "1 hour", "6 hours", "Daily", "2 days". */
+export function refreshLabel(min: number): string {
+  if (min < 60) return `${min} min`;
+  if (min % 1440 === 0) return min === 1440 ? 'Daily' : `${min / 1440} days`;
+  const h = min / 60;
+  return Number.isInteger(h) ? count(h, 'hour', 'hours') : `${min} min`;
+}
+
+/** When `iso` was: "10:30" today, "yesterday 10:30", else "Mon 12 Oct". */
+function when(iso: string, now: Date): string {
+  const t = parseISO(iso);
+  if (isSameDay(t, now)) return format(t, 'HH:mm');
+  if (isSameDay(t, addDays(now, -1))) return `yesterday ${format(t, 'HH:mm')}`;
+  return format(t, isSameYear(t, now) ? 'EEE d MMM' : 'd MMM yyyy');
+}
+
+function ago(iso: string, now: Date): string {
+  const days = differenceInCalendarDays(now, parseISO(iso));
+  if (days <= 0) return `at ${format(parseISO(iso), 'HH:mm')}`;
+  return days === 1 ? 'yesterday' : `${days} days ago`;
+}
+
+export interface SubscriptionStatus {
+  tone: 'ok' | 'error' | 'pending' | 'off';
+  text: string;
+}
+
+/** The status line: "Fetched 10:30 · 48 events", "HTTP 404 · last success 3 days ago". */
+export function subscriptionStatus(s: Subscription, now = new Date()): SubscriptionStatus {
+  if (!s.enabled) return { tone: 'off', text: 'Paused' };
+  if (!s.last_fetch_at) return { tone: 'pending', text: 'Not fetched yet' };
+  if (s.last_status === 'error') {
+    const why = s.last_error ?? 'Couldn’t fetch';
+    const reason = why.charAt(0).toUpperCase() + why.slice(1);
+    return {
+      tone: 'error',
+      text: s.last_ok_at
+        ? `${reason} · last success ${ago(s.last_ok_at, now)}`
+        : `${reason} · never fetched`,
+    };
+  }
+  return {
+    tone: 'ok',
+    text: `Fetched ${when(s.last_fetch_at, now)} · ${count(s.events, 'event', 'events')}`,
+  };
 }

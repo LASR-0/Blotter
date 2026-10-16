@@ -258,6 +258,8 @@ mod tests {
             end,
             permits_fixed: true,
             color: None,
+            subscription_id: None,
+            calendar: None,
         }
     }
 

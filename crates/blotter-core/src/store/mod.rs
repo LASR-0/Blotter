@@ -11,6 +11,7 @@ pub mod items;
 pub mod providers;
 pub mod reminders;
 pub mod settings;
+pub mod subscriptions;
 
 use chrono::{NaiveDate, NaiveTime};
 

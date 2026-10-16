@@ -5,11 +5,13 @@ mod blockout;
 mod change;
 mod item;
 mod reminder;
+mod subscription;
 
 pub use blockout::{Blockout, BlockoutException, Weekdays};
 pub use change::{Actor, Change};
 pub use item::{Anchoring, Item, ItemKind, ItemStatus, Source};
 pub use reminder::Reminder;
+pub use subscription::{Subscription, SubscriptionEvent};
 
 /// Declares a fieldless enum stored as a lowercase string, with serde,
 /// `as_str` and `FromStr` all agreeing on the same spelling.

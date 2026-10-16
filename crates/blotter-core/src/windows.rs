@@ -41,6 +41,12 @@ pub struct BlockoutWindow {
     /// Whether fixed items may sit inside without a warning.
     pub permits_fixed: bool,
     pub color: Option<String>,
+    /// Set when the window is a busy event of a subscribed calendar with
+    /// "treat as block-out" on (the block-out id is then the subscription's).
+    /// Those can't be lifted; turn the option off instead.
+    pub subscription_id: Option<String>,
+    /// The subscribed calendar's name, for those windows.
+    pub calendar: Option<String>,
 }
 
 impl BlockoutWindow {
@@ -51,11 +57,33 @@ impl BlockoutWindow {
     }
 }
 
-/// Every stored block-out's windows overlapping `[from, to)`.
-pub fn load(conn: &Connection, from: Instant, to: Instant) -> Result<Vec<BlockoutWindow>> {
+/// Every stored block-out's windows overlapping `[from, to)`, with the busy
+/// timed events of subscriptions treated as block-outs. `tz` (the user's)
+/// gives those events their date.
+pub fn load(conn: &Connection, tz: Tz, from: Instant, to: Instant) -> Result<Vec<BlockoutWindow>> {
     let blockouts = store::blockouts::list(conn)?;
     let exceptions = store::blockouts::list_exceptions(conn, None, None)?;
-    expand(&blockouts, &exceptions, from, to)
+    let mut out = expand(&blockouts, &exceptions, from, to)?;
+    if to > from {
+        for (e, calendar, color) in store::subscriptions::blocking_events(conn, from, to)? {
+            let (Some(start), Some(end)) = (e.start_at, e.end_at) else {
+                continue;
+            };
+            out.push(BlockoutWindow {
+                blockout_id: e.subscription_id.clone(),
+                label: e.title,
+                date: start.with_timezone(&tz).date_naive(),
+                start,
+                end,
+                permits_fixed: true,
+                color,
+                subscription_id: Some(e.subscription_id),
+                calendar: Some(calendar),
+            });
+        }
+        out.sort_by_key(|w| w.start);
+    }
+    Ok(out)
 }
 
 /// Every window of `blockouts` overlapping `[from, to)`, sorted by start.
@@ -110,6 +138,8 @@ pub fn expand(
                 end,
                 permits_fixed: b.permits_fixed,
                 color: b.color.clone(),
+                subscription_id: None,
+                calendar: None,
             });
         }
     }

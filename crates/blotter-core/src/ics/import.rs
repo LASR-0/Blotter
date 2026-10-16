@@ -70,6 +70,9 @@ pub(crate) struct Entry {
     pub alarms: Vec<Alarm>,
     /// Recurrence ids of deleted occurrences.
     pub exdates: Vec<String>,
+    /// Not marked free (only subscriptions use it).
+    pub busy: bool,
+    pub location: String,
 }
 
 /// A changed (`Some`) or deleted (`None`) occurrence of a new series.
@@ -78,6 +81,8 @@ pub(crate) struct Change {
     pub uid: String,
     pub recurrence_id: String,
     pub item: Option<Item>,
+    pub busy: bool,
+    pub location: String,
 }
 
 #[derive(Debug, Clone)]
@@ -469,7 +474,6 @@ fn plural(n: usize, one: &str, many: &str) -> String {
 
 /// Works out what importing `text` would add, without writing anything.
 pub(crate) fn plan(conn: &Connection, tz: Tz, text_in: &str, now: Instant) -> Result<Plan> {
-    let roots = text::parse(text_in)?;
     let mut imported = HashSet::new();
     {
         let mut stmt = conn
@@ -478,6 +482,38 @@ pub(crate) fn plan(conn: &Connection, tz: Tz, text_in: &str, now: Instant) -> Re
             imported.insert(uid?);
         }
     }
+    plan_with(tz, text_in, now, &mut |uid| known(conn, uid, &imported))
+}
+
+/// Reads a subscribed calendar: like [`plan`], but nothing counts as
+/// already imported, since the feed is cached apart from the items.
+pub(crate) fn plan_feed(tz: Tz, text_in: &str, now: Instant) -> Result<Plan> {
+    plan_with(tz, text_in, now, &mut |_| Ok(false))
+}
+
+/// Whether an event shows as busy: not marked free (TRANSP, or Outlook's
+/// busy status).
+fn busy(c: &Component) -> bool {
+    let is = |name: &str, value: &str| {
+        c.prop(name)
+            .is_some_and(|p| p.value.trim().eq_ignore_ascii_case(value))
+    };
+    !is("TRANSP", "TRANSPARENT") && !is("X-MICROSOFT-CDO-BUSYSTATUS", "FREE")
+}
+
+fn location(c: &Component) -> String {
+    c.text("LOCATION")
+        .map(|l| l.trim().to_owned())
+        .unwrap_or_default()
+}
+
+fn plan_with(
+    tz: Tz,
+    text_in: &str,
+    now: Instant,
+    is_known: &mut dyn FnMut(&str) -> Result<bool>,
+) -> Result<Plan> {
+    let roots = text::parse(text_in)?;
     let mut reader = Reader {
         tz,
         unknown_zones: BTreeSet::new(),
@@ -504,7 +540,7 @@ pub(crate) fn plan(conn: &Connection, tz: Tz, text_in: &str, now: Instant) -> Re
         }
         let uid = c.text("UID").map(|u| u.trim().to_owned());
         if let Some(uid) = &uid {
-            if known(conn, uid, &imported)? {
+            if is_known(uid)? {
                 summary.already += 1;
                 known_skipped.insert(uid.clone());
                 continue;
@@ -551,6 +587,8 @@ pub(crate) fn plan(conn: &Connection, tz: Tz, text_in: &str, now: Instant) -> Re
             Vec::new()
         };
         entries.push(Entry {
+            busy: busy(c),
+            location: location(c),
             item,
             alarms,
             exdates,
@@ -575,6 +613,8 @@ pub(crate) fn plan(conn: &Connection, tz: Tz, text_in: &str, now: Instant) -> Re
             } else if let Some((item, _)) = read_item(c, &mut reader, now) {
                 let alarms = alarms(c, &mut reader);
                 entries.push(Entry {
+                    busy: busy(c),
+                    location: location(c),
                     item,
                     alarms,
                     exdates: Vec::new(),
@@ -601,6 +641,8 @@ pub(crate) fn plan(conn: &Connection, tz: Tz, text_in: &str, now: Instant) -> Re
             }
         };
         changes.push(Change {
+            busy: busy(c),
+            location: location(c),
             uid,
             recurrence_id: rid,
             item,

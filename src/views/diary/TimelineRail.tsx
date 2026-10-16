@@ -5,7 +5,7 @@ import { startPointerDrag } from '@/app/drag';
 import { useOverlay } from '@/app/overlay';
 import { DropPreview } from '@/components/DropPreview';
 import { isoDate } from '@/lib/period';
-import { blockedIntervals, windowTimes } from '@/lib/availability';
+import { blockedIntervals, windowTimes, windowTitle } from '@/lib/availability';
 import { cn } from '@/lib/cn';
 import { layoutDay } from '@/lib/layout';
 import type { BlockoutWindow, Item } from '@/lib/types';
@@ -110,7 +110,8 @@ export function TimelineRail({
 
           {blocks.map((b) => (
             <div
-              key={`${b.window.blockout_id}-${b.start}`}
+              key={`${b.window.blockout_id}-${b.start}-${b.window.label}`}
+              title={windowTitle(b.window)}
               className="absolute right-0 border-y border-[color-mix(in_srgb,var(--color-blockout)_45%,transparent)] bg-hatch"
               style={{ left: GUTTER_PX, top: px(b.start), height: px(b.end - b.start) }}
             >

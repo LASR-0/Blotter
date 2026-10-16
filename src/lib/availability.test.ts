@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { availableMinutes, blockedIntervals, coveredMinutes, windowTimes } from './availability';
+import {
+  availableMinutes,
+  blockedIntervals,
+  coveredMinutes,
+  windowTimes,
+  windowTitle,
+} from './availability';
 import type { BlockoutWindow } from './types';
 
 /** A window between two local wall-clock times (so tests pass in any zone). */
@@ -18,6 +24,8 @@ const win = (
     end: new Date(y2, m2, d2, h2, min2).toISOString(),
     permits_fixed: label !== 'Sleep',
     color: null,
+    subscription_id: null,
+    calendar: null,
   };
 };
 
@@ -66,5 +74,15 @@ describe('coveredMinutes', () => {
         1320,
       ),
     ).toBe(200 + 20);
+  });
+});
+
+describe('windowTitle', () => {
+  it('says where a window comes from', () => {
+    const work = win('Work', [2026, 9, 13, 8, 30], [2026, 9, 13, 17, 0]);
+    expect(windowTitle(work)).toBe('Work 08:30–17:00 (block-out)');
+    expect(windowTitle({ ...work, label: 'Team sync', calendar: 'Work (Outlook)' })).toBe(
+      'Team sync 08:30–17:00 (busy in Work (Outlook))',
+    );
   });
 });

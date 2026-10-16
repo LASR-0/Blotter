@@ -26,7 +26,7 @@ import { DropPreview } from '@/components/DropPreview';
 import { ErrorPanel } from '@/components/EmptyState';
 import { Kbd } from '@/components/ui/kbd';
 import { isOpError } from '@/lib/api';
-import { blockedIntervals, windowTimes } from '@/lib/availability';
+import { blockedIntervals, windowTitle } from '@/lib/availability';
 import { cn } from '@/lib/cn';
 import { isRecurring } from '@/lib/itemDraft';
 import { conflictMap, conflictText } from '@/lib/conflicts';
@@ -497,8 +497,8 @@ export function WeekView() {
               ))}
               {blocks.map((b) => (
                 <div
-                  key={`${b.window.blockout_id}-${b.start}`}
-                  title={`${b.window.label} ${windowTimes(b.window)} (block-out)`}
+                  key={`${b.window.blockout_id}-${b.start}-${b.window.label}`}
+                  title={windowTitle(b.window)}
                   className="pointer-events-none absolute inset-x-0 border-y border-[color-mix(in_srgb,var(--color-blockout)_50%,transparent)] bg-hatch"
                   style={{ top: minutesToPx(b.start), height: minutesToPx(b.end - b.start) }}
                 >

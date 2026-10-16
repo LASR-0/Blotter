@@ -10,7 +10,7 @@ use super::occurrences::{Target, resolve};
 use super::slots::{Conflict, conflicts};
 use super::{Ctx, OpDef};
 use crate::error::{CoreError, Result};
-use crate::model::{Blockout, BlockoutException, Item, ItemStatus, Reminder};
+use crate::model::{Blockout, BlockoutException, Item, ItemStatus, Reminder, SubscriptionEvent};
 use crate::recurrence;
 use crate::store;
 use crate::store::items::ItemRange;
@@ -58,9 +58,15 @@ pub(super) fn defs() -> Vec<OpDef> {
              timezone): each occurrence with its start/end instants, after weekdays, active \
              ranges and lifted dates are applied. Flexible tasks can't go inside these; \
              fixed items can unless `permits_fixed` is false. A window past midnight belongs \
-             to the date it starts on.",
+             to the date it starts on. Busy events of subscribed calendars set to act as \n             block-outs are included, with `calendar` set; those can't be lifted.",
             false,
             list_blockout_windows,
+        ),
+        OpDef::new(
+            "list_calendar_events",
+            "List events from the user's subscribed calendars (read-only ICS feeds such as a \n             published work calendar) between two dates (inclusive, user's timezone). These \n             can't be changed. Calendars with `as_blockout` keep flexible tasks out of their \n             busy times, like block-outs.",
+            false,
+            list_calendar_events,
         ),
         OpDef::new(
             "list_overdue",
@@ -261,7 +267,47 @@ fn list_blockout_windows(ctx: &mut Ctx<'_>, a: DateRangeArgs) -> Result<Blockout
         start,
         end,
         timezone: ctx.settings.tz.name().to_owned(),
-        windows: windows::load(ctx.conn, range.start, range.end)?,
+        windows: windows::load(ctx.conn, ctx.settings.tz, range.start, range.end)?,
+    })
+}
+
+#[derive(Debug, Serialize)]
+pub struct CalendarInfo {
+    pub id: String,
+    pub name: String,
+    pub color: Option<String>,
+    pub as_blockout: bool,
+}
+
+#[derive(Debug, Serialize)]
+pub struct CalendarEvents {
+    pub start: NaiveDate,
+    pub end: NaiveDate,
+    pub timezone: String,
+    /// The enabled subscriptions the events come from.
+    pub calendars: Vec<CalendarInfo>,
+    pub events: Vec<SubscriptionEvent>,
+}
+
+fn list_calendar_events(ctx: &mut Ctx<'_>, a: DateRangeArgs) -> Result<CalendarEvents> {
+    let (start, end) = checked_days(a.start, a.end)?;
+    let range = day_range(ctx, start, end);
+    let calendars = store::subscriptions::list(ctx.conn)?
+        .into_iter()
+        .filter(|s| s.enabled)
+        .map(|s| CalendarInfo {
+            id: s.id,
+            name: s.name,
+            color: s.color,
+            as_blockout: s.as_blockout,
+        })
+        .collect();
+    Ok(CalendarEvents {
+        start,
+        end,
+        timezone: ctx.settings.tz.name().to_owned(),
+        calendars,
+        events: store::subscriptions::events_in_range(ctx.conn, range)?,
     })
 }
 

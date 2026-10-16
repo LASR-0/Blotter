@@ -39,6 +39,8 @@ const work: BlockoutWindow = {
   end: new Date(2026, 9, 13, 17, 0).toISOString(),
   permits_fixed: true,
   color: null,
+  subscription_id: null,
+  calendar: null,
 };
 const tue = new Date(2026, 9, 13);
 
