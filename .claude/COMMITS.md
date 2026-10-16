@@ -97,7 +97,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 39 | 11 | `feat(ui): completion history and streaks` | committed `4703da8` |
 | 36b | 10 | `fix(ui): Keybindings page to its design` | committed `97bed23` |
 | 37a | 10 | `fix(ui): Theme page to its design` | committed `7a1f99f` |
-| 38b | 10 | `fix(ui): first-run setup to its design` | committed (hash in the next entry) |
+| 38b | 10 | `fix(ui): first-run setup to its design` | committed `b1efb94` |
+| 39a | polish | `style(theme): Luke's accents for Dark, Light and Paper` | committed (hash in the next entry) |
 | 40 | 12 | ~~`feat(mcp): MCP server over the operation registry`~~ | superseded by #29a |
 | 41 | 13 | `build: Windows installers and Linux AppImage/deb bundles` | planned |
 | 42 | 13 | `build: Flatpak manifest` | planned |
@@ -3393,7 +3394,7 @@ Notes:
       still works (neither choice shows selected).
     - Next: #38b first-run setup.
 
-### #38b — First-run setup to its design            [status: committed — hash in the next entry]
+### #38b — First-run setup to its design            [status: committed b1efb94]
 Phase: 10 (fix; design: First Run, which #38a was built without; mixed with the Claude Code route)
 Message:
     fix(ui): first-run setup to its design
@@ -3433,3 +3434,31 @@ Notes:
     - Mixed in beyond the design: the Claude Code card, the "Set up later" link, and the
       model being picked for OpenAI / local endpoints.
     - Next: Phase 12 (MCP acceptance checks and README notes).
+
+### #39a — Luke's accents for Dark, Light and Paper            [status: committed — hash in the next entry]
+Phase: pre-release polish (Luke's list, 2026-10-16)
+Message:
+    style(theme): Luke's accents for Dark, Light and Paper
+
+    The built-in presets take the colours Luke tuned in his "… copy"
+    themes:
+
+    - Dark: text on accent #121317 → #ffffff, danger #f07178 → #c4323f.
+    - Light: accent #5b4cd6 → #b7adff, accent text #4b3dc0 → #9086fd,
+      focus ring #5b4cd6 → #a094ff.
+    - Paper: accent #2b4a7d → #6e99de.
+
+    The fallback tokens in styles.css follow Dark. The theme test now
+    records which preset pairs fall under WCAG AA with these colours.
+Files:
+    M  src/theme/presets.ts, src/styles.css, src/theme/engine.test.ts
+    M  .claude/COMMITS.md
+Test steps:
+    - pnpm vitest run src/theme → 15 passed
+Notes:
+    - Under AA (4.5:1) now: Dark text on accent 3.33, danger on background 3.43; Light text
+      on accent 2.01, accent text on tint 2.60, on background 2.99; Paper text on accent
+      2.72. The theme editor will show these warnings when editing the presets. Raised
+      with Luke.
+    - The "… copy" themes in the demo database are untouched (delete them if no longer
+      needed).

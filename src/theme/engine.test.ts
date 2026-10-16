@@ -26,11 +26,17 @@ describe('contrast', () => {
     expect(formatRatio(4.4999)).toBe('4.4:1');
   });
 
-  it('passes Dark, Light and Paper; Gruvbox’s red is just under AA', () => {
-    for (const id of ['dark', 'light', 'paper'])
-      expect(contrastIssues(findPreset(id)?.vars as ThemeVars), id).toEqual([]);
-    const gruvbox = contrastIssues(findPreset('gruvbox')?.vars as ThemeVars);
-    expect(gruvbox.map((i) => i.label)).toEqual(['Danger on background']);
+  it('knows which preset pairs fall under AA (the 2026-10-16 accents)', () => {
+    const labels = (id: string) =>
+      contrastIssues(findPreset(id)?.vars as ThemeVars).map((i) => i.label);
+    expect(labels('dark')).toEqual(['Text on accent', 'Danger on background']);
+    expect(labels('light')).toEqual([
+      'Text on accent',
+      'Accent text on accent tint',
+      'Accent text on background',
+    ]);
+    expect(labels('paper')).toEqual(['Text on accent']);
+    expect(labels('gruvbox')).toEqual(['Danger on background']);
   });
 
   it('warns when a draft makes text hard to read, worst first', () => {
@@ -38,6 +44,7 @@ describe('contrast', () => {
       ...dark,
       '--color-text-muted': '#3a3b44',
       '--color-on-accent': '#7a6ce0',
+      '--color-danger': '#f07178',
     });
     expect(issues.map((i) => i.label)).toEqual([
       'Text on accent',
