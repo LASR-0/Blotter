@@ -94,7 +94,10 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 37 | 10 | `feat(ui): theme engine with live preview` | committed `daf1ff4` |
 | 38 | 10 | `feat(ui): General settings page` | committed `f6b8d44` (split: first-run setup is #38a) |
 | 38a | 10 | `feat(ui): first-run setup` | committed `95b63fe` |
-| 39 | 11 | `feat(ui): completion history and streaks` | committed (hash in the next entry) |
+| 39 | 11 | `feat(ui): completion history and streaks` | committed `4703da8` |
+| 36b | 10 | `fix(ui): Keybindings page to its design` | committed (hash in the next entry) |
+| 37a | 10 | `fix(ui): Theme page to its design` | planned |
+| 38b | 10 | `fix(ui): first-run setup to its design` | planned |
 | 40 | 12 | ~~`feat(mcp): MCP server over the operation registry`~~ | superseded by #29a |
 | 41 | 13 | `build: Windows installers and Linux AppImage/deb bundles` | planned |
 | 42 | 13 | `build: Flatpak manifest` | planned |
@@ -3272,7 +3275,7 @@ Notes:
       warnings appear (e.g. muted text darkened).
     - Next: Phase 11, #39 completion history and streaks.
 
-### #39 — Completion history and streaks            [status: committed — hash in the next entry]
+### #39 — Completion history and streaks            [status: committed 4703da8]
 Phase: 11 (roadmap §5.3; design: History View)
 Message:
     feat(ui): completion history and streaks
@@ -3319,3 +3322,35 @@ Notes:
       complete one, and complete one from Claude Code over MCP; all three should appear in
       History at the right local time, the last two badged ai and mcp.
     - Phase 11 is complete in code. Next: Phase 12 (MCP acceptance checks and README notes).
+
+### #36b — Keybindings page to its design            [status: committed — hash in the next entry]
+Phase: 10 (fix; design: Settings Keybindings, which #36 was built without)
+Message:
+    fix(ui): Keybindings page to its design
+
+    #36 was built without the Settings Keybindings design; this brings
+    the page in line with it:
+
+    - Rows are flat lists under each group heading, not boxed. The whole
+      row is the target: click it, or Tab to it and press Enter.
+    - Each row shows where it works (Global, Calendar views, Week,
+      Inbox, System), an accent dot when changed, and a reset button
+      only when there's something to reset.
+    - Capturing shows a dashed accent box, "Press new keys… Esc to
+      cancel", then the keys as you press them.
+    - A clash shows under its row: "n is already bound to Quick add."
+      with Swap and Cancel. A chord clash ("g" against "g w"), which
+      can't be swapped, offers Take it instead.
+    - The search box counts the actions it shows.
+    - The Quick capture notice appears only when the shortcut can't
+      work (Wayland, or registration failed), as a warning.
+Files:
+    M  src/views/settings/KeybindingsPage.tsx, src/views/settings/QuickCaptureInfo.tsx
+    M  .claude/COMMITS.md
+Test steps:
+    - pnpm check → clean; Vitest 212 (the override and clash rules are unchanged)
+Notes:
+    - Kept from #36, beyond the design: the remove-keys button on hover, Take it for chord
+      clashes, and the registry's own groups (Go to, View, …) so the page matches the
+      palette and ? sheet.
+    - Next: #37a Theme page.

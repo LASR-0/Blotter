@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import {
   ArrowCounterClockwise,
@@ -6,6 +6,7 @@ import {
   LockSimple,
   MagnifyingGlass,
   UploadSimple,
+  Warning,
   X,
 } from '@phosphor-icons/react';
 import { ACTION_GROUPS, buildActions, NAV_CONTEXT, type Action } from '@/actions/actions';
@@ -45,7 +46,7 @@ const CONTEXT_LABEL: Record<string, string> = {
 function clashText(binding: string, found: readonly Clash[]): string {
   const names = found.map((c) => `${c.action.label} (${formatBinding(c.binding)})`);
   if (found.every((c) => c.exact)) {
-    return `${formatBinding(binding)} is already ${names.join(' and ')}.`;
+    return `${formatBinding(binding)} is already bound to ${found.map((c) => c.action.label).join(' and ')}.`;
   }
   return `${formatBinding(binding)} would get in the way of ${names.join(' and ')}: one starts with the other.`;
 }
@@ -111,6 +112,7 @@ function Row({
   onReset,
   overridden,
   bindings,
+  conflict,
 }: {
   action: Action;
   capturing: KeyToken[] | null;
@@ -119,83 +121,103 @@ function Row({
   onReset: () => void;
   overridden: boolean;
   bindings: string[];
+  /** The clash to settle, drawn under the row. */
+  conflict: ReactNode;
 }) {
   const fixed = FIXED_ACTIONS.has(action.id);
-  const context = action.context ? (CONTEXT_LABEL[action.context] ?? action.context) : null;
+  const context = fixed
+    ? 'System'
+    : action.context
+      ? (CONTEXT_LABEL[action.context] ?? action.context)
+      : 'Global';
   return (
-    <div
-      className={cn(
-        'group flex min-h-[38px] items-center gap-3 border-b border-border px-3 py-1.5',
-        capturing && 'bg-accent-tint',
-      )}
-    >
-      <action.icon size={15} className="flex-none text-text-muted" />
-      <span className="min-w-0 flex-1 truncate">
-        {action.label}
-        {context && <span className="ml-2 text-xs text-text-muted">{context}</span>}
-      </span>
-      {overridden && !capturing && (
-        <span title="Changed from the default" className="size-1.5 rounded-full bg-accent" />
-      )}
-      {fixed ? (
-        <span
-          title="Set with the operating system's shortcut, so it can't be changed here."
-          className="flex items-center gap-2"
-        >
-          {bindings.map((b) => (
-            <KeyChips key={b} binding={b} />
-          ))}
-          <LockSimple size={13} className="text-text-muted" />
-        </span>
-      ) : (
-        <button
-          type="button"
-          onClick={onCapture}
-          aria-label={`Change the keys for ${action.label}`}
-          className={cn(
-            'flex min-h-[26px] min-w-[120px] cursor-pointer items-center justify-end gap-2 rounded-md border px-2 outline-none focus-visible:border-accent',
-            capturing ? 'border-accent bg-bg' : 'border-transparent hover:border-border-strong',
+    <div className="flex flex-col">
+      <div
+        role={fixed ? undefined : 'button'}
+        tabIndex={fixed ? undefined : 0}
+        aria-label={fixed ? undefined : `Change the keys for ${action.label}`}
+        onClick={fixed ? undefined : onCapture}
+        onKeyDown={(e) => {
+          if (!fixed && e.key === 'Enter' && e.target === e.currentTarget) {
+            e.preventDefault();
+            onCapture();
+          }
+        }}
+        title={
+          fixed
+            ? "Set with the operating system's shortcut, so it can't be changed here."
+            : undefined
+        }
+        className={cn(
+          'group flex h-[38px] items-center gap-3 rounded-md px-2.5',
+          fixed ? 'cursor-default' : 'cursor-pointer hover:bg-hover',
+          capturing && 'bg-hover',
+        )}
+      >
+        <span className="flex min-w-0 flex-1 items-center gap-2">
+          <span className="truncate">{action.label}</span>
+          {overridden && (
+            <span
+              title="Changed from the default"
+              className="size-1.5 flex-none rounded-full bg-accent"
+            />
           )}
-        >
-          {capturing ? (
-            capturing.length ? (
+        </span>
+        <span className="w-[90px] flex-none text-xs text-text-muted">{context}</span>
+        {capturing ? (
+          <span className="flex h-[26px] min-w-[170px] items-center justify-end gap-1.5 rounded-md border-[1.5px] border-dashed border-accent bg-accent-tint px-2 font-mono text-xs text-accent-text">
+            {capturing.length ? (
               <KeyChips binding={tokensToBinding(capturing)} />
             ) : (
-              <span className="text-sm text-accent-text">Press the new keys… Esc cancels</span>
-            )
-          ) : bindings.length ? (
-            bindings.map((b) => <KeyChips key={b} binding={b} />)
-          ) : (
-            <span className="text-sm text-text-muted">Not set</span>
-          )}
-        </button>
-      )}
-      {!fixed && (
-        <span className="flex w-[52px] flex-none justify-end gap-0.5 opacity-0 group-focus-within:opacity-100 group-hover:opacity-100">
-          {bindings.length > 0 && (
+              <span className="animate-pulse">Press new keys… Esc to cancel</span>
+            )}
+          </span>
+        ) : (
+          <span className="flex min-w-[170px] items-center justify-end gap-1">
+            {bindings.length ? (
+              bindings.map((b) => <KeyChips key={b} binding={b} />)
+            ) : (
+              <span className="text-sm text-text-muted">Not set</span>
+            )}
+            {fixed && <LockSimple size={13} className="ml-1 text-text-muted" />}
+          </span>
+        )}
+        <span className="flex w-[52px] flex-none justify-end gap-0.5">
+          {!fixed && bindings.length > 0 && (
             <button
               type="button"
-              onClick={onUnbind}
+              onClick={(e) => {
+                e.stopPropagation();
+                onUnbind();
+              }}
               aria-label={`Remove the keys for ${action.label}`}
               title="Remove keys"
-              className="grid size-6 cursor-pointer place-items-center rounded-sm text-text-muted hover:bg-hover"
+              className="grid size-6 cursor-pointer place-items-center rounded-sm text-text-muted opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 hover:bg-hover"
             >
               <X size={13} />
             </button>
           )}
-          {overridden && (
+          {!fixed && (
             <button
               type="button"
-              onClick={onReset}
+              onClick={(e) => {
+                e.stopPropagation();
+                onReset();
+              }}
+              disabled={!overridden}
               aria-label={`Reset ${action.label} to its default`}
               title="Reset to default"
-              className="grid size-6 cursor-pointer place-items-center rounded-sm text-text-muted hover:bg-hover"
+              className={cn(
+                'grid size-6 cursor-pointer place-items-center rounded-sm text-text-muted hover:bg-hover',
+                !overridden && 'invisible',
+              )}
             >
               <ArrowCounterClockwise size={13} />
             </button>
           )}
         </span>
-      )}
+      </div>
+      {conflict}
     </div>
   );
 }
@@ -316,54 +338,20 @@ export function KeybindingsPage() {
 
       <QuickCaptureInfo />
 
-      <label className="flex h-[34px] items-center gap-2 rounded-md border border-border-strong bg-bg px-2.5 focus-within:border-accent">
+      <label className="flex h-8 items-center gap-2 rounded-md border border-border-strong bg-surface px-2.5 focus-within:border-accent">
         <MagnifyingGlass className="text-text-muted" />
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search actions or keys"
+          placeholder="Search actions or keys…"
           aria-label="Search actions or keys"
           className="min-w-0 flex-1 bg-transparent outline-none"
         />
+        <span className="font-mono text-xs text-text-muted">
+          {actions.filter(matches).length} actions
+        </span>
       </label>
 
-      {pending && (
-        <div
-          role="alert"
-          className="flex flex-col gap-2.5 rounded-lg border border-conflict bg-[color-mix(in_srgb,var(--color-conflict)_8%,var(--color-bg))] px-3.5 py-3"
-        >
-          <span className="text-sm">
-            {clashText(pending.binding, pending.found)} Give it to {labelOf(pending.actionId)}?
-          </span>
-          <div className="flex flex-wrap gap-1.5">
-            {pending.found.length === 1 && pending.found[0]?.exact && (
-              <Button
-                size="sm"
-                variant="primary"
-                autoFocus
-                onClick={() => commit(pending.actionId, pending.binding, true)}
-              >
-                Swap
-              </Button>
-            )}
-            <Button
-              size="sm"
-              variant={
-                pending.found.length === 1 && pending.found[0]?.exact ? 'secondary' : 'primary'
-              }
-              onClick={() => commit(pending.actionId, pending.binding, false)}
-            >
-              Take it
-            </Button>
-            <Button size="sm" variant="ghost" onClick={() => setPending(null)}>
-              Cancel
-            </Button>
-          </div>
-          <span className="text-xs text-text-muted">
-            Swap gives the other action this one&rsquo;s old keys; Take it leaves it without these.
-          </span>
-        </div>
-      )}
       {status && !pending && <p className="m-0 text-sm text-text-muted">{status}</p>}
       {error && <p className="m-0 text-sm text-danger">{error}</p>}
 
@@ -372,11 +360,13 @@ export function KeybindingsPage() {
         if (rows.length === 0) return null;
         return (
           <section key={group} className="flex flex-col">
-            <h2 className="m-0 px-3 pb-1.5 text-xs font-medium tracking-[.06em] text-text-muted uppercase">
+            <h2 className="m-0 px-2.5 py-1.5 text-xs font-normal tracking-[.06em] text-text-muted uppercase">
               {group}
             </h2>
-            <div className="overflow-hidden rounded-lg border border-b-0 border-border">
-              {rows.map((a) => (
+            {rows.map((a) => {
+              const clash = pending?.actionId === a.id ? pending : null;
+              const canSwap = clash?.found.length === 1 && clash.found[0]?.exact;
+              return (
                 <Row
                   key={a.id}
                   action={a}
@@ -394,9 +384,46 @@ export function KeybindingsPage() {
                     delete next[a.id];
                     save(next, `${a.label} is back to its default.`);
                   }}
+                  conflict={
+                    clash && (
+                      <div
+                        role="alert"
+                        className="mt-1 mb-2 ml-2.5 flex items-center gap-2.5 rounded-md border border-conflict bg-[color-mix(in_srgb,var(--color-conflict)_8%,var(--color-bg))] px-3 py-2.5"
+                      >
+                        <Warning weight="fill" className="flex-none text-conflict" />
+                        <span className="flex-1 leading-[1.45]">
+                          {clashText(clash.binding, clash.found)}
+                        </span>
+                        {canSwap ? (
+                          <Button
+                            size="sm"
+                            variant="primary"
+                            autoFocus
+                            title="The other action gets this one's old keys"
+                            onClick={() => commit(clash.actionId, clash.binding, true)}
+                          >
+                            Swap
+                          </Button>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="primary"
+                            autoFocus
+                            title="The other actions lose these keys"
+                            onClick={() => commit(clash.actionId, clash.binding, false)}
+                          >
+                            Take it
+                          </Button>
+                        )}
+                        <Button size="sm" onClick={() => setPending(null)}>
+                          Cancel
+                        </Button>
+                      </div>
+                    )
+                  }
                 />
-              ))}
-            </div>
+              );
+            })}
           </section>
         );
       })}

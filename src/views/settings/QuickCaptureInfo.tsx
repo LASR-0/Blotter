@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { Kbd } from '@/components/ui/kbd';
+import { Info } from '@phosphor-icons/react';
 
 /** Mirrors `ShortcutStatus` in src-tauri/src/capture.rs. */
 type ShortcutStatus =
@@ -22,27 +22,36 @@ export function QuickCaptureInfo() {
       .then(setStatus)
       .catch(() => setStatus(null));
   }, []);
-  if (!status) return null;
+  // Shown only when the shortcut can't work, as in the design.
+  if (!status || status.state === 'registered') return null;
 
   return (
-    <section className="flex flex-col gap-2.5 rounded-lg border border-border px-3.5 py-3">
-      <h2 className="m-0 flex items-center gap-2 text-base font-medium">
-        Quick capture
-        {status.state === 'registered' && <Kbd>{status.shortcut.split('+').join(' ')}</Kbd>}
-      </h2>
-      <p className="m-0 leading-normal text-text-muted">
-        {status.state === 'registered' &&
-          'Press the shortcut anywhere to open a small popup that writes straight to Blotter.'}
-        {status.state === 'wayland' &&
-          "Wayland doesn't let apps register system-wide shortcuts. Bind the command below in your compositor instead; for Hyprland:"}
-        {status.state === 'failed' &&
-          `${status.shortcut} couldn't be registered (${status.reason}). Another app may be using it; you can bind the command below instead.`}
-      </p>
-      <code className="self-start rounded-sm bg-surface px-2 py-1 font-mono text-sm select-text">
-        {status.state === 'wayland'
-          ? `bind = SUPER, SPACE, exec, ${CAPTURE_COMMAND}`
-          : CAPTURE_COMMAND}
-      </code>
-    </section>
+    <div className="flex gap-2.5 rounded-md border border-warning bg-[color-mix(in_srgb,var(--color-warning)_7%,var(--color-bg))] px-3 py-2.5 text-sm leading-normal">
+      <Info size={15} className="mt-px flex-none text-warning" />
+      <span>
+        {status.state === 'wayland' ? (
+          <>
+            Wayland session detected. Global shortcuts can&rsquo;t be registered here, so bind{' '}
+            <code className="rounded-[3px] bg-surface-raised px-1 font-mono select-text">
+              {CAPTURE_COMMAND}
+            </code>{' '}
+            in your compositor instead, e.g.{' '}
+            <code className="rounded-[3px] bg-surface-raised px-1 font-mono select-text">
+              bind = SUPER, SPACE, exec, {CAPTURE_COMMAND}
+            </code>
+            .
+          </>
+        ) : (
+          <>
+            {status.shortcut} couldn&rsquo;t be registered ({status.reason}). Another app may be
+            using it; bind{' '}
+            <code className="rounded-[3px] bg-surface-raised px-1 font-mono select-text">
+              {CAPTURE_COMMAND}
+            </code>{' '}
+            to a shortcut of your own instead.
+          </>
+        )}
+      </span>
+    </div>
   );
 }
