@@ -89,10 +89,21 @@ export function SettingsView() {
   /** The section in view, for the nav highlight on the long page. */
   const [inView, setInView] = useState<SettingsPage>(page);
 
+  /**
+   * Scrolls the settings column (only it: scrollIntoView would also scroll
+   * the app's frame and shift the sidebar) so `id`'s section is at the top.
+   */
+  const scrollTo = (id: SettingsPage, behavior: ScrollBehavior = 'auto') => {
+    const main = mainRef.current;
+    const el = document.getElementById(sectionId(id));
+    if (!main || !el) return;
+    const top = el.getBoundingClientRect().top - main.getBoundingClientRect().top + main.scrollTop;
+    main.scrollTo({ top, behavior });
+  };
+
   // Opening a page (from the nav, the palette or a link) scrolls to it.
   useEffect(() => {
-    if (!onePage) return;
-    document.getElementById(sectionId(page))?.scrollIntoView({ block: 'start' });
+    if (onePage) scrollTo(page);
   }, [onePage, page]);
 
   const onScroll = () => {
@@ -110,9 +121,7 @@ export function SettingsView() {
   const pick = (id: SettingsPage) => {
     if (wide && id !== 'theme' && page === id) {
       // Already the open page: scroll back to it.
-      document
-        .getElementById(sectionId(id))
-        ?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      scrollTo(id, 'smooth');
     }
     setInView(id);
     openSettings(id);
@@ -147,7 +156,11 @@ export function SettingsView() {
       <main
         ref={mainRef}
         onScroll={onePage ? onScroll : undefined}
-        className="min-w-0 flex-1 overflow-auto"
+        className={cn(
+          'min-w-0 flex-1 overflow-auto',
+          // Content centred: on the long page each section is also wider than a single page.
+          onePage ? '[&>section>*]:mx-auto [&>section>*]:max-w-[1120px]' : '[&>*]:mx-auto',
+        )}
       >
         {onePage ? (
           <>

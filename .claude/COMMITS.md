@@ -100,7 +100,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 38b | 10 | `fix(ui): first-run setup to its design` | committed `b1efb94` |
 | 39a | polish | `style(theme): Luke's accents for Dark, Light and Paper` | committed `1b32ffd` |
 | 39b | polish | `style(ui): polish from Luke's list` | committed `0a92ee0` |
-| 39c | polish | `feat(ui): Settings on one page in wide windows` | committed (hash in the next entry) |
+| 39c | polish | `feat(ui): Settings on one page in wide windows` | committed `5243959` |
+| 39d | polish | `style(ui): centred content, sidebar key chip, keybinding row` | committed (hash in the next entry) |
 | 40 | 12 | ~~`feat(mcp): MCP server over the operation registry`~~ | superseded by #29a |
 | 41 | 13 | `build: Windows installers and Linux AppImage/deb bundles` | planned |
 | 42 | 13 | `build: Flatpak manifest` | planned |
@@ -3501,7 +3502,7 @@ Test steps:
 Notes:
     - The new icon shows in the taskbar after a rebuild (pnpm tauri dev / build).
 
-### #39c — Settings on one page in wide windows            [status: committed — hash in the next entry]
+### #39c — Settings on one page in wide windows            [status: committed 5243959]
 Phase: pre-release polish (Luke's list, 2026-10-16)
 Message:
     feat(ui): Settings on one page in wide windows
@@ -3525,3 +3526,28 @@ Test steps:
       shows and clicking Backups scrolls there with Backups highlighted; at 1200px it's one
       page per click; at 1200px the theme preview is one 358px column with nothing
       overflowing.
+
+### #39d — Centred content, sidebar key chip, keybinding row            [status: committed — hash in the next entry]
+Phase: pre-release polish (Luke's list, 2026-10-16)
+Message:
+    style(ui): centred content, sidebar key chip, keybinding row
+
+    - Settings content is centred in its column: one page per tab in a
+      window, and on the long page in a wide window, where sections are
+      also wider (up to 1120px).
+    - Fixed: jumping to a section on the long page scrolled the app's
+      own frame too (scrollIntoView), shifting the sidebar and title bar
+      up; now only the settings column scrolls.
+    - History and Inbox are centred too.
+    - The sidebar's Settings shortcut (Ctrl ,) is a key chip like the
+      search box's Ctrl K; chords like g d stay plain text.
+    - Keybindings: a row's remove (×) button is last, at the far right,
+      after the reset button.
+Files:
+    M  src/views/SettingsView.tsx, src/views/HistoryView.tsx, src/views/inbox/InboxView.tsx,
+       src/app/Sidebar.tsx, src/views/settings/KeybindingsPage.tsx
+    M  .claude/COMMITS.md
+Test steps:
+    - pnpm check → clean; Vitest 213
+    - In the running app (DevTools): Keybindings, History and Inbox centred; Ctrl , as a
+      chip; after jumping between sections nothing outside the settings column is scrolled.

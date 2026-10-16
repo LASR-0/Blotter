@@ -95,7 +95,12 @@ function RailButton({
         <>
           <span className="flex-1 text-left">{label}</span>
           {trailing}
-          <span className="font-mono text-[10px] text-text-muted opacity-80">{keys}</span>
+          {/* Modifier shortcuts as a key chip (like Ctrl K above); chords stay plain text. */}
+          {/^(Ctrl|Alt|Shift)\b/.test(keys) ? (
+            <Kbd>{keys}</Kbd>
+          ) : (
+            <span className="font-mono text-[10px] text-text-muted opacity-80">{keys}</span>
+          )}
         </>
       )}
     </button>

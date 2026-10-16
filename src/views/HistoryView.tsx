@@ -60,7 +60,7 @@ export function HistoryView() {
 
   return (
     <div data-autoscroll className="h-full overflow-auto">
-      <div className="flex max-w-[880px] flex-col gap-5 px-7 pt-5 pb-10">
+      <div className="mx-auto flex max-w-[880px] flex-col gap-5 px-7 pt-5 pb-10">
         <div className="flex items-baseline gap-2.5">
           <h1 className="m-0 font-heading text-xl font-heading-weight">History</h1>
           <span className="font-mono text-sm text-text-muted">completed items</span>

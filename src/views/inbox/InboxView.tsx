@@ -116,7 +116,7 @@ export function InboxView() {
 
   return (
     <div className="relative flex h-full min-h-0 flex-col">
-      <div className="flex w-full max-w-[860px] flex-col gap-3.5 px-7 pt-5">
+      <div className="mx-auto flex w-full max-w-[860px] flex-col gap-3.5 px-7 pt-5">
         <div className="flex items-baseline gap-2.5">
           <h1 className="m-0 font-heading text-xl font-heading-weight">Inbox</h1>
           <span className="font-mono text-sm text-text-muted">{items.length} unscheduled</span>
@@ -156,7 +156,7 @@ export function InboxView() {
         </div>
       </div>
 
-      <div className="flex min-h-0 w-full max-w-[860px] flex-1 flex-col gap-0.5 overflow-auto px-7 pt-1 pb-[90px]">
+      <div className="mx-auto flex min-h-0 w-full max-w-[860px] flex-1 flex-col gap-0.5 overflow-auto px-7 pt-1 pb-[90px]">
         {inbox.isPending &&
           [1, 0.7, 0.45].map((o) => (
             <div

@@ -183,20 +183,6 @@ function Row({
           </span>
         )}
         <span className="flex w-[52px] flex-none justify-end gap-0.5">
-          {!fixed && bindings.length > 0 && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onUnbind();
-              }}
-              aria-label={`Remove the keys for ${action.label}`}
-              title="Remove keys"
-              className="grid size-6 cursor-pointer place-items-center rounded-sm text-text-muted opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 hover:bg-hover"
-            >
-              <X size={13} />
-            </button>
-          )}
           {!fixed && (
             <button
               type="button"
@@ -213,6 +199,20 @@ function Row({
               )}
             >
               <ArrowCounterClockwise size={13} />
+            </button>
+          )}
+          {!fixed && bindings.length > 0 && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onUnbind();
+              }}
+              aria-label={`Remove the keys for ${action.label}`}
+              title="Remove keys"
+              className="grid size-6 cursor-pointer place-items-center rounded-sm text-text-muted opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 hover:bg-hover"
+            >
+              <X size={13} />
             </button>
           )}
         </span>
