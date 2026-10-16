@@ -8,6 +8,7 @@ pub mod blockouts;
 pub mod changes;
 pub mod chat;
 pub mod items;
+pub mod keybindings;
 pub mod providers;
 pub mod reminders;
 pub mod settings;

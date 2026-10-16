@@ -1,6 +1,7 @@
 import { Dialog } from 'radix-ui';
 import { ACTION_GROUPS, type Action } from '@/actions/actions';
 import { Kbd, KeyChips } from '@/components/ui/kbd';
+import { useNav } from './nav';
 import { useOverlay } from './overlay';
 
 /** The `?` cheat sheet, generated from the action registry's bindings. */
@@ -54,6 +55,16 @@ export function ShortcutSheet({ actions }: { actions: readonly Action[] }) {
               </section>
             ))}
           </div>
+          <button
+            type="button"
+            onClick={() => {
+              close();
+              useNav.getState().openSettings('keybindings');
+            }}
+            className="cursor-pointer self-start text-sm text-text-muted hover:text-text hover:underline"
+          >
+            Change these in Settings → Keybindings
+          </button>
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>

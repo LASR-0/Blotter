@@ -1,6 +1,9 @@
 import { useEffect, useMemo } from 'react';
 import { listen } from '@tauri-apps/api/event';
-import { buildActions, NAV_CONTEXT } from '@/actions/actions';
+import { buildActions, NAV_CONTEXT, NAV_VIEWS } from '@/actions/actions';
+import { useKeybindings } from '@/keymap/keybindingStore';
+import { onPlannerChanged } from '@/lib/api';
+import { applyOverrides } from '@/keymap/overrides';
 import { useKeymap } from '@/keymap/useKeymap';
 import { usePlannerSync } from '@/lib/queries';
 import { useBlockoutWindows } from '@/lib/useBlockoutWindows';
@@ -66,12 +69,22 @@ function useChatOpeners() {
   }, []);
 }
 
-/** Views with roving keyboard focus. */
-const NAV_VIEWS: readonly string[] = ['diary', 'week', 'month', 'year', 'inbox'];
-
 export function AppShell() {
   const view = useNav((s) => s.view);
-  const actions = useMemo(() => buildActions(), []);
+  const baseActions = useMemo(() => buildActions(), []);
+  const overrides = useKeybindings((s) => s.overrides);
+  const actions = useMemo(() => applyOverrides(baseActions, overrides), [baseActions, overrides]);
+  const loadKeybindings = useKeybindings((s) => s.load);
+  useEffect(() => {
+    const load = () =>
+      loadKeybindings().catch((e: unknown) => console.error('Could not load keybindings', e));
+    void load();
+    // A restored snapshot brings its own keybindings.
+    const stop = onPlannerChanged((e) => {
+      if (e.ops.includes('restore')) void load();
+    });
+    return () => void stop.then((unlisten) => unlisten());
+  }, [loadKeybindings]);
   const contexts = useMemo(() => (NAV_VIEWS.includes(view) ? [view, NAV_CONTEXT] : [view]), [view]);
 
   // Focus belongs to the view it was set in.

@@ -88,8 +88,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 33a | 8 | `docs: Phase 8 wrap-up and open items` | committed `9af9c7c` |
 | 34 | 9 | `feat: ICS export and file import` | committed `2551a8e` |
 | 35 | 9 | `feat: ICS subscriptions with block-out option` | committed `73d43a7` |
-| 35a | 9 | `feat(ui): subscribed events in the calendar views` | committed (hash in the next entry) |
-| 36 | 10 | `feat(ui): keybinding editor` | planned |
+| 35a | 9 | `feat(ui): subscribed events in the calendar views` | committed `05cceab` |
+| 36 | 10 | `feat(ui): keybinding editor` | committed (hash in the next entry) |
 | 37 | 10 | `feat(ui): theme engine with live preview` | planned |
 | 38 | 10 | `feat(ui): remaining settings pages and first-run setup` | planned |
 | 39 | 11 | `feat(ui): completion history and streaks` | planned |
@@ -2990,7 +2990,7 @@ Notes:
       snapshot keeps them.
     - Next: #35a.
 
-### #35a — Subscribed events in the calendar views            [status: committed — hash in the next entry]
+### #35a — Subscribed events in the calendar views            [status: committed 05cceab]
 Phase: 9 (roadmap §5.8: "Subscribed items are read-only, have their own colour")
 Message:
     feat(ui): subscribed events in the calendar views
@@ -3030,3 +3030,60 @@ Notes:
     - Phase 9 is complete in code. Open for Luke: AC 1 (an export into Google Calendar and
       Apple Calendar) and AC 2 live (a published Outlook URL as a block-out).
     - Next: Phase 10, #36 keybinding editor.
+
+### #36 — Keybinding editor            [status: committed — hash in the next entry]
+Phase: 10 (roadmap §5.4)
+Message:
+    feat(ui): keybinding editor
+
+    Settings → Keybindings lists every action by group (the same registry
+    as the palette and the ? sheet), with its keys and where they work
+    (Calendar views, Week, Inbox).
+
+    - Search by action name, group or keys.
+    - Click a binding, or Tab to it and press Enter, then press the new
+      keys; a chord is its keys pressed one after another (the capture
+      ends after a second's pause, or three keys). Esc cancels.
+      Nothing else in the app sees keys while capturing.
+    - Conflicts are caught before saving: the same keys, or a chord one
+      starts with ("g" against "g w"), in contexts live at the same time
+      (the calendar-view keys count as live in each of those views).
+      Swap (for one exact clash: the other action gets this one's old
+      keys), Take it (the other loses those keys), or Cancel.
+    - Remove an action's keys, reset one, or reset all.
+    - Import… / Export… a JSON file of your changes; an import leaves
+      out actions this version doesn't have and keys it can't read.
+    - Changes work on the next key press: the keymap, palette and ?
+      sheet all read the overridden actions. Any action can get keys,
+      including ones without a default (e.g. a theme).
+    - The global capture shortcut (Ctrl+Shift+Space) stays as it is:
+      the operating system holds it.
+
+    Overrides are stored in the keybindings table (one binding per
+    action, or none), so a snapshot restore brings them back too. The ?
+    sheet links to the page, and "Edit keybindings" is in the palette.
+Files:
+    A  crates/blotter-core/src/store/keybindings.rs
+    A  src-tauri/src/keybindings.rs                 (list/set/replace, export, pick import)
+    A  src/keymap/overrides.ts (+ test)             (effective bindings, clashes, assign, import)
+    A  src/keymap/keybindingStore.ts
+    A  src/views/settings/KeybindingsPage.tsx
+    M  crates/blotter-core/src/store/mod.rs
+    M  src-tauri/src/lib.rs
+    M  src/actions/actions.ts                       (NAV_VIEWS moved here; Edit keybindings)
+    M  src/app/AppShell.tsx                         (overrides applied; reloaded after restore)
+    M  src/app/ShortcutSheet.tsx, src/app/nav.ts, src/views/SettingsView.tsx
+    M  .claude/COMMITS.md, .claude/roadmap.md
+Test steps:
+    - cargo test --workspace → 167 core (+1 overrides round trip) + 42 app (+1 the file
+      format) + 6 mcp; clippy / fmt clean
+    - pnpm check → clean; Vitest 197 (+7: defaults vs overrides vs unbound, the fixed
+      capture shortcut, applied actions, context overlap, exact and prefix clashes, swap /
+      take, import cleaning)
+Notes:
+    - Not driven live by me. Please try: rebind Quick add to q and use it straight away;
+      give something n to see the Swap / Take it choice; bind g alone to see the chord
+      clash; restart and check they stuck; Export…, Reset all, Import… back.
+    - The ? sheet's family rows ("h j k l") describe the defaults; an overridden member of
+      a family shows as its own row instead.
+    - Next: #37 theme engine.

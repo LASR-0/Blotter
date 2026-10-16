@@ -6,6 +6,7 @@ import {
   Check,
   ClockCounterClockwise,
   Info,
+  Keyboard,
   Palette,
   Prohibit,
   Sparkle,
@@ -21,6 +22,7 @@ import { AiProvidersPage } from './settings/AiProvidersPage';
 import { BackupsPage } from './settings/BackupsPage';
 import { BlockoutsPage } from './settings/BlockoutsPage';
 import { CalendarsPage } from './settings/CalendarsPage';
+import { KeybindingsPage } from './settings/KeybindingsPage';
 import { NotificationsPage } from './settings/NotificationsPage';
 
 // Pages appear here as their phases land: General, Block-outs, Calendars,
@@ -30,6 +32,7 @@ const PAGES: readonly { id: SettingsPage; label: string; icon: Icon }[] = [
   { id: 'calendars', label: 'Calendars (ICS)', icon: CalendarDots },
   { id: 'notifications', label: 'Notifications', icon: Bell },
   { id: 'ai', label: 'AI providers', icon: Sparkle },
+  { id: 'keybindings', label: 'Keybindings', icon: Keyboard },
   { id: 'theme', label: 'Theme', icon: Palette },
   { id: 'backups', label: 'Backups', icon: ClockCounterClockwise },
   { id: 'about', label: 'About', icon: Info },
@@ -74,6 +77,8 @@ export function SettingsView() {
           <NotificationsPage />
         ) : page === 'blockouts' ? (
           <BlockoutsPage />
+        ) : page === 'keybindings' ? (
+          <KeybindingsPage />
         ) : page === 'calendars' ? (
           <CalendarsPage />
         ) : (

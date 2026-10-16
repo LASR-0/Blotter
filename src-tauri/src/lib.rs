@@ -10,6 +10,7 @@ mod cli;
 mod commands;
 mod external;
 mod ics;
+mod keybindings;
 mod reminders;
 mod rollover;
 mod shell;
@@ -158,6 +159,11 @@ pub fn run() {
             external::mcp_setup,
             commands::get_setting,
             commands::set_setting,
+            keybindings::list_keybindings,
+            keybindings::set_keybinding,
+            keybindings::replace_keybindings,
+            keybindings::export_keybindings,
+            keybindings::pick_keybindings_import,
             capture::show_capture,
             capture::hide_capture,
             capture::fit_capture,

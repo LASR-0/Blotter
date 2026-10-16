@@ -95,6 +95,9 @@ const controller = () => useFocus.getState().controller;
 /** Context active in views with roving focus (Diary, Week, Month, Year, Inbox). */
 export const NAV_CONTEXT = 'nav';
 
+/** Views with roving keyboard focus, where `nav` bindings are live. */
+export const NAV_VIEWS: readonly string[] = ['diary', 'week', 'month', 'year', 'inbox'];
+
 const THEME_ICONS: Record<string, Icon> = {
   dark: Moon,
   light: Sun,
@@ -416,6 +419,14 @@ export function buildActions(): Action[] {
       icon: Prohibit,
       keywords: ['block-out', 'blockout', 'work hours', 'settings'],
       run: () => useNav.getState().openSettings('blockouts'),
+    },
+    {
+      id: 'keybindings.settings',
+      label: 'Edit keybindings',
+      group: 'Go to',
+      icon: Keyboard,
+      keywords: ['shortcuts', 'keys', 'rebind', 'settings'],
+      run: () => useNav.getState().openSettings('keybindings'),
     },
     {
       id: 'item.new',

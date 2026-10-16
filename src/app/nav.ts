@@ -3,7 +3,14 @@ import { persist } from 'zustand/middleware';
 import { isCalendarView, stepPeriod, type CalendarView, type View } from '@/lib/period';
 
 export type SettingsPage =
-  'blockouts' | 'calendars' | 'notifications' | 'ai' | 'theme' | 'backups' | 'about';
+  | 'blockouts'
+  | 'calendars'
+  | 'notifications'
+  | 'ai'
+  | 'keybindings'
+  | 'theme'
+  | 'backups'
+  | 'about';
 
 interface NavState {
   view: View;

@@ -533,7 +533,7 @@ Each phase states the intent, then the acceptance criteria (AC) and leads to ver
 **Leads:** check each provider's current tool-call formats and streaming events.
 
 ### Phase 9 — ICS
-**Progress (2026-10-16):** #34 (ICS export and file import), #35 (subscriptions with the block-out option) and #35a (subscribed events drawn read-only in Diary, Week and Month) are committed. **Phase 9 is complete in code.** Still needing Luke: an exported file tried in Google Calendar and Apple Calendar (AC 1), and a published Outlook URL subscribed in the app (AC 2; the logic is tested against an Outlook-style feed and a local server). Open: subscriptions aren't in the JSON export. Next: Phase 10.
+**Progress (2026-10-16):** Live ICS checks (AC 1 and AC 2) are deferred to after Phase 12, before Phase 13 (Luke, 2026-10-16). #34 (ICS export and file import), #35 (subscriptions with the block-out option) and #35a (subscribed events drawn read-only in Diary, Week and Month) are committed. **Phase 9 is complete in code.** Still needing Luke: an exported file tried in Google Calendar and Apple Calendar (AC 1), and a published Outlook URL subscribed in the app (AC 2; the logic is tested against an Outlook-style feed and a local server). Open: subscriptions aren't in the JSON export. Next: Phase 10.
 **Intent:** export, file import, and subscriptions with the block-out option.
 
 **AC:**
@@ -541,6 +541,7 @@ Each phase states the intent, then the acceptance criteria (AC) and leads to ver
 - A published Outlook calendar URL subscribes successfully, and those events block flexible slotting when `as_blockout` is set.
 
 ### Phase 10 — Keybinding editor, theme engine, remaining settings
+**Progress (2026-10-16):** #36 (keybinding editor) is committed. Next: #37 theme engine.
 **Intent:** the keybinding editor (§5.4), the theme engine page with live preview (§5.5), all settings pages (§5.9), and first-run setup (§5.10).
 
 **AC:**
