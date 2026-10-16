@@ -13,7 +13,7 @@ import { useBlockoutWindows } from '@/lib/useBlockoutWindows';
 import { useTheme } from '@/theme/theme';
 import { DiaryView } from '@/views/diary/DiaryView';
 import { InboxView } from '@/views/inbox/InboxView';
-import { PendingView } from '@/views/PendingView';
+import { HistoryView } from '@/views/HistoryView';
 import { SettingsView } from '@/views/SettingsView';
 import { MonthView } from '@/views/MonthView';
 import { WeekView } from '@/views/WeekView';
@@ -138,7 +138,7 @@ export function AppShell() {
             {view === 'week' && <WeekView />}
             {view === 'month' && <MonthView />}
             {view === 'year' && <YearView />}
-            {view === 'history' && <PendingView view="history" />}
+            {view === 'history' && <HistoryView />}
           </ErrorBoundary>
         </main>
       </div>

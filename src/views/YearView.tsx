@@ -18,6 +18,7 @@ import { cn } from '@/lib/cn';
 import { completionsByDay, dayKey, heatLevel, itemsByDay } from '@/lib/days';
 import { formatDuration } from '@/lib/duration';
 import { isoDate, weekStartsOn } from '@/lib/period';
+import type { History } from '@/lib/history';
 import { useOp } from '@/lib/queries';
 import type { Agenda, Item } from '@/lib/types';
 import { useNow } from '@/lib/useNow';
@@ -45,7 +46,13 @@ export function YearView() {
     end: isoDate(endOfYear(anchor)),
   });
   const scheduled = useMemo(() => itemsByDay(agenda.data?.items ?? []), [agenda.data]);
-  const completed = useMemo(() => completionsByDay(agenda.data?.items ?? []), [agenda.data]);
+  // Every completion in the year, Inbox tasks included (not just scheduled items).
+  const done = useOp<History>(
+    'list_completions',
+    { start: isoDate(startOfYear(anchor)), end: isoDate(endOfYear(anchor)) },
+    { enabled: mode === 'completed' },
+  );
+  const completed = useMemo(() => completionsByDay(done.data?.completions ?? []), [done.data]);
   const byDay = mode === 'scheduled' ? scheduled : completed;
 
   const months = useMemo(

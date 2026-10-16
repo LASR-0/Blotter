@@ -137,7 +137,7 @@ export function Sidebar() {
           // Baseline lockup: the word sits on the mark's bottom edge.
           <span className="flex flex-1 items-baseline gap-2">
             <BlotterMark className="size-6 flex-none" />
-            <span className="wordmark-shadow font-brand text-[19px] leading-none font-brand-weight">
+            <span className="wordmark-shadow font-brand text-[25px] leading-none font-brand-weight">
               Blotter
             </span>
           </span>

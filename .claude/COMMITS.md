@@ -93,8 +93,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 36a | 10 | `refactor(ui): quick capture info on the Keybindings page` | committed `aa98dad` |
 | 37 | 10 | `feat(ui): theme engine with live preview` | committed `daf1ff4` |
 | 38 | 10 | `feat(ui): General settings page` | committed `f6b8d44` (split: first-run setup is #38a) |
-| 38a | 10 | `feat(ui): first-run setup` | committed (hash in the next entry) |
-| 39 | 11 | `feat(ui): completion history and streaks` | planned |
+| 38a | 10 | `feat(ui): first-run setup` | committed `95b63fe` |
+| 39 | 11 | `feat(ui): completion history and streaks` | committed (hash in the next entry) |
 | 40 | 12 | ~~`feat(mcp): MCP server over the operation registry`~~ | superseded by #29a |
 | 41 | 13 | `build: Windows installers and Linux AppImage/deb bundles` | planned |
 | 42 | 13 | `build: Flatpak manifest` | planned |
@@ -3230,7 +3230,7 @@ Notes:
       a timezone setting if one exists.
     - Next: #38a first-run setup.
 
-### #38a — First-run setup            [status: committed — hash in the next entry]
+### #38a — First-run setup            [status: committed 95b63fe]
 Phase: 10 (roadmap §5.10)
 Message:
     feat(ui): first-run setup
@@ -3271,3 +3271,51 @@ Notes:
       persists; conflicts are caught; theme edits stay in the preview until Apply; contrast
       warnings appear (e.g. muted text darkened).
     - Next: Phase 11, #39 completion history and streaks.
+
+### #39 — Completion history and streaks            [status: committed — hash in the next entry]
+Phase: 11 (roadmap §5.3; design: History View)
+Message:
+    feat(ui): completion history and streaks
+
+    The History view (g h) replaces its placeholder, as in the design:
+
+    - Stats: current streak, this week, this month, best streak, and a
+      bar for each of the last 14 days (today in the accent).
+    - Completed items grouped by the day they were done (Today,
+      Yesterday, a weekday, then dates), each with its first tag, who
+      completed it when it wasn't you (ai or mcp), and the time.
+      Clicking a row opens the item.
+    - Search, a date range (last 7, 30 or 90 days, or the year), and
+      tag chips to hide tags.
+
+    Core: a read operation, list_completions, that agents can use too.
+    Who completed an item comes from the change log (the latest change
+    that set it done and wasn't undone), so completions from the UI,
+    the AI and MCP all show, and an undone one drops out. Days are the
+    user's local days. A streak is consecutive days with a completion
+    up to today (today without one yet doesn't break it); "this week"
+    follows the week-start setting. Stats count everything, whatever
+    the filters.
+
+    Also: the Year view's Completed heatmap now counts every completion
+    in the year, Inbox tasks included (it only saw scheduled items).
+Files:
+    A  crates/blotter-core/src/ops/history.rs       (list_completions, streaks; tests)
+    A  src/lib/history.ts (+ test)
+    A  src/views/HistoryView.tsx
+    D  src/views/PendingView.tsx                    (History was the last placeholder)
+    M  crates/blotter-core/src/ops/mod.rs
+    M  crates/blotter-core/src/store/items.rs       (list_completed with the completer, completion_times)
+    M  src/app/AppShell.tsx, src/views/YearView.tsx
+    M  .claude/COMMITS.md, .claude/roadmap.md
+Test steps:
+    - cargo test --workspace → 172 core (+2: streak rules; completions by user, AI and MCP
+      with local days, an undone one gone, tag/query filters, stats unfiltered, bad range)
+      + 44 app + 6 mcp; clippy / fmt clean
+    - pnpm check → clean; Vitest 212 (+3: day groups and labels, search and hidden tags,
+      tags by use and streak wording)
+Notes:
+    - Not driven live by me. Phase 11 AC: complete something yourself, have the chat
+      complete one, and complete one from Claude Code over MCP; all three should appear in
+      History at the right local time, the last two badged ai and mcp.
+    - Phase 11 is complete in code. Next: Phase 12 (MCP acceptance checks and README notes).

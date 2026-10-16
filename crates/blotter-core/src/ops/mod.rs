@@ -7,6 +7,7 @@
 //! transaction that also writes its change-log rows under one batch id.
 
 mod blockouts;
+mod history;
 mod ics;
 pub mod input;
 mod items;
@@ -237,6 +238,7 @@ impl Registry {
             .chain(settings::defs())
             .chain(undo::defs())
             .chain(ics::defs())
+            .chain(history::defs())
         {
             let previous = ops.insert(def.name, def);
             debug_assert!(previous.is_none(), "duplicate operation name");

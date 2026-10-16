@@ -254,6 +254,48 @@ pub fn list_all(conn: &Connection) -> Result<Vec<Item>> {
     collect(conn, &sql, [])
 }
 
+/// Items completed in `[from, to)`, newest first, each with the actor of
+/// the change that completed it (the latest one not undone), if the change
+/// log still has it.
+pub fn list_completed(
+    conn: &Connection,
+    from: Instant,
+    to: Instant,
+) -> Result<Vec<(Item, Option<String>)>> {
+    let sql = format!(
+        "SELECT {COLUMNS}, (SELECT c.actor FROM changes c \
+           WHERE c.entity = 'item' AND c.entity_id = items.id AND c.undone_at IS NULL \
+             AND json_extract(c.after_json, '$.status') = 'done' \
+             AND (c.before_json IS NULL OR json_extract(c.before_json, '$.status') IS NOT 'done') \
+           ORDER BY c.created_at DESC LIMIT 1) AS done_by \
+         FROM items WHERE status = 'done' AND completed_at >= :from AND completed_at < :to \
+         ORDER BY completed_at DESC, id"
+    );
+    let mut stmt = conn.prepare(&sql)?;
+    let mut rows = stmt.query(named_params! {
+        ":from": time::fmt_instant(from),
+        ":to": time::fmt_instant(to),
+    })?;
+    let mut out = Vec::new();
+    while let Some(row) = rows.next()? {
+        out.push((read(row)?, row.get("done_by")?));
+    }
+    Ok(out)
+}
+
+/// When every done item was completed (for streaks), in no particular order.
+pub fn completion_times(conn: &Connection) -> Result<Vec<Instant>> {
+    let mut stmt = conn.prepare(
+        "SELECT completed_at FROM items WHERE status = 'done' AND completed_at IS NOT NULL",
+    )?;
+    let raw = stmt
+        .query_map([], |r| r.get::<_, String>(0))?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    raw.iter()
+        .map(|s| time::parse_instant("completed_at", s))
+        .collect()
+}
+
 /// Occurrence overrides of a recurring series.
 pub fn list_children(conn: &Connection, parent_id: &str) -> Result<Vec<Item>> {
     let sql = format!("SELECT {COLUMNS} FROM items WHERE parent_id = ?1 ORDER BY recurrence_id");

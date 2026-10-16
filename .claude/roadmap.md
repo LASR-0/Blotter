@@ -551,6 +551,7 @@ Each phase states the intent, then the acceptance criteria (AC) and leads to ver
 - Contrast warnings appear when they should.
 
 ### Phase 11 — History and stats
+**Progress (2026-10-16):** #39 (History view, list_completions, streaks) is committed. **Phase 11 is complete in code**; the AC needs a live check by Luke. Next: Phase 12.
 **Intent:** the History view with completion timestamps, filters and streaks.
 
 **AC:** completions from any path (UI, AI, MCP) appear, with correct local times.
