@@ -5,7 +5,7 @@ import { cn } from '@/lib/cn';
 interface KbdProps extends ComponentProps<'kbd'> {
   /** `sm` (10px) in menus and fields; `md` (11px) in palettes and sheets. */
   size?: 'sm' | 'md';
-  /** Inverted chip for use on an accent fill. */
+  /** Inverted chip for use on a filled button (accent or danger): a tint of the fill. */
   onAccent?: boolean;
 }
 
@@ -16,7 +16,7 @@ export function Kbd({ size = 'sm', onAccent, className, ...props }: KbdProps) {
       className={cn(
         'inline-block font-mono whitespace-nowrap',
         onAccent
-          ? 'rounded-[3px] bg-[color-mix(in_srgb,var(--color-on-accent)_18%,var(--color-accent))] px-1 text-[10px] text-on-accent'
+          ? 'rounded-[3px] bg-[color-mix(in_srgb,var(--color-on-accent)_18%,transparent)] px-1 text-[10px] text-on-accent'
           : size === 'sm'
             ? 'rounded-[3px] border border-b-2 border-border-strong px-1 text-[10px] leading-[14px] text-text-muted'
             : 'rounded-sm border border-b-2 border-border-strong bg-surface px-1.5 text-xs leading-[18px] text-text',

@@ -88,7 +88,7 @@ export function TimelineRail({
   const inBlock = (s: number, e: number) => blocks.some((b) => s >= b.start && e <= b.end);
 
   return (
-    <aside className="flex min-h-0 w-[236px] flex-none flex-col border-l border-border bg-bg">
+    <aside className="flex min-h-0 min-w-[236px] flex-1 flex-col border-l border-border bg-bg">
       <div className="flex items-center gap-2 px-3.5 pt-3.5 pb-2.5">
         <Clock className="text-text-muted" />
         <span className="font-semibold">Timeline</span>

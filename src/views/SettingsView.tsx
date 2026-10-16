@@ -122,12 +122,14 @@ function AboutPage() {
 
   return (
     <div className="flex max-w-[720px] flex-col gap-[22px] p-8">
-      {/* Baseline lockup like the sidebar's: word and version sit on the mark's bottom edge. */}
-      <div className="flex items-baseline gap-3.5">
-        <BlotterMark className="size-12 flex-none" />
-        <span className="wordmark-shadow font-brand text-[30px] leading-none font-brand-weight">
-          Blotter
-        </span>
+      {/* The sidebar's lockup at twice the size (word as tall as the mark), version below. */}
+      <div className="flex flex-col gap-2">
+        <div className="flex items-baseline gap-4">
+          <BlotterMark className="size-12 flex-none" />
+          <span className="wordmark-shadow font-brand text-[50px] leading-none font-brand-weight">
+            Blotter
+          </span>
+        </div>
         <span className="font-mono text-sm text-text-muted">{version ? `v${version}` : ''}</span>
       </div>
       <p className="m-0 max-w-[520px] leading-relaxed text-text-muted">

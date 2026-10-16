@@ -98,7 +98,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 36b | 10 | `fix(ui): Keybindings page to its design` | committed `97bed23` |
 | 37a | 10 | `fix(ui): Theme page to its design` | committed `7a1f99f` |
 | 38b | 10 | `fix(ui): first-run setup to its design` | committed `b1efb94` |
-| 39a | polish | `style(theme): Luke's accents for Dark, Light and Paper` | committed (hash in the next entry) |
+| 39a | polish | `style(theme): Luke's accents for Dark, Light and Paper` | committed `1b32ffd` |
+| 39b | polish | `style(ui): polish from Luke's list` | committed (hash in the next entry) |
 | 40 | 12 | ~~`feat(mcp): MCP server over the operation registry`~~ | superseded by #29a |
 | 41 | 13 | `build: Windows installers and Linux AppImage/deb bundles` | planned |
 | 42 | 13 | `build: Flatpak manifest` | planned |
@@ -3435,7 +3436,7 @@ Notes:
       model being picked for OpenAI / local endpoints.
     - Next: Phase 12 (MCP acceptance checks and README notes).
 
-### #39a — Luke's accents for Dark, Light and Paper            [status: committed — hash in the next entry]
+### #39a — Luke's accents for Dark, Light and Paper            [status: committed 1b32ffd]
 Phase: pre-release polish (Luke's list, 2026-10-16)
 Message:
     style(theme): Luke's accents for Dark, Light and Paper
@@ -3462,3 +3463,39 @@ Notes:
       with Luke.
     - The "… copy" themes in the demo database are untouched (delete them if no longer
       needed).
+
+### #39b — Polish from Luke's list            [status: committed — hash in the next entry]
+Phase: pre-release polish (Luke's list, 2026-10-16)
+Message:
+    style(ui): polish from Luke's list
+
+    - Smallest window 1200×720 (was 1024×700), and the theme preview
+      gallery drops to one column when its pane is narrow (a container
+      query), with its control rows wrapping, so nothing overflows.
+    - About: the wordmark as tall as the mark (50px beside 48px, the
+      sidebar's ratio), the version on its own row below.
+    - Diary: on wide windows the timeline takes the spare width after
+      the last day instead of leaving it blank; the day columns still
+      scroll when the window is narrow.
+    - The key hint on filled buttons is a tint of the button's own fill,
+      so the ↵ on a red Delete no longer shows the accent.
+    - App, taskbar and tray icon: the tile is full-bleed and the mark is
+      1.5× larger, from a new source, src-tauri/icons/app-icon.svg
+      (public/blotter.svg stays the favicon).
+Files:
+    A  src-tauri/icons/app-icon.svg
+    M  src-tauri/icons/32x32.png, 64x64.png, 128x128.png, 128x128@2x.png, icon.png,
+       icon.ico, icon.icns
+    M  src-tauri/tauri.conf.json
+    M  src/views/settings/ThemePreview.tsx, src/views/SettingsView.tsx,
+       src/views/diary/DiaryView.tsx, src/views/diary/TimelineRail.tsx,
+       src/components/ui/kbd.tsx
+    M  .claude/COMMITS.md
+Test steps:
+    - pnpm check → clean; Vitest 213
+    - Seen in the running app (DevTools screenshots on a copy of the demo database): the
+      sidebar wordmark sits on the mark's baseline with the "B" level with the page top
+      (left as Luke set it); the Diary's columns scroll with the timeline at its 236px
+      minimum when the chat is open.
+Notes:
+    - The new icon shows in the taskbar after a rebuild (pnpm tauri dev / build).

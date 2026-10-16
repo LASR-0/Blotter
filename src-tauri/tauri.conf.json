@@ -17,8 +17,8 @@
         "title": "Blotter",
         "width": 1440,
         "height": 900,
-        "minWidth": 1024,
-        "minHeight": 700,
+        "minWidth": 1200,
+        "minHeight": 720,
         "center": true,
         "visible": false,
         "backgroundColor": "#121317"

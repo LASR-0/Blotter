@@ -87,7 +87,8 @@ export function DiaryView() {
   return (
     <div className="relative flex h-full min-h-0">
       <InboxRail />
-      <div data-autoscroll className="flex min-w-0 flex-1 overflow-x-auto overflow-y-hidden">
+      {/* The day columns shrink (and scroll) but never stretch; spare width goes to the timeline. */}
+      <div data-autoscroll className="flex min-w-0 flex-initial overflow-x-auto overflow-y-hidden">
         {agenda.isError && (
           <div className="absolute top-16 left-1/2 z-20 w-[352px] -translate-x-1/2">
             <ErrorPanel

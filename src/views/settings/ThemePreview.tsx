@@ -206,115 +206,118 @@ function MiniWeek() {
  * palette) are drawn in place.
  */
 export function ThemePreview({ vars }: { vars: ThemeVars }) {
+  // Two columns when its pane is wide enough (a container query), else one.
   return (
-    <div
-      inert
-      aria-label="Theme preview"
-      style={vars as CSSProperties}
-      className="grid grid-cols-2 gap-3 rounded-lg bg-bg p-3 font-ui text-base text-text select-none"
-    >
-      <Panel title="Controls">
-        <div className="flex flex-wrap gap-1.5">
-          <Button variant="primary">Apply</Button>
-          <Button>Cancel</Button>
-          <Button variant="ghost">Later</Button>
-          <Button variant="danger">Delete</Button>
-        </div>
-        <div className="flex items-center gap-2">
-          <input
-            readOnly
-            value="Dentist tue 3pm"
-            className="h-[var(--density-row)] min-w-0 flex-1 rounded-md border border-accent bg-bg px-2.5 text-text outline-none"
-          />
-          <Switch checked aria-label="On" />
-          <Switch checked={false} aria-label="Off" />
-        </div>
-        <div className="flex items-center gap-2">
-          <Select
-            ariaLabel="Example"
-            value="60"
-            onValueChange={() => {}}
-            options={[{ value: '60', label: '1 hour' }]}
-            className="min-w-[110px]"
-          />
-          <KeyChips binding="Ctrl+K" />
-          <KeyChips binding="g w" />
-          <span className="flex items-center gap-2 rounded-sm bg-text px-[9px] py-[5px] text-sm whitespace-nowrap text-bg">
-            Quick add <span className="font-mono opacity-75">n</span>
-          </span>
-        </div>
-      </Panel>
-
-      <Panel title="Diary cards">
-        <div className="flex flex-col gap-2">
-          {CARDS.map((c, i) => (
-            <ItemCard key={c.id} item={c} conflict={i === 1 ? 'Overlaps Review' : null} />
-          ))}
-        </div>
-      </Panel>
-
-      <Panel title="Week">
-        <MiniWeek />
-      </Panel>
-
-      <Panel title="Chat">
-        <div className="flex flex-col gap-2">
-          <div className="max-w-[85%] self-end rounded-[10px_10px_3px_10px] bg-accent-tint px-[11px] py-2 leading-normal">
-            Find me time to call Mum tonight
-          </div>
-          <span className="flex items-center gap-1.5 text-sm text-text-muted">
-            <Sparkle size={13} /> I&rsquo;ve pencilled it in after dinner:
-          </span>
-          <ProposalCard proposal={PROPOSAL} />
-        </div>
-      </Panel>
-
-      <Panel title="Dialog and toast">
-        <div className="flex flex-col gap-3 rounded-lg bg-surface-raised p-[18px] shadow-overlay">
-          <span className="text-md font-semibold">Delete Gym?</span>
-          <p className="m-0 leading-normal text-text-muted">Ctrl+Z brings it back.</p>
-          <div className="flex justify-end gap-2">
+    <div className="@container">
+      <div
+        inert
+        aria-label="Theme preview"
+        style={vars as CSSProperties}
+        className="grid grid-cols-1 gap-3 rounded-lg bg-bg p-3 font-ui text-base text-text select-none @min-[640px]:grid-cols-2"
+      >
+        <Panel title="Controls">
+          <div className="flex flex-wrap gap-1.5">
+            <Button variant="primary">Apply</Button>
             <Button>Cancel</Button>
+            <Button variant="ghost">Later</Button>
             <Button variant="danger">Delete</Button>
           </div>
-        </div>
-        <div className="flex gap-3 rounded-lg bg-surface-raised px-3.5 py-3 shadow-overlay">
-          <span className="grid size-[30px] flex-none place-items-center rounded-md bg-accent-tint text-accent-text">
-            <Bell />
-          </span>
-          <span className="flex min-w-0 flex-col gap-[3px]">
-            <span className="truncate font-semibold">Dentist in 10 minutes</span>
-            <span className="font-mono text-[11.5px] text-text-muted">15:00–15:45</span>
-          </span>
-        </div>
-      </Panel>
-
-      <Panel title="Command palette">
-        <div className="flex flex-col overflow-hidden rounded-lg bg-surface-raised shadow-overlay">
-          <div className="flex items-center gap-2 border-b border-border px-3 py-2.5">
-            <MagnifyingGlass className="text-text-muted" />
-            <span>go</span>
-            <span className="h-4 w-px animate-pulse bg-accent" />
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              readOnly
+              value="Dentist tue 3pm"
+              className="h-[var(--density-row)] min-w-0 flex-1 rounded-md border border-accent bg-bg px-2.5 text-text outline-none"
+            />
+            <Switch checked aria-label="On" />
+            <Switch checked={false} aria-label="Off" />
           </div>
-          {[
-            ['Week', 'g w'],
-            ['Month', 'g m'],
-            ['Settings', 'Ctrl+,'],
-          ].map(([label, keys], i) => (
-            <div
-              key={label}
-              className={
-                i === 0
-                  ? 'flex items-center gap-2 bg-accent-tint px-3 py-2 text-accent-text'
-                  : 'flex items-center gap-2 px-3 py-2'
-              }
-            >
-              <span className="flex-1">{label}</span>
-              <KeyChips binding={keys as string} />
+          <div className="flex flex-wrap items-center gap-2">
+            <Select
+              ariaLabel="Example"
+              value="60"
+              onValueChange={() => {}}
+              options={[{ value: '60', label: '1 hour' }]}
+              className="min-w-[110px]"
+            />
+            <KeyChips binding="Ctrl+K" />
+            <KeyChips binding="g w" />
+            <span className="flex items-center gap-2 rounded-sm bg-text px-[9px] py-[5px] text-sm whitespace-nowrap text-bg">
+              Quick add <span className="font-mono opacity-75">n</span>
+            </span>
+          </div>
+        </Panel>
+
+        <Panel title="Diary cards">
+          <div className="flex flex-col gap-2">
+            {CARDS.map((c, i) => (
+              <ItemCard key={c.id} item={c} conflict={i === 1 ? 'Overlaps Review' : null} />
+            ))}
+          </div>
+        </Panel>
+
+        <Panel title="Week">
+          <MiniWeek />
+        </Panel>
+
+        <Panel title="Chat">
+          <div className="flex flex-col gap-2">
+            <div className="max-w-[85%] self-end rounded-[10px_10px_3px_10px] bg-accent-tint px-[11px] py-2 leading-normal">
+              Find me time to call Mum tonight
             </div>
-          ))}
-        </div>
-      </Panel>
+            <span className="flex items-center gap-1.5 text-sm text-text-muted">
+              <Sparkle size={13} /> I&rsquo;ve pencilled it in after dinner:
+            </span>
+            <ProposalCard proposal={PROPOSAL} />
+          </div>
+        </Panel>
+
+        <Panel title="Dialog and toast">
+          <div className="flex flex-col gap-3 rounded-lg bg-surface-raised p-[18px] shadow-overlay">
+            <span className="text-md font-semibold">Delete Gym?</span>
+            <p className="m-0 leading-normal text-text-muted">Ctrl+Z brings it back.</p>
+            <div className="flex justify-end gap-2">
+              <Button>Cancel</Button>
+              <Button variant="danger">Delete</Button>
+            </div>
+          </div>
+          <div className="flex gap-3 rounded-lg bg-surface-raised px-3.5 py-3 shadow-overlay">
+            <span className="grid size-[30px] flex-none place-items-center rounded-md bg-accent-tint text-accent-text">
+              <Bell />
+            </span>
+            <span className="flex min-w-0 flex-col gap-[3px]">
+              <span className="truncate font-semibold">Dentist in 10 minutes</span>
+              <span className="font-mono text-[11.5px] text-text-muted">15:00–15:45</span>
+            </span>
+          </div>
+        </Panel>
+
+        <Panel title="Command palette">
+          <div className="flex flex-col overflow-hidden rounded-lg bg-surface-raised shadow-overlay">
+            <div className="flex items-center gap-2 border-b border-border px-3 py-2.5">
+              <MagnifyingGlass className="text-text-muted" />
+              <span>go</span>
+              <span className="h-4 w-px animate-pulse bg-accent" />
+            </div>
+            {[
+              ['Week', 'g w'],
+              ['Month', 'g m'],
+              ['Settings', 'Ctrl+,'],
+            ].map(([label, keys], i) => (
+              <div
+                key={label}
+                className={
+                  i === 0
+                    ? 'flex items-center gap-2 bg-accent-tint px-3 py-2 text-accent-text'
+                    : 'flex items-center gap-2 px-3 py-2'
+                }
+              >
+                <span className="flex-1">{label}</span>
+                <KeyChips binding={keys as string} />
+              </div>
+            ))}
+          </div>
+        </Panel>
+      </div>
     </div>
   );
 }
