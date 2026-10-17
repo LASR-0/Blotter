@@ -31,7 +31,6 @@ import {
   Plus,
   Power,
   Prohibit,
-  Scroll,
   SidebarSimple,
   Sparkle,
   SquaresFour,
@@ -101,10 +100,10 @@ export const NAV_CONTEXT = 'nav';
 export const NAV_VIEWS: readonly string[] = ['diary', 'week', 'month', 'year', 'inbox'];
 
 const THEME_ICONS: Record<string, Icon> = {
-  dark: Moon,
-  light: Sun,
-  paper: Scroll,
-  gruvbox: Palette,
+  'blotter-light': Sun,
+  'blotter-dark': Moon,
+  'studio-light': Sun,
+  'studio-dark': Moon,
 };
 
 /** Builds the action list. Actions read stores at run time, so the list is static. */
