@@ -1,4 +1,4 @@
-import { useState, type KeyboardEvent } from 'react';
+import { useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { format, parseISO } from 'date-fns';
 import { Check, Tray } from '@phosphor-icons/react';
 import { startPointerDrag, useDrag } from '@/app/drag';
@@ -85,6 +85,14 @@ export function InboxView() {
   const inbox = useOp<Item[]>('list_inbox');
   const items = (inbox.data ?? []).filter((i) => i.status !== 'done');
   const [draft, setDraft] = useState('');
+  // The box starts at two lines and grows a line at a time with the text (up to half the window).
+  const box = useRef<HTMLTextAreaElement>(null);
+  useLayoutEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+  }, [draft]);
   const [error, setError] = useState<string | null>(null);
 
   const focusedId = useFocus((s) => s.itemId);
@@ -123,13 +131,14 @@ export function InboxView() {
         </div>
         <div className="flex flex-col rounded-md border border-border-strong bg-surface focus-within:border-accent">
           <textarea
+            ref={box}
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={onKeyDown}
             rows={2}
             placeholder="Brain-dump, one task per line…"
             aria-label="Brain-dump tasks, one per line"
-            className="resize-none bg-transparent px-3 py-2.5 text-md text-text outline-none"
+            className="max-h-[50vh] resize-none overflow-y-auto bg-transparent px-3 py-2.5 text-md text-text outline-none"
           />
           <div className="flex items-center gap-3 border-t border-border px-2.5 py-1.5 text-xs text-text-muted">
             <span className="font-mono">~45m</span>

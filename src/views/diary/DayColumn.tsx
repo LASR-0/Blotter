@@ -203,7 +203,7 @@ export function DayColumn({
         data-drop="day"
         data-date={isoDate(day)}
         data-autoscroll
-        className="flex min-h-0 flex-1 flex-col gap-2 overflow-auto px-3 pb-4"
+        className="flex min-h-0 flex-1 flex-col gap-2 overflow-auto px-3 pt-1 pb-4"
       >
         {loading &&
           [1, 0.7, 0.45].map((o) => (

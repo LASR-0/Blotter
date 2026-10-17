@@ -13,6 +13,7 @@ import { runSmartSlot } from '@/app/smartSlot';
 import { useNav } from '@/app/nav';
 import { startPointerDrag, useDrag } from '@/app/drag';
 import { useOverlay } from '@/app/overlay';
+import { SlidePanel } from '@/components/ui/slide-panel';
 import { Tooltip } from '@/components/ui/tooltip';
 import { isOpError, runOp } from '@/lib/api';
 import { cn } from '@/lib/cn';
@@ -34,20 +35,22 @@ export function InboxRail() {
 
   if (!open) {
     return (
-      <aside className="flex w-10 flex-none flex-col items-center gap-2 border-r border-border bg-surface pt-3.5">
-        <Tooltip label="Show Inbox" side="right">
-          <button
-            type="button"
-            onClick={toggle}
-            aria-label="Show Inbox"
-            className="flex cursor-pointer flex-col items-center gap-1 rounded-md px-1.5 py-1 text-text-muted hover:bg-hover hover:text-text"
-          >
-            <Tray size={15} />
-            <span className="font-mono text-xs">{items.length}</span>
-            <CaretDoubleRight size={12} />
-          </button>
-        </Tooltip>
-      </aside>
+      <SlidePanel width={40} label="Inbox" className="border-r border-border bg-surface">
+        <div className="flex flex-col items-center gap-2 pt-3.5">
+          <Tooltip label="Show Inbox" side="right">
+            <button
+              type="button"
+              onClick={toggle}
+              aria-label="Show Inbox"
+              className="flex cursor-pointer flex-col items-center gap-1 rounded-md px-1.5 py-1 text-text-muted hover:bg-hover hover:text-text"
+            >
+              <Tray size={15} />
+              <span className="font-mono text-xs">{items.length}</span>
+              <CaretDoubleRight size={12} />
+            </button>
+          </Tooltip>
+        </div>
+      </SlidePanel>
     );
   }
 
@@ -64,7 +67,7 @@ export function InboxRail() {
   };
 
   return (
-    <aside className="flex min-h-0 w-[232px] flex-none flex-col border-r border-border bg-surface">
+    <SlidePanel width={232} label="Inbox" className="border-r border-border bg-surface">
       <div className="flex items-center gap-2 px-3.5 pt-3.5 pb-2.5">
         <Tray size={15} className="text-text-muted" />
         <span className="font-semibold">Inbox</span>
@@ -157,6 +160,6 @@ export function InboxRail() {
           </p>
         )}
       </div>
-    </aside>
+    </SlidePanel>
   );
 }

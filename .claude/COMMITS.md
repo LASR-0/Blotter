@@ -103,7 +103,9 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 39c | polish | `feat(ui): Settings on one page in wide windows` | committed `5243959` |
 | 39d | polish | `style(ui): centred content, sidebar key chip, keybinding row` | committed `86f2a48` |
 | 39e | polish | `style(ui): one key chip per key in the sidebar` | committed `26d1f45` |
-| 39f | polish | `feat(ai): smart slot` | committed (hash in the next entry) |
+| 39f | polish | `feat(ai): smart slot` | committed `daff565` |
+| 39g | polish | `feat(theme): Blotter and Studio presets, logo and title bar colours` | committed `6c97806` |
+| 39h | polish | `feat(ui): calendar and tag filters, sliding panels, themed hover hints` | committed (hash in the next entry) |
 | 40 | 12 | ~~`feat(mcp): MCP server over the operation registry`~~ | superseded by #29a |
 | 41 | 13 | `build: Windows installers and Linux AppImage/deb bundles` | planned |
 | 42 | 13 | `build: Flatpak manifest` | planned |
@@ -3571,7 +3573,7 @@ Test steps:
     - In the running app: every view row, Settings and the search box show separate chips;
       "Search or command" is one line, not truncated (122 of 122px).
 
-### #39f — Smart slot            [status: committed — hash in the next entry]
+### #39f — Smart slot            [status: committed daff565]
 Phase: pre-release polish (Luke's list, 2026-10-16)
 Message:
     feat(ai): smart slot
@@ -3614,3 +3616,81 @@ Test steps:
 Notes:
     - Not tried live yet (it needs an AI turn). On the backlog before Phase 12, with Luke's
       other items from 2026-10-16 (roadmap: "Before Phase 12").
+
+### #39g — Blotter and Studio presets, logo and title bar colours            [status: committed 6c97806]
+Phase: pre-release polish (Luke, 2026-10-16/17)
+Message:
+    feat(theme): Blotter and Studio presets, logo and title bar colours
+
+    The presets are now Blotter Light, Blotter Dark (default), Studio
+    Light and Studio Dark, replacing Dark, Light, Paper and Gruvbox.
+    Blotter Light is Luke's warm cream theme with serif headings and
+    larger text; Blotter Dark is its dark counterpart and passes every
+    contrast check. The Studio pair are his orange Light and Dark. A
+    theme saved under an old preset id maps to its successor.
+
+    The logo's calendar, wordmark and wordmark shadow get their own
+    theme colours (--logo-accent, --logo-text, --logo-shadow), apart
+    from the accent, with a Logo panel in the live preview. The window
+    title bar takes --titlebar and --titlebar-text: Windows 11 sets the
+    caption, border and title colours through DWM; elsewhere the window
+    gets the light/dark hint. Themes saved before these tokens take
+    their own text, accent and background.
+
+    The app icon (title bar, taskbar, tray, favicon) is redrawn in the
+    new logo colours.
+
+    The Theme page stacks the preview under the editor below 760px of
+    page width, so the docked chat no longer squeezes it.
+Files:
+    A  src-tauri/src/titlebar.rs                    (set_titlebar; DWM on Windows; test)
+    M  src-tauri/src/lib.rs
+    M  src/theme/presets.ts, src/theme/engine.ts, src/theme/theme.ts
+    M  src/theme/engine.test.ts, src/theme/theme.test.ts
+    M  src/styles.css, src/components/BlotterMark.tsx
+    M  src/views/settings/ThemePage.tsx, src/views/settings/ThemePreview.tsx
+    M  public/blotter.svg, src-tauri/icons/app-icon.svg
+    M  src-tauri/icons/32x32.png, 64x64.png, 128x128.png, 128x128@2x.png, icon.png, icon.ico, icon.icns
+Test steps:
+    - pnpm check → clean; Vitest 217
+    - cargo test --workspace → clean (titlebar colorref test); clippy / fmt clean
+Notes:
+    - Title bar colours not yet seen live (the running app locked the exe). Windows 10 gets
+      only light/dark.
+    - Blotter Light and the Studio pair keep some orange pairs under AA (Luke: hues are fine).
+
+### #39h — Calendar and tag filters, sliding panels, themed hover hints            [status: committed — hash in the next entry]
+Phase: pre-release polish (Luke, 2026-10-16/17)
+Message:
+    feat(ui): calendar and tag filters, sliding panels, themed hover hints
+
+    The sidebar gets the design's "Calendars & tags" section: every tag
+    in use (new read op list_tags) and each subscribed calendar, with a
+    checkbox in its colour that shows or hides it in the Diary, Week,
+    Month and Year. An item hides only when all its tags are hidden;
+    untagged items always show. Kept in local storage.
+
+    The sidebar, the Diary's Inbox rail and the docked chat slide open
+    and closed. Every title attribute shows as a themed tooltip instead
+    of the browser's.
+
+    Also from Luke's list: the Inbox count beside the sidebar's i chip
+    is gone, the Diary's day columns get top padding so a focused
+    card's ring isn't clipped, and the Inbox's brain-dump box grows a
+    line at a time from two.
+Files:
+    A  src/app/filters.ts, src/app/filters.test.ts
+    A  src/components/ui/slide-panel.tsx, src/components/ui/title-tips.tsx
+    A  src/lib/useSlidePresence.ts
+    M  crates/blotter-core/src/ops/reads.rs, crates/blotter-core/src/store/items.rs   (list_tags; test)
+    M  src/app/AppShell.tsx, src/app/Sidebar.tsx, src/main.tsx
+    M  src/lib/calendarEvents.ts
+    M  src/views/diary/DiaryView.tsx, src/views/diary/DayColumn.tsx, src/views/diary/InboxRail.tsx
+    M  src/views/WeekView.tsx, src/views/MonthView.tsx, src/views/YearView.tsx
+    M  src/views/inbox/InboxView.tsx
+    M  .claude/COMMITS.md, .claude/roadmap.md
+Test steps:
+    - cargo test --workspace → 174 core (+1 list_tags) + 45 app + 6 mcp; clippy / fmt clean
+    - pnpm check → clean; Vitest 217
+Notes:
+    - Filters don't apply to the Inbox, History or Year's completed mode.

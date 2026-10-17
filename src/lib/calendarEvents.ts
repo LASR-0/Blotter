@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { addDays, endOfMonth, format, startOfMonth } from 'date-fns';
+import { useFilters } from '@/app/filters';
 import { useNav } from '@/app/nav';
 import { itemsByDay } from './days';
 import { timeOf } from './format';
@@ -91,19 +92,32 @@ export function eventTitle(e: ShownEvent): string {
 
 const ymd = (d: Date) => format(d, 'yyyy-MM-dd');
 
-/**
- * Subscribed events around the period being viewed: the same range as the
- * block-out windows (the anchor's month, a week before, six weeks after),
- * so every view shares one cached query.
- */
-export function useCalendarEvents(): ShownEvent[] {
+function useEventsQuery() {
   const anchor = useNav((s) => s.anchor);
   const month = startOfMonth(anchor);
-  const q = useOp<CalendarEvents>('list_calendar_events', {
+  return useOp<CalendarEvents>('list_calendar_events', {
     start: ymd(addDays(month, -7)),
     end: ymd(addDays(endOfMonth(month), 42)),
   });
-  return useMemo(() => shownEvents(q.data), [q.data]);
+}
+
+/** The enabled subscribed calendars (for the sidebar's filters), from the same query. */
+export function useCalendarList(): CalendarInfo[] {
+  return useEventsQuery().data?.calendars ?? [];
+}
+
+/**
+ * Subscribed events around the period being viewed: the same range as the
+ * block-out windows (the anchor's month, a week before, six weeks after),
+ * so every view shares one cached query. Calendars hidden in the sidebar are left out.
+ */
+export function useCalendarEvents(): ShownEvent[] {
+  const q = useEventsQuery();
+  const hidden = useFilters((s) => s.hiddenCalendars);
+  return useMemo(
+    () => shownEvents(q.data).filter((e) => !hidden.includes(e.subscription_id)),
+    [q.data, hidden],
+  );
 }
 
 /** Events bucketed by every local day they touch, as for items. */

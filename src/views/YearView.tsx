@@ -13,6 +13,7 @@ import { useNav } from '@/app/nav';
 import { ErrorPanel } from '@/components/EmptyState';
 import { Kbd } from '@/components/ui/kbd';
 import { Segmented } from '@/components/ui/segmented';
+import { useShownItems } from '@/app/filters';
 import { isOpError } from '@/lib/api';
 import { cn } from '@/lib/cn';
 import { completionsByDay, dayKey, heatLevel, itemsByDay } from '@/lib/days';
@@ -45,7 +46,8 @@ export function YearView() {
     start: isoDate(startOfYear(anchor)),
     end: isoDate(endOfYear(anchor)),
   });
-  const scheduled = useMemo(() => itemsByDay(agenda.data?.items ?? []), [agenda.data]);
+  const shown = useShownItems(agenda.data?.items);
+  const scheduled = useMemo(() => itemsByDay(shown), [shown]);
   // Every completion in the year, Inbox tasks included (not just scheduled items).
   const done = useOp<History>(
     'list_completions',

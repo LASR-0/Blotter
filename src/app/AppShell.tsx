@@ -4,6 +4,7 @@ import { listen } from '@tauri-apps/api/event';
 import { buildActions, NAV_CONTEXT, NAV_VIEWS } from '@/actions/actions';
 import { useKeybindings } from '@/keymap/keybindingStore';
 import { FirstRun } from './FirstRun';
+import { useSlidePresence } from '@/lib/useSlidePresence';
 import { onPlannerChanged } from '@/lib/api';
 import { syncPrefs, usePrefs } from '@/lib/prefs';
 import { applyOverrides } from '@/keymap/overrides';
@@ -37,6 +38,7 @@ import { ShortcutSheet } from './ShortcutSheet';
 import { Sidebar } from './Sidebar';
 import { TopBar } from './TopBar';
 import { ChatPanel } from '@/chat/ChatPanel';
+import { SlidePanel } from '@/components/ui/slide-panel';
 import { useChat, useChatEvents } from '@/chat/chatStore';
 
 /** Tracks whether the window is below the sidebar auto-collapse width. */
@@ -103,6 +105,7 @@ export function AppShell() {
   useNarrowWindow();
 
   const chatOpen = useChat((s) => s.open);
+  const chat = useSlidePresence(chatOpen);
   useChatEvents();
   useChatOpeners();
 
@@ -142,12 +145,12 @@ export function AppShell() {
           </ErrorBoundary>
         </main>
       </div>
-      {chatOpen && (
-        <aside className="w-[360px] min-w-[300px] flex-none border-l border-border">
+      {chat.mounted && (
+        <SlidePanel width={chat.open ? 360 : 0} label="AI chat" className="border-l border-border">
           <ErrorBoundary what="The chat">
             <ChatPanel mode="docked" />
           </ErrorBoundary>
-        </aside>
+        </SlidePanel>
       )}
       <CommandPalette actions={actions} />
       <ShortcutSheet actions={actions} />

@@ -41,6 +41,12 @@ pub(super) fn defs() -> Vec<OpDef> {
             search_items,
         ),
         OpDef::new(
+            "list_tags",
+            "List every tag in use, lowercased, with how many items carry it.",
+            false,
+            list_tags,
+        ),
+        OpDef::new(
             "list_inbox",
             "List unscheduled flexible tasks waiting in the Inbox.",
             false,
@@ -241,6 +247,19 @@ fn get_item(ctx: &mut Ctx<'_>, a: GetItemArgs) -> Result<ItemDetail> {
 
 fn search_items(ctx: &mut Ctx<'_>, a: SearchArgs) -> Result<Vec<Item>> {
     store::items::search(ctx.conn, a.query.trim(), a.limit.unwrap_or(20))
+}
+
+#[derive(Debug, Serialize)]
+pub struct TagCount {
+    pub name: String,
+    pub items: u32,
+}
+
+fn list_tags(ctx: &mut Ctx<'_>, _: NoArgs) -> Result<Vec<TagCount>> {
+    Ok(store::items::list_tags(ctx.conn)?
+        .into_iter()
+        .map(|(name, items)| TagCount { name, items })
+        .collect())
 }
 
 fn list_inbox(ctx: &mut Ctx<'_>, _: NoArgs) -> Result<Vec<Item>> {
@@ -629,5 +648,17 @@ mod tests {
             )
             .unwrap_err();
         assert!(err.to_string().contains("before"));
+    }
+
+    #[test]
+    fn tags_are_counted_case_insensitively() {
+        let mut p = crate::planner::tests::planner();
+        for tags in [json!(["Work", "health"]), json!(["work"]), json!([])] {
+            run(&mut p, "create_item", json!({ "title": "T", "tags": tags }));
+        }
+        assert_eq!(
+            run(&mut p, "list_tags", json!({})),
+            json!([{ "name": "health", "items": 1 }, { "name": "work", "items": 2 }])
+        );
     }
 }

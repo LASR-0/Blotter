@@ -4,6 +4,7 @@ import { withFocusedItem } from '@/actions/itemActions';
 import { useFocus, useScrollFocusIntoView, useViewController } from '@/app/focus';
 import { useNav } from '@/app/nav';
 import { ErrorPanel } from '@/components/EmptyState';
+import { useShownItems } from '@/app/filters';
 import { isOpError } from '@/lib/api';
 import { availableMinutes } from '@/lib/availability';
 import { eventsByDay, useCalendarEvents } from '@/lib/calendarEvents';
@@ -54,7 +55,9 @@ export function DiaryView() {
   const conflicts = useMemo(() => conflictMap(agenda.data?.conflicts), [agenda.data]);
   const titleOf = titles(agenda.data?.items ?? []);
   const conflictOf = (id: string) => conflictText(conflicts.get(id), titleOf);
-  const byDay = useMemo(() => itemsByDay(agenda.data?.items ?? []), [agenda.data]);
+  const shown = useShownItems(agenda.data?.items);
+  const shownOverdue = useShownItems(overdue.data);
+  const byDay = useMemo(() => itemsByDay(shown), [shown]);
   const scheduledIds = useMemo(
     () => new Set((agenda.data?.items ?? []).map((i) => i.id)),
     [agenda.data],
@@ -64,7 +67,7 @@ export function DiaryView() {
   // Each column as rendered: today's Overdue section first, then its items.
   const columns = days.map((day) => {
     const isToday = isSameDay(day, now);
-    const lateItems = isToday ? (overdue.data ?? []).filter((i) => !scheduledIds.has(i.id)) : [];
+    const lateItems = isToday ? shownOverdue.filter((i) => !scheduledIds.has(i.id)) : [];
     return { day, isToday, lateItems, items: byDay.get(dayKey(day)) ?? [] };
   });
   const columnIds = columns.map((c) => [...c.lateItems, ...c.items].map((i) => i.id));

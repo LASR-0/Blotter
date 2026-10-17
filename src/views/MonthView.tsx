@@ -15,6 +15,7 @@ import { useOverlay } from '@/app/overlay';
 import { ErrorPanel } from '@/components/EmptyState';
 import { Kbd } from '@/components/ui/kbd';
 import { Popover, PopoverClose, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { useShownItems } from '@/app/filters';
 import { isOpError } from '@/lib/api';
 import { blockedIntervals, planningMinutes, windowTitle } from '@/lib/availability';
 import {
@@ -184,7 +185,8 @@ export function MonthView() {
     start: isoDate(days[0] as Date),
     end: isoDate(days[CELLS - 1] as Date),
   });
-  const byDay = useMemo(() => itemsByDay(agenda.data?.items ?? []), [agenda.data]);
+  const shown = useShownItems(agenda.data?.items);
+  const byDay = useMemo(() => itemsByDay(shown), [shown]);
   const events = useCalendarEvents();
   const eventDays = useMemo(() => eventsByDay(events), [events]);
 

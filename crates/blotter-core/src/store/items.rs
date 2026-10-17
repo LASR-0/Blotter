@@ -224,6 +224,17 @@ pub fn search(conn: &Connection, query: &str, limit: u32) -> Result<Vec<Item>> {
     collect(conn, &sql, named_params! { ":p": pattern, ":limit": limit })
 }
 
+/// Every tag in use (lowercased, as tag colours are), with how many items
+/// carry it; alphabetical.
+pub fn list_tags(conn: &Connection) -> Result<Vec<(String, u32)>> {
+    let mut stmt = conn.prepare(
+        "SELECT lower(t.value) AS name, count(*) FROM items, json_each(items.tags) AS t \
+         WHERE trim(t.value) <> '' GROUP BY name ORDER BY name",
+    )?;
+    let rows = stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?;
+    Ok(rows.collect::<rusqlite::Result<_>>()?)
+}
+
 /// Open tasks left behind: scheduled on a day before `today` (timed items
 /// ending at or before `today_start`, all-day items ending before `today`),
 /// or past their deadline at `now`. Oldest first.

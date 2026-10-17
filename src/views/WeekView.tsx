@@ -25,6 +25,7 @@ import { useOverlay } from '@/app/overlay';
 import { DropPreview } from '@/components/DropPreview';
 import { ErrorPanel } from '@/components/EmptyState';
 import { Kbd } from '@/components/ui/kbd';
+import { useShownItems } from '@/app/filters';
 import { isOpError } from '@/lib/api';
 import { blockedIntervals, windowTitle } from '@/lib/availability';
 import {
@@ -252,7 +253,7 @@ export function WeekView() {
     start: isoDate(first),
     end: isoDate(days[6] as Date),
   });
-  const items = useMemo(() => agenda.data?.items ?? [], [agenda.data]);
+  const items = useShownItems(agenda.data?.items);
   const windows = useBlockoutWindows();
   const events = useCalendarEvents();
   const eventByKey = useMemo(() => new Map(events.map((e) => [e.key, e])), [events]);

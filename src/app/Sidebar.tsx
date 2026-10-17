@@ -1,11 +1,13 @@
-import type { ReactNode } from 'react';
 import {
   Calendar,
   CalendarDots,
+  Check,
   CheckCircle,
   Gear,
+  LinkSimple,
   MagnifyingGlass,
   Notebook,
+  Plus,
   SidebarSimple,
   SquaresFour,
   Tray,
@@ -13,11 +15,15 @@ import {
 } from '@phosphor-icons/react';
 import { BlotterMark } from '@/components/BlotterMark';
 import { KeyChips } from '@/components/ui/kbd';
+import { SlidePanel } from '@/components/ui/slide-panel';
 import { Tooltip } from '@/components/ui/tooltip';
+import { DEFAULT_CALENDAR_COLOR, useCalendarList } from '@/lib/calendarEvents';
 import { cn } from '@/lib/cn';
 import type { View } from '@/lib/period';
 import { useOp } from '@/lib/queries';
-import type { Blockout, Item } from '@/lib/types';
+import { tagColor } from '@/lib/tags';
+import type { Blockout } from '@/lib/types';
+import { useFilters } from './filters';
 import { isSidebarCollapsed, useNav } from './nav';
 import { useOverlay } from './overlay';
 
@@ -68,7 +74,6 @@ function RailButton({
   label,
   keys,
   onClick,
-  trailing,
 }: {
   collapsed: boolean;
   active: boolean;
@@ -76,7 +81,6 @@ function RailButton({
   label: string;
   keys: string;
   onClick: () => void;
-  trailing?: ReactNode;
 }) {
   const button = (
     <button
@@ -94,7 +98,6 @@ function RailButton({
       {!collapsed && (
         <>
           <span className="flex-1 text-left">{label}</span>
-          {trailing}
           {/* One key chip per key, as in the palette: [Ctrl] [,], [g] [d]. */}
           <KeyChips binding={keys} compact />
         </>
@@ -110,6 +113,91 @@ function RailButton({
   );
 }
 
+/** A tag or calendar filter row: a checkbox in its colour (design: Calendars & tags). */
+function FilterRow({
+  label,
+  color,
+  shown,
+  ics,
+  onToggle,
+}: {
+  label: string;
+  color: string;
+  shown: boolean;
+  ics?: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="checkbox"
+      aria-checked={shown}
+      onClick={onToggle}
+      className={cn(
+        'flex h-7 cursor-pointer items-center gap-2.5 rounded-md px-2 text-left hover:bg-hover',
+        !shown && 'opacity-60',
+      )}
+    >
+      <span
+        className="grid size-[13px] flex-none place-items-center rounded-[4px] border-[1.5px] text-bg"
+        style={{ borderColor: color, background: shown ? color : 'transparent' }}
+      >
+        {shown && <Check size={8} weight="bold" />}
+      </span>
+      <span className="flex-1 truncate">{label}</span>
+      {ics && (
+        <Tooltip label="ICS subscription" side="right">
+          <LinkSimple className="flex-none text-text-muted" />
+        </Tooltip>
+      )}
+    </button>
+  );
+}
+
+/** Tags in use and subscribed calendars, each shown or hidden in the Diary and calendar views. */
+function CalendarsAndTags() {
+  const tags = useOp<{ name: string; items: number }[]>('list_tags');
+  const calendars = useCalendarList();
+  const { hiddenTags, hiddenCalendars, toggleTag, toggleCalendar } = useFilters();
+  const openSettings = useNav((s) => s.openSettings);
+  if (!tags.data?.length && !calendars.length) return null;
+  return (
+    <section aria-label="Calendars and tags" className="flex flex-col gap-px">
+      <h2 className="flex items-center px-2 pb-1 text-xs font-normal text-text-muted">
+        <span className="flex-1">Calendars &amp; tags</span>
+        <Tooltip label="Subscribe to a calendar" side="right">
+          <button
+            type="button"
+            aria-label="Subscribe to a calendar"
+            onClick={() => openSettings('calendars')}
+            className="grid size-4 cursor-pointer place-items-center rounded-sm hover:bg-hover hover:text-text"
+          >
+            <Plus size={11} />
+          </button>
+        </Tooltip>
+      </h2>
+      {tags.data?.map((t) => (
+        <FilterRow
+          key={t.name}
+          label={t.name.charAt(0).toUpperCase() + t.name.slice(1)}
+          color={tagColor(t.name)}
+          shown={!hiddenTags.includes(t.name)}
+          onToggle={() => toggleTag(t.name)}
+        />
+      ))}
+      {calendars.map((c) => (
+        <FilterRow
+          key={c.id}
+          label={c.name}
+          color={c.color ?? DEFAULT_CALENDAR_COLOR}
+          shown={!hiddenCalendars.includes(c.id)}
+          ics
+          onToggle={() => toggleCalendar(c.id)}
+        />
+      ))}
+    </section>
+  );
+}
 export function Sidebar() {
   const view = useNav((s) => s.view);
   const go = useNav((s) => s.go);
@@ -117,17 +205,10 @@ export function Sidebar() {
   const toggleSidebar = useNav((s) => s.toggleSidebar);
   const collapsed = useNav(isSidebarCollapsed);
   const openOverlay = useOverlay((s) => s.open);
-  const inbox = useOp<Item[]>('list_inbox');
   const blockouts = useOp<Blockout[]>('list_blockouts');
-  const inboxCount = inbox.data?.filter((i) => i.status === 'open').length ?? 0;
 
   return (
-    <aside
-      className={cn(
-        'flex min-h-0 flex-none flex-col border-r border-border bg-surface',
-        collapsed ? 'w-[52px]' : 'w-[232px]',
-      )}
-    >
+    <SlidePanel width={collapsed ? 52 : 232} className="border-r border-border bg-surface">
       <div
         className={cn(
           'flex h-12 flex-none items-center gap-2',
@@ -191,18 +272,12 @@ export function Sidebar() {
             label={n.label}
             keys={n.keys}
             onClick={() => go(n.view)}
-            trailing={
-              n.view === 'inbox' && inboxCount > 0 ? (
-                <span className="rounded-full bg-hover px-1.5 font-mono text-xs text-text-muted">
-                  {inboxCount}
-                </span>
-              ) : undefined
-            }
           />
         ))}
       </nav>
 
-      <div className="min-h-0 flex-1 overflow-auto px-2 pt-3.5 pb-2">
+      <div className="flex min-h-0 flex-1 flex-col gap-3.5 overflow-auto px-2 pt-3.5 pb-2">
+        {!collapsed && <CalendarsAndTags />}
         {!collapsed && (blockouts.data?.length ?? 0) > 0 && (
           <section className="flex flex-col gap-px">
             <h2 className="px-2 pb-1 text-xs font-normal text-text-muted">Block-outs</h2>
@@ -233,6 +308,6 @@ export function Sidebar() {
           onClick={() => openSettings()}
         />
       </div>
-    </aside>
+    </SlidePanel>
   );
 }

@@ -313,7 +313,7 @@ Every action is reachable from the keyboard; the mouse is optional. Focus is alw
   - font family and size scale,
   - density.
 - **Theme page:** a token editor on one side and a **live preview gallery** on the other. The gallery shows the real components with the draft theme applied *only inside the preview*: buttons, inputs, tooltip, dialog, toast, a diary card, a mini week grid with a block-out and a conflict, a chat bubble with a proposal card, and the command palette. "Apply" commits the theme app-wide.
-- **Built-in presets:** **Dark** (default), **Light**, **Paper** and **Gruvbox**. No translucent/glass theme in v1. Users can duplicate, import and export themes.
+- **Built-in presets:** **Blotter Light**, **Blotter Dark** (default), **Studio Light** and **Studio Dark** (Luke, 2026-10-17; these replaced Dark, Light, Paper and Gruvbox, whose saved ids map to them). No translucent/glass theme in v1. Users can duplicate, import and export themes.
 - **Contrast checking:** text/background pairs below WCAG AA get a visible warning in the editor.
 
 ### 5.6 Notifications
@@ -558,14 +558,24 @@ Each phase states the intent, then the acceptance criteria (AC) and leads to ver
 
 
 ### Before Phase 12 — polish backlog (Luke, 2026-10-16)
-Done on 2026-10-16: #39a–#39e (presets, window size, About, Diary timeline, key hints, icon, one-page Settings, centring, sidebar chips) and #39f (Smart slot). Still to do before Phase 12:
-- **Sidebar:** remove the Inbox count (the "9") beside the `i` key chip.
-- **Diary:** give the day columns' card list some top padding, so a focused card's top focus ring isn't clipped by the day header.
-- **Theme page with the chat docked:** at the minimum window size, opening the AI chat on the Theme tab squeezes the preview again. Either make the page cope (e.g. hide the preview below a width, or stack it under the editor) or keep the chat closed/undocked on the Theme tab.
-- **Smart slot:** try it live (Inbox rail ✦, the bulk bar, or "Smart slot Inbox" in the palette) with Claude Code; tune the prompt from what it does.
-- **Preset contrast:** Luke's new accents leave some pairs under WCAG AA (Dark text on accent 3.33, danger 3.43; Light text on accent 2.01, accent text 2.60–2.99; Paper text on accent 2.72). Decide: keep, or darken text-on-accent / accent text while keeping the accent hues.
-- **Demo database:** delete the "Light copy", "Paper copy" and "Dark copy" themes now that the presets carry them.
-- **Other AI apps (question from Luke):** look at driving OpenAI's Codex CLI and GitHub Copilot CLI the way Claude Code is driven (headless, with Blotter's MCP server). Desktop chat apps (ChatGPT, Copilot app) can't be driven this way. Post-v1 unless cheap.
+Done on 2026-10-16: #39a–#39e (presets, window size, About, Diary timeline, key hints, icon, one-page Settings, centring, sidebar chips) and #39f (Smart slot).
+- **Sidebar Inbox count:** removed (uncommitted, with the Theme fix below).
+- **Smart slot:** tried live with Claude Code by Luke; works.
+- **New presets (Luke, 2026-10-17):** Blotter Light (his "Light copy 2": warm cream, orange accent, serif headings, larger text and corners), Blotter Dark (its dark counterpart, made to match; passes every AA check), Studio Light and Studio Dark (his "Light copy" and "Dark copy"). Blotter Dark is the default. Paper and Gruvbox are gone; saved ids `dark`, `light`, `paper`, `gruvbox` map to Studio Dark, Studio Light, Blotter Light and Blotter Dark. Contrast kept as is elsewhere (Luke: the hues are fine): Blotter Light accent text 2.00–2.18, text on accent 2.34; Studio Light text on accent 2.28, accent text 2.51–2.68; Studio Dark danger 3.43, text on accent 4.08. Uncommitted.
+- **Other AI apps:** v1 ships with Claude Code as the only tested route; Codex CLI / Copilot CLI are post-v1 (§10).
+- **Theme page with the chat docked:** fixed in code (uncommitted): below 760px of page width the preview stacks under the editor and the page scrolls. Needs Luke's check at the minimum window size.
+- **Diary card focus ring:** fixed in code (uncommitted): 4px top padding on the day column list, so the 2px outline + 2px offset of a focused top card isn't clipped.
+- **Logo colours apart from the accent (Luke):** new theme tokens `--logo-accent` (the calendar mark), `--logo-text` (the wordmark) and `--logo-shadow` (its solid extrusion) in the Theme editor's Logo group, with a Logo panel in the live preview. Themes saved earlier take their own text and accent. Uncommitted.
+- **App icon in the new colours:** `public/blotter.svg` and `src-tauri/icons/app-icon.svg` recoloured to the Dark preset's logo (calendar #fe5858, page #fef6e1, fold #b73f3f, cells #fec3b5, done #56c49b, tile #121317); desktop icons regenerated with `pnpm tauri icon src-tauri/icons/app-icon.svg` (mobile/Store outputs removed). Uncommitted.
+- **Sliding side panels (Luke):** the sidebar, the Diary's Inbox rail and the docked chat slide open and closed (200ms width transition, off with reduced motion) via `SlidePanel`. Uncommitted.
+- **Styled hover hints (Luke):** every `title` attribute now shows as a themed tooltip (`TitleTips`, mounted once per window) instead of the browser's; the title is held back while hovered and put back after, for assistive tech. Uncommitted.
+- **Calendars & tags filters (Luke, from the design reference):** a sidebar section listing every tag in use (new read op `list_tags`) and each enabled subscribed calendar, each with a checkbox in its colour that shows or hides it in the Diary, Week, Month and Year views; untagged items always show, and an item hides only when all its tags are hidden. Kept in local storage. The section's + opens Settings → Calendars. Uncommitted.
+- **Inbox brain-dump box:** starts at 2 lines and grows a line at a time with the text, up to half the window, then scrolls. Uncommitted.
+- **Title bar colours from the theme (Luke):** new tokens `--titlebar` and `--titlebar-text` (Theme editor, Window group; presets start at their background and text, older themes take theirs). Each window applies them through `set_titlebar` (Windows 11 DWM caption/border/text colour; light/dark via `set_theme` elsewhere). Uncommitted; not yet seen live.
+
+Still to do before Phase 12:
+- **Demo database:** delete the "Light copy", "Light copy 2" and "Dark copy" themes now that the presets carry them.
+- **Luke: experiment with the preset colours**, then a UI testing pass, then Phase 12.
 
 ### Phase 12 — MCP server
 
@@ -610,7 +620,7 @@ The Claude Design prompt (`design-prompt.md`, which also sets the visual directi
 - empty, loading and error states.
 
 **Other requirements:**
-- Show the Dark (default), Light, Paper and Gruvbox presets.
+- Show the Blotter Light, Blotter Dark (default), Studio Light and Studio Dark presets.
 - Show visible focus states throughout, since the app is keyboard-first.
 - Components should map onto shadcn/Radix primitives wherever possible, so the design is implementable without custom primitives.
 
@@ -622,6 +632,7 @@ The Claude Design prompt (`design-prompt.md`, which also sets the visual directi
 - Auto-update via the Tauri updater, plus code signing.
 - Splitting a task across multiple slots.
 - Using the GlobalShortcuts portal for native hotkeys on Wayland.
+- Driving other agent CLIs (OpenAI Codex CLI, GitHub Copilot CLI) headless with Blotter's MCP server, the way Claude Code is driven. Desktop chat apps (ChatGPT, the Copilot app) can't be driven this way.
 
 ---
 
