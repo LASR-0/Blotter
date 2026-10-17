@@ -129,6 +129,11 @@ pub fn run() {
             shell::handle_launch(app, &cli::parse(argv));
         }))
         .setup(move |app| {
+            // Before the hidden main window first shows, so its title bar never
+            // draws the icon or title (Windows).
+            if let Some(main) = app.get_webview_window(shell::MAIN_WINDOW) {
+                titlebar::plain_caption(&main);
+            }
             let state = open_state()?;
             app.manage(state);
             external::start(app.handle().clone());

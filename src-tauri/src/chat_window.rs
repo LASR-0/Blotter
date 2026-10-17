@@ -44,6 +44,7 @@ fn build(app: &AppHandle, thread_id: Option<&str>) -> tauri::Result<WebviewWindo
         .maximizable(false)
         .always_on_top(true)
         .build()
+        .inspect(crate::titlebar::plain_caption)
 }
 
 /// Pops the chat out (or brings the pop-out forward) on `thread_id`. Async

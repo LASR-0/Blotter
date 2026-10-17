@@ -23,6 +23,17 @@ fn colorref(hex: &str) -> Option<u32> {
     Some(b << 16 | g << 8 | r)
 }
 
+/// Takes the icon and title off a window's title bar (Windows only), at
+/// once: called when each window is built, before it shows.
+pub fn plain_caption(window: &WebviewWindow) {
+    #[cfg(windows)]
+    if let Ok(hwnd) = window.hwnd() {
+        dwm::hide_icon_and_title(hwnd.0);
+    }
+    #[cfg(not(windows))]
+    let _ = window;
+}
+
 /// Colours the calling window's title bar.
 #[tauri::command]
 pub fn set_titlebar(
@@ -77,6 +88,22 @@ mod dwm {
         ) -> i32;
     }
 
+    #[link(name = "user32")]
+    unsafe extern "system" {
+        fn SetWindowPos(
+            hwnd: *mut c_void,
+            after: *mut c_void,
+            x: i32,
+            y: i32,
+            cx: i32,
+            cy: i32,
+            flags: u32,
+        ) -> i32;
+    }
+
+    // Redraw the frame only: no move, resize, reorder or activation.
+    const SWP_FRAME_ONLY: u32 = 0x0001 | 0x0002 | 0x0004 | 0x0010 | 0x0020;
+
     pub fn hide_icon_and_title(hwnd: *mut c_void) {
         let flags = WTNCA_NODRAWCAPTION | WTNCA_NODRAWICON;
         let options = WtaOptions { flags, mask: flags };
@@ -90,6 +117,9 @@ mod dwm {
                 (&raw const options).cast(),
                 size_of::<WtaOptions>() as u32,
             );
+            // Windows doesn't repaint the caption for a theme attribute, so an
+            // icon already drawn would stay until the next redraw.
+            SetWindowPos(hwnd, std::ptr::null_mut(), 0, 0, 0, 0, SWP_FRAME_ONLY);
         }
     }
 

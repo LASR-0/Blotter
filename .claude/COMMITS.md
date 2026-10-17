@@ -113,7 +113,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 43 | 13 | `build: AUR PKGBUILD` | committed `cfc2e8f` |
 | 44 | 13 | `docs: README, Hyprland notes, MCP setup and keybindings` | committed `d84fe70` |
 | 45 | 13 | `chore(release): v1.0.0` | committed `c263ecb` (untagged; Luke tags after the smoke checks) |
-| 45a | 13 | `feat(app): no icon or title in the Windows title bar` | committed (hash in the next entry) |
+| 45a | 13 | `feat(app): no icon or title in the Windows title bar` | committed `e957972` |
+| 45b | 13 | `fix(app): plain Windows title bar from the first frame` | committed (hash in the next entry) |
 
 ---
 
@@ -3791,7 +3792,7 @@ Notes:
     - Still open before publishing: Anthropic's terms on driving Claude Code (D29); the ICS
       checks (Phase 9, Monday); the API-key providers stay Experimental.
 
-### #45a — No icon or title in the Windows title bar            [status: committed — hash in the next entry]
+### #45a — No icon or title in the Windows title bar            [status: committed e957972]
 Phase: 13 (Luke, before the Windows release)
 Message:
     feat(app): no icon or title in the Windows title bar
@@ -3804,3 +3805,21 @@ Test steps:
 Notes:
     - The window keeps its title, so the taskbar, Alt+Tab and screen readers still say Blotter.
       Applied with the theme colours by set_titlebar, to the main window and the chat pop-out.
+
+### #45b — Plain Windows title bar from the first frame            [status: committed — hash in the next entry]
+Phase: 13 (Luke: "the logo is still in the windows title bar")
+Message:
+    fix(app): plain Windows title bar from the first frame
+Files:
+    M  src-tauri/src/titlebar.rs     (plain_caption; SetWindowPos SWP_FRAMECHANGED after the attribute)
+    M  src-tauri/src/lib.rs          (main window in setup)
+    M  src-tauri/src/chat_window.rs  (chat pop-out when built)
+    M  .claude/COMMITS.md
+Test steps:
+    - cargo test -p blotter → 47; clippy -D warnings / fmt clean
+    - Live, on Luke's pnpm tauri dev after its restart: the main window's title bar captured
+      untouched (PowerShell CopyFromScreen) shows only the theme colour, no icon or title
+Notes:
+    - Cause: #45a set the attribute when the page applied its theme, after the window had
+      drawn its caption, and Windows doesn't repaint the caption for a theme attribute, so
+      the icon stayed until something redrew the frame (showing it from the tray did).
