@@ -578,6 +578,7 @@ Still to do before Phase 12:
 - **Luke: experiment with the preset colours**, then a UI testing pass, then Phase 12.
 
 ### Phase 12 — MCP server
+**Progress (2026-10-17):** **Phase 12 is complete.** Checked with headless Claude Code (2.1.292) driving the release build's `blotter mcp` on a scratch database: it listed the agenda; in Propose mode (the default) its create_item came back "proposed, not applied" (one `mcp` proposal, no item, empty change log); with `ai_mode` set to auto the same call created the item, logged as `mcp`, after a "Before AI batch" snapshot. Changes reaching the running app within a second was verified live in #29a and that code is unchanged (not re-run: a second instance would hand off to Luke's open app). Claude Desktop wasn't tried (the AC takes either client). MCP setup is in the README (#44).
 
 **Moved:** the MCP server is built in Phase 8 as #29a (D29). This phase keeps its acceptance checks with Claude Desktop and the README notes.
 **Intent:** a stdio MCP server over the same operation registry (§4.8).
@@ -588,6 +589,7 @@ Still to do before Phase 12:
 - The propose/auto setting is respected.
 
 ### Phase 13 — Packaging and release
+**Progress (2026-10-17):** In code: Windows NSIS (per-user) and MSI installers build locally (`Blotter_1.0.0_x64-setup.exe`, `…_en-US.msi`); the MSI's contents were extracted and the packaged exe served MCP (v1.0.0, 28 tools). `.github/workflows/release.yml` builds both plus the AppImage, `.deb` and Flatpak bundle into a draft release on a `v*` tag. Flatpak manifest, AUR `PKGBUILD`, desktop entry, AppStream metadata, README and LICENSE are in `packaging/` and the root; the version is 1.0.0. Flatpak support in code: Claude Code through `flatpak-spawn --host` (opt-in override), `flatpak run` MCP commands, a hand-written autostart entry, and portal file pickers on Linux. **Still needs Luke:** push, then tag `v1.0.0` to run the release workflow (Linux bundles can't be built on this machine: no WSL distro or Docker); the AC's clean-VM install of every artifact and the Flatpak smoke checklist (notifications, tray, keychain, autostart, `--capture`, ICS fetch); the AUR checksum (`updpkgsums`) once the tag exists; Anthropic's terms on driving Claude Code from another app before publishing (D29); and the ICS checks deferred to Monday (Phase 9).
 **Intent:**
 - Windows NSIS/MSI installers,
 - AppImage and `.deb`,

@@ -105,13 +105,14 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 39e | polish | `style(ui): one key chip per key in the sidebar` | committed `26d1f45` |
 | 39f | polish | `feat(ai): smart slot` | committed `daff565` |
 | 39g | polish | `feat(theme): Blotter and Studio presets, logo and title bar colours` | committed `6c97806` |
-| 39h | polish | `feat(ui): calendar and tag filters, sliding panels, themed hover hints` | committed (hash in the next entry) |
+| 39h | polish | `feat(ui): calendar and tag filters, sliding panels, themed hover hints` | committed `876637a` |
+| 39i | polish | `fix(ui): palette theme icons for the new presets` | committed `1d1bb76` |
 | 40 | 12 | ~~`feat(mcp): MCP server over the operation registry`~~ | superseded by #29a |
-| 41 | 13 | `build: Windows installers and Linux AppImage/deb bundles` | planned |
-| 42 | 13 | `build: Flatpak manifest` | planned |
-| 43 | 13 | `build: AUR PKGBUILD` | planned |
-| 44 | 13 | `docs: README, Hyprland notes, MCP setup and keybindings` | planned |
-| 45 | 13 | `chore(release): v1.0.0` | planned |
+| 41 | 13 | `build: Windows installers, Linux bundles and the release workflow` | committed `6d39450` |
+| 42 | 13 | `build: Flatpak manifest and sandbox support` | committed `686a4c2` |
+| 43 | 13 | `build: AUR PKGBUILD` | committed `cfc2e8f` |
+| 44 | 13 | `docs: README, Hyprland notes, MCP setup and keybindings` | committed `d84fe70` |
+| 45 | 13 | `chore(release): v1.0.0` | committed (untagged; Luke tags after the smoke checks) |
 
 ---
 
@@ -3659,7 +3660,7 @@ Notes:
       only light/dark.
     - Blotter Light and the Studio pair keep some orange pairs under AA (Luke: hues are fine).
 
-### #39h — Calendar and tag filters, sliding panels, themed hover hints            [status: committed — hash in the next entry]
+### #39h — Calendar and tag filters, sliding panels, themed hover hints            [status: committed 876637a]
 Phase: pre-release polish (Luke, 2026-10-16/17)
 Message:
     feat(ui): calendar and tag filters, sliding panels, themed hover hints
@@ -3694,3 +3695,97 @@ Test steps:
     - pnpm check → clean; Vitest 217
 Notes:
     - Filters don't apply to the Inbox, History or Year's completed mode.
+
+### #39i — Palette theme icons for the new presets            [status: committed 1d1bb76]
+Phase: pre-release polish
+Message:
+    fix(ui): palette theme icons for the new presets
+Files:
+    M  src/actions/actions.ts
+Test steps:
+    - pnpm check → clean
+Notes:
+    - Found while reading the action registry for the README's keybinding table.
+
+### Phase 12 — acceptance checks (no commit of its own; recorded with #45)
+- Headless Claude Code 2.1.292 against the release build's `blotter mcp` on a scratch
+  BLOTTER_DATA_DIR: list_agenda worked; Propose (default) → create_item "proposed, not
+  applied", one `mcp` proposal, no item, no change; ai_mode = auto → the item was created,
+  logged as `mcp`, after one before_ai_batch snapshot.
+- Running-app refresh: verified live in #29a; unchanged since, not re-run (a second instance
+  would hand off to Luke's open app). Claude Desktop not tried (the AC takes either client).
+
+### #41 — Windows installers, Linux bundles and the release workflow            [status: committed 6d39450]
+Phase: 13
+Message:
+    build: Windows installers, Linux bundles and the release workflow
+Files:
+    A  .github/workflows/release.yml
+    A  packaging/linux/io.github.lasr0.Blotter.desktop
+    A  packaging/linux/io.github.lasr0.Blotter.metainfo.xml
+    M  src-tauri/tauri.conf.json       (publisher, licence, NSIS per-user, deb metainfo, AppImage, window background)
+    M  .gitignore                      (Flatpak build leftovers)
+Test steps:
+    - pnpm tauri build → Blotter_x.y.z_x64-setup.exe (7.1 MB) and …_en-US.msi (11.4 MB)
+    - msiexec /a (administrative extract, no install) → PFiles/Blotter/blotter.exe; its
+      `mcp` over raw stdio: serverInfo blotter 1.0.0, 28 tools incl. list_tags
+    - release.yml parses (js-yaml)
+Notes:
+    - Linux bundles aren't built locally (no WSL distro or Docker); the workflow builds them.
+    - Not installed on a clean VM yet (AC); unsigned, so SmartScreen will warn.
+
+### #42 — Flatpak manifest and sandbox support            [status: committed 686a4c2]
+Phase: 13
+Message:
+    build: Flatpak manifest and sandbox support
+Files:
+    A  packaging/flatpak/io.github.lasr0.Blotter.yml
+    A  src-tauri/src/flatpak.rs        (app id, self command, autostart entry; 2 tests)
+    M  src-tauri/src/autostart.rs, src-tauri/src/ai/claude_code.rs, src-tauri/src/ai/chat.rs,
+       src-tauri/src/external.rs, src-tauri/src/lib.rs
+    M  src-tauri/Cargo.toml, Cargo.lock (tauri-plugin-dialog: xdg-portal instead of gtk3)
+Test steps:
+    - cargo test --workspace → 174 core + 47 app (+2 flatpak) + 6 mcp; clippy -D warnings / fmt clean
+    - cargo check on Windows with the portal dialog backend → clean
+Notes:
+    - Unbuilt and untried: needs the release workflow (or a Linux box) and the smoke checklist
+      (notifications, tray, keychain, autostart, --capture, ICS fetch).
+    - Non-Flatpak Linux file pickers now need xdg-desktop-portal (README, AUR depends).
+
+### #43 — AUR PKGBUILD            [status: committed cfc2e8f]
+Phase: 13
+Message:
+    build: AUR PKGBUILD
+Files:
+    A  packaging/aur/PKGBUILD
+    A  packaging/aur/.SRCINFO
+Test steps:
+    - none here (no Arch); written against the tag tarball layout
+Notes:
+    - sha256sums is SKIP until the tag exists: run updpkgsums, then makepkg --printsrcinfo.
+
+### #44 — README, Hyprland notes, MCP setup and keybindings            [status: committed d84fe70]
+Phase: 13
+Message:
+    docs: README, Hyprland notes, MCP setup and keybindings
+Files:
+    A  README.md
+    A  LICENSE
+Test steps:
+    - pnpm format:check → clean; the keybinding table was read from buildActions()
+
+### #45 — v1.0.0            [status: committed — untagged]
+Phase: 13
+Message:
+    chore(release): v1.0.0
+Files:
+    M  Cargo.toml, Cargo.lock, package.json, src-tauri/tauri.conf.json   (1.0.0)
+    M  .claude/COMMITS.md, .claude/roadmap.md   (Phase 12 and 13 progress)
+Test steps:
+    - pnpm check → Vitest 217; cargo test --workspace → clean; pnpm tauri build → 1.0.0 installers
+Notes:
+    - Not tagged: Luke pushes, tags v1.0.0 (git tag -a v1.0.0 -m "Blotter 1.0.0" && git push
+      origin v1.0.0) to run release.yml, then runs the clean-VM and Flatpak smoke checks
+      before publishing the draft release.
+    - Still open before publishing: Anthropic's terms on driving Claude Code (D29); the ICS
+      checks (Phase 9, Monday); the API-key providers stay Experimental.

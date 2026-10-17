@@ -2,7 +2,7 @@
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Blotter",
   "mainBinaryName": "blotter",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "identifier": "io.github.lasr0.Blotter",
   "build": {
     "beforeDevCommand": "pnpm dev",
