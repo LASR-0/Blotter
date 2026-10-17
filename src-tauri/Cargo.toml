@@ -29,7 +29,8 @@ serde.workspace = true
 serde_json.workspace = true
 tauri = { version = "2.12.3", features = ["tray-icon"] }
 tauri-plugin-autostart = "2.7.0"
-tauri-plugin-dialog = "2.8.1"
+# Portal file pickers on Linux: they work from inside a Flatpak without filesystem access.
+tauri-plugin-dialog = { version = "2.8.1", default-features = false, features = ["xdg-portal"] }
 tauri-plugin-global-shortcut = "2.3.2"
 tauri-plugin-notification = "2.4.0"
 tauri-plugin-single-instance = "2.5.3"

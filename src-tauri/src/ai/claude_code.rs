@@ -42,7 +42,13 @@ const EXE: &str = "claude";
 /// its installers put it (the app may have started before an install
 /// changed `PATH`).
 pub fn find(override_path: Option<&str>) -> Option<PathBuf> {
-    if let Some(p) = override_path.map(str::trim).filter(|p| !p.is_empty()) {
+    let set = override_path.map(str::trim).filter(|p| !p.is_empty());
+    // In a Flatpak the host's files aren't visible; `flatpak-spawn --host`
+    // finds `claude` on the host's PATH (see `command`).
+    if crate::flatpak::app_id().is_some() {
+        return Some(PathBuf::from(set.unwrap_or(EXE)));
+    }
+    if let Some(p) = set {
         let p = PathBuf::from(p);
         return p.is_file().then_some(p);
     }
@@ -105,7 +111,15 @@ fn is_session_var(name: &str) -> bool {
 }
 
 fn command(exe: &Path) -> Command {
-    let mut cmd = Command::new(exe);
+    let mut cmd = if crate::flatpak::app_id().is_some() {
+        // The host's program, ended with Blotter (`--watch-bus`). Needs the
+        // user's `--talk-name=org.freedesktop.Flatpak` override.
+        let mut host = Command::new("flatpak-spawn");
+        host.args(["--host", "--watch-bus"]).arg(exe);
+        host
+    } else {
+        Command::new(exe)
+    };
     for (name, _) in std::env::vars_os() {
         if name.to_str().is_some_and(is_session_var) {
             cmd.env_remove(&name);
@@ -182,13 +196,17 @@ async fn probe(exe: &Path, args: &[&str]) -> Result<String, String> {
 
 /// The MCP config handed to Claude Code: Blotter's own program in server
 /// mode, on this app's database, logging changes as the AI.
-pub fn mcp_config(blotter_exe: &Path, data_dir: &Path, model: &str) -> Value {
+/// `blotter` is how Claude Code starts Blotter (`flatpak::self_command`).
+pub fn mcp_config(blotter: &(String, Vec<String>), data_dir: &Path, model: &str) -> Value {
+    let (command, args) = blotter;
+    let mut args = args.clone();
+    args.push(cli::MCP_SUBCOMMAND.to_owned());
     json!({
         "mcpServers": {
             SERVER: {
                 "type": "stdio",
-                "command": blotter_exe.display().to_string(),
-                "args": [cli::MCP_SUBCOMMAND],
+                "command": command,
+                "args": args,
                 "env": {
                     DATA_DIR_ENV: data_dir.display().to_string(),
                     MCP_ACTOR_ENV: actor(model),
@@ -619,7 +637,11 @@ mod tests {
 
     #[test]
     fn mcp_config_runs_blotter_as_the_ai() {
-        let cfg = mcp_config(Path::new("/opt/blotter"), Path::new("/data"), "opus");
+        let cfg = mcp_config(
+            &("/opt/blotter".to_owned(), Vec::new()),
+            Path::new("/data"),
+            "opus",
+        );
         let server = &cfg["mcpServers"]["blotter"];
         assert_eq!(server["args"], json!(["mcp"]));
         assert_eq!(server["env"]["BLOTTER_DATA_DIR"], "/data");

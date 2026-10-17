@@ -12,7 +12,7 @@ use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager};
 
 use crate::commands::{CHANGED_EVENT, ChangedPayload, CommandError};
-use crate::{AppState, DATA_DIR_ENV, cli};
+use crate::{AppState, DATA_DIR_ENV, cli, flatpak};
 
 /// How often to look for outside writes.
 const POLL: Duration = Duration::from_secs(1);
@@ -50,7 +50,7 @@ fn data_version(app: &AppHandle) -> Option<i64> {
 #[derive(Debug, Serialize)]
 pub struct McpSetup {
     pub command: String,
-    pub args: Vec<&'static str>,
+    pub args: Vec<String>,
     /// Set when this app runs on a non-default database, so the server
     /// opens the same one.
     pub data_dir: Option<String>,
@@ -59,11 +59,12 @@ pub struct McpSetup {
 
 #[tauri::command]
 pub fn mcp_setup() -> Result<McpSetup, CommandError> {
-    let exe = std::env::current_exe()
+    let (command, mut args) = flatpak::self_command()
         .map_err(|err| CommandError::internal(format!("couldn't find Blotter's program: {err}")))?;
+    args.push(cli::MCP_SUBCOMMAND.to_owned());
     Ok(McpSetup {
-        command: exe.display().to_string(),
-        args: vec![cli::MCP_SUBCOMMAND],
+        command,
+        args,
         data_dir: std::env::var_os(DATA_DIR_ENV)
             .filter(|d| !d.is_empty())
             .map(|d| d.to_string_lossy().into_owned()),

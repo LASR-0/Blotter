@@ -1,0 +1,62 @@
+# Flatpak manifest for Blotter (roadmap Phase 13).
+#
+# Repackages the .deb from `pnpm tauri build --bundles deb`, which the
+# release workflow copies here as blotter.deb, and the shared module for
+# the tray (clone https://github.com/flathub/shared-modules into
+# packaging/flatpak/shared-modules). Build and install:
+#
+#   flatpak-builder --user --install --force-clean build-dir io.github.lasr0.Blotter.yml
+#
+# Permissions are the minimum the smoke checklist needs. Claude Code runs
+# on the host, so the Claude Code route also needs
+#   flatpak override --user --talk-name=org.freedesktop.Flatpak io.github.lasr0.Blotter
+# which is left to the user because it lets the app run host programs.
+app-id: io.github.lasr0.Blotter
+runtime: org.gnome.Platform
+runtime-version: '48'
+sdk: org.gnome.Sdk
+command: blotter
+
+finish-args:
+  - --share=ipc
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --device=dri
+  # AI providers and ICS subscriptions.
+  - --share=network
+  # Reminders.
+  - --talk-name=org.freedesktop.Notifications
+  # The tray icon.
+  - --talk-name=org.kde.StatusNotifierWatcher
+  # API keys in the system keychain (Secret Service).
+  - --talk-name=org.freedesktop.secrets
+  # Launch at login: Blotter writes ~/.config/autostart/io.github.lasr0.Blotter.desktop.
+  - --filesystem=xdg-config/autostart:create
+
+modules:
+  - shared-modules/libappindicator/libappindicator-gtk3-12.10.json
+
+  - name: blotter
+    buildsystem: simple
+    sources:
+      - type: file
+        path: blotter.deb
+      - type: file
+        path: ../linux/io.github.lasr0.Blotter.desktop
+      - type: file
+        path: ../linux/io.github.lasr0.Blotter.metainfo.xml
+    build-commands:
+      - ar -x blotter.deb
+      # Tauri writes data.tar.gz; the glob also takes .xz or .zst.
+      - tar -xf data.tar.*
+      - install -Dm755 usr/bin/blotter /app/bin/blotter
+      - install -Dm644 io.github.lasr0.Blotter.desktop /app/share/applications/io.github.lasr0.Blotter.desktop
+      - install -Dm644 io.github.lasr0.Blotter.metainfo.xml /app/share/metainfo/io.github.lasr0.Blotter.metainfo.xml
+      - |
+        for size in 32x32 128x128 256x256@2; do
+          src="usr/share/icons/hicolor/${size}/apps/blotter.png"
+          [ -f "$src" ] || continue
+          dir="${size%@2}"
+          [ "$size" = "256x256@2" ] && dir=256x256
+          install -Dm644 "$src" "/app/share/icons/hicolor/${dir}/apps/io.github.lasr0.Blotter.png"
+        done

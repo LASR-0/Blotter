@@ -10,6 +10,7 @@ mod cli;
 mod commands;
 mod external;
 mod first_run;
+mod flatpak;
 mod ics;
 mod keybindings;
 mod reminders;

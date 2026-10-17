@@ -832,7 +832,7 @@ impl Launch {
              providers."
                 .to_owned()
         })?;
-        let blotter = std::env::current_exe()
+        let blotter = crate::flatpak::self_command()
             .map_err(|e| format!("Couldn't find Blotter's own program: {e}"))?;
         let work = data_dir.join("claude-code");
         std::fs::create_dir_all(&work)
