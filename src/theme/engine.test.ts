@@ -14,9 +14,12 @@ import {
   TEXT_SIZES,
   TOKEN_NAMES,
 } from './engine';
-import { findPreset, type ThemeVars } from './presets';
+import { DEFAULT_THEME_ID, findPreset, type ThemeVars } from './presets';
 
-const dark = findPreset('dark')?.vars as ThemeVars;
+/** The default preset, which fills tokens a stored theme lacks. */
+const base = findPreset(DEFAULT_THEME_ID)?.vars as ThemeVars;
+/** Studio Dark: default shape, text size and density. */
+const dark = findPreset('studio-dark')?.vars as ThemeVars;
 
 describe('contrast', () => {
   it('measures WCAG ratios', () => {
@@ -26,17 +29,21 @@ describe('contrast', () => {
     expect(formatRatio(4.4999)).toBe('4.4:1');
   });
 
-  it('knows which preset pairs fall under AA (the 2026-10-16 accents)', () => {
+  it('knows which preset pairs fall under AA (Blotter Dark passes all)', () => {
     const labels = (id: string) =>
       contrastIssues(findPreset(id)?.vars as ThemeVars).map((i) => i.label);
-    expect(labels('dark')).toEqual(['Text on accent', 'Danger on background']);
-    expect(labels('light')).toEqual([
+    expect(labels('blotter-light')).toEqual([
+      'Accent text on accent tint',
+      'Accent text on background',
+      'Text on accent',
+    ]);
+    expect(labels('blotter-dark')).toEqual([]);
+    expect(labels('studio-light')).toEqual([
       'Text on accent',
       'Accent text on accent tint',
       'Accent text on background',
     ]);
-    expect(labels('paper')).toEqual(['Text on accent']);
-    expect(labels('gruvbox')).toEqual(['Danger on background']);
+    expect(labels('studio-dark')).toEqual(['Danger on background', 'Text on accent']);
   });
 
   it('warns when a draft makes text hard to read, worst first', () => {
@@ -60,7 +67,7 @@ describe('editor choices', () => {
     expect(baseRadius(dark)).toBe(6);
     expect(currentChoice(TEXT_SIZES, dark)).toBe('default');
     expect(currentChoice(DENSITY, dark)).toBe('comfortable');
-    expect(currentChoice(HEADINGS, findPreset('paper')?.vars as ThemeVars)).toBe('serif');
+    expect(currentChoice(HEADINGS, findPreset('blotter-light')?.vars as ThemeVars)).toBe('serif');
     expect(currentChoice(DENSITY, { ...dark, '--density-row': '34px' })).toBeNull();
   });
 
@@ -81,9 +88,9 @@ describe('reading themes', () => {
       '--shadow-overlay': 'url(https://example.com/x.png)',
     });
     expect(vars['--color-bg']).toBe('#000000');
-    expect(vars['--color-text']).toBe(dark['--color-text']);
+    expect(vars['--color-text']).toBe(base['--color-text']);
     expect(vars['--font-ui']).toBe('Comic Sans MS');
-    expect(vars['--shadow-overlay']).toBe(dark['--shadow-overlay']);
+    expect(vars['--shadow-overlay']).toBe(base['--shadow-overlay']);
     expect(dropped).toBe(3);
     expect(Object.keys(vars).sort()).toEqual([...TOKEN_NAMES].sort());
   });
@@ -98,6 +105,16 @@ describe('reading themes', () => {
     });
     expect(t).toMatchObject({ id: 'user-1', label: 'Night', builtin: false });
     expect(t.vars['--color-accent']).toBe('#ff0000');
+  });
+
+  it('gives a theme saved before the logo and title bar tokens its own colours', () => {
+    const { vars } = readTokens({ '--color-text': '#111111', '--color-accent': '#ff0000' });
+    expect(vars['--logo-text']).toBe('#111111');
+    expect(vars['--logo-shadow']).toBe('#ff0000');
+    expect(vars['--logo-accent']).toBe('#ff0000');
+    expect(vars['--titlebar-text']).toBe('#111111');
+    const set = readTokens({ '--color-text': '#111111', '--logo-text': '#222222' });
+    expect(set.vars['--logo-text']).toBe('#222222');
   });
 
   it('names copies without clashing', () => {

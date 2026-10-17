@@ -1,10 +1,21 @@
 import { describe, expect, it } from 'vitest';
-import { PRESETS, TOKEN_GROUPS } from './presets';
+import { DEFAULT_THEME_ID, findPreset, PRESETS, TOKEN_GROUPS } from './presets';
 import { isDark, luminance } from './theme';
 
 describe('presets', () => {
-  it('ship the four v1 presets with Dark first', () => {
-    expect(PRESETS.map((t) => t.id)).toEqual(['dark', 'light', 'paper', 'gruvbox']);
+  it('ship the Blotter and Studio pairs', () => {
+    expect(PRESETS.map((t) => t.id)).toEqual([
+      'blotter-light',
+      'blotter-dark',
+      'studio-light',
+      'studio-dark',
+    ]);
+  });
+
+  it('still find a theme saved under an earlier preset id', () => {
+    expect(findPreset('dark')?.id).toBe('studio-dark');
+    expect(findPreset('paper')?.id).toBe('blotter-light');
+    expect(findPreset(DEFAULT_THEME_ID)?.label).toBe('Blotter Dark');
   });
 
   it('all define exactly the same tokens', () => {
@@ -19,9 +30,9 @@ describe('presets', () => {
           expect(theme.vars[t], `${theme.id} ${t}`).toMatch(/^#[0-9a-f]{6}$/i);
   });
 
-  it('Paper alone uses serif headings', () => {
+  it('the Blotter pair alone use serif headings', () => {
     for (const t of PRESETS)
-      expect(t.vars['--font-heading']?.includes('Newsreader')).toBe(t.id === 'paper');
+      expect(t.vars['--font-heading']?.includes('Newsreader')).toBe(t.id.startsWith('blotter'));
   });
 });
 
@@ -34,6 +45,11 @@ describe('luminance', () => {
 
   it('classifies preset grounds', () => {
     const dark = Object.fromEntries(PRESETS.map((t) => [t.id, isDark(t.vars)]));
-    expect(dark).toEqual({ dark: true, light: false, paper: false, gruvbox: true });
+    expect(dark).toEqual({
+      'blotter-light': false,
+      'blotter-dark': true,
+      'studio-light': false,
+      'studio-dark': true,
+    });
   });
 });

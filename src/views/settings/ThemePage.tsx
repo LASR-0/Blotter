@@ -22,7 +22,15 @@ import {
   type Choice,
   type ContrastIssue,
 } from '@/theme/engine';
-import { PRESETS, TOKEN_GROUPS, type Theme, type ThemeVars, type TokenName } from '@/theme/presets';
+import {
+  DEFAULT_THEME_ID,
+  findPreset,
+  PRESETS,
+  TOKEN_GROUPS,
+  type Theme,
+  type ThemeVars,
+  type TokenName,
+} from '@/theme/presets';
 import { useTheme } from '@/theme/theme';
 import { ThemePreview } from './ThemePreview';
 
@@ -36,6 +44,8 @@ interface Draft {
   vars: ThemeVars;
 }
 
+/** Blotter Dark: where Discard and a deleted theme fall back to. */
+const DEFAULT_PRESET = (findPreset(DEFAULT_THEME_ID) ?? PRESETS[0]) as Theme;
 const fromTheme = (t: Theme): Draft => ({ base: t, name: t.label, vars: { ...t.vars } });
 const sameVars = (a: ThemeVars, b: ThemeVars) =>
   Object.keys(a).length === Object.keys(b).length &&
@@ -213,8 +223,8 @@ export function ThemePage() {
       );
       if (!file) return;
       const { vars, dropped } = readTokens(file.tokens);
-      // Saved as a theme of your own on Apply; Discard goes back to Dark.
-      change({ base: PRESETS[0] as Theme, name: file.name.trim() || 'Imported theme', vars });
+      // Saved as a theme of your own on Apply; Discard goes back to Blotter Dark.
+      change({ base: DEFAULT_PRESET, name: file.name.trim() || 'Imported theme', vars });
       if (dropped > 0) setStatus(`${dropped} tokens this version doesn't use were left out.`);
     } catch (e) {
       setError(errorText(e));
@@ -241,7 +251,7 @@ export function ThemePage() {
   );
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div className="@container/theme flex h-full min-h-0 flex-col">
       <div className="flex flex-wrap items-center gap-2.5 border-b border-border px-5 py-3.5">
         <h1 className="m-0 font-heading text-xl font-heading-weight">Theme</h1>
         <label className="flex items-center gap-1 rounded-full border border-dashed border-pencil px-2 py-0.5 font-mono text-xs whitespace-nowrap text-text-muted">
@@ -298,13 +308,13 @@ export function ThemePage() {
                 title: `Delete ${draft.base.label}?`,
                 body:
                   theme.id === draft.base.id
-                    ? 'Blotter switches to Dark. Export it first to keep a copy.'
+                    ? 'Blotter switches to Blotter Dark. Export it first to keep a copy.'
                     : 'Export it first to keep a copy.',
                 confirmLabel: 'Delete',
                 danger: true,
                 onConfirm: async () => {
                   await deleteTheme(draft.base.id);
-                  change(fromTheme(PRESETS[0] as Theme));
+                  change(fromTheme(DEFAULT_PRESET));
                 },
               })
             }
@@ -328,8 +338,8 @@ export function ThemePage() {
         </p>
       )}
 
-      <div className="flex min-h-0 flex-1">
-        <div className="flex w-[340px] flex-none flex-col gap-4 overflow-auto border-r border-border px-4 pt-3.5 pb-8">
+      <div className="flex min-h-0 flex-1 flex-col overflow-auto @min-[760px]/theme:flex-row @min-[760px]/theme:overflow-visible">
+        <div className="flex flex-none flex-col gap-4 border-b border-border px-4 pt-3.5 pb-8 @min-[760px]/theme:w-[340px] @min-[760px]/theme:overflow-auto @min-[760px]/theme:border-r @min-[760px]/theme:border-b-0">
           <div className="flex flex-col gap-1.5">
             <span className="text-sm text-text-muted">Start from preset</span>
             <div className="grid grid-cols-4 gap-1.5">{PRESETS.map(presetChip)}</div>
@@ -405,7 +415,7 @@ export function ThemePage() {
           </div>
         </div>
 
-        <div className="flex min-w-0 flex-1 flex-col overflow-auto">
+        <div className="flex min-w-0 flex-none flex-col @min-[760px]/theme:flex-1 @min-[760px]/theme:overflow-auto">
           <div className="px-[18px] pt-3.5 text-sm text-text-muted">
             Live preview
             <span className="ml-1.5">· only this panel uses the draft until you apply</span>

@@ -3,8 +3,8 @@ import { cn } from '@/lib/cn';
 // The Blotter mark: a calendar page whose right edge forms a "B". The
 // geometry matches public/blotter.svg (the brand icon, 1024 grid) minus its
 // backdrop tile; keep the two in step. Colours come from theme tokens, and
-// each part can be overridden with a --logo-* variable (presets set
-// --logo-page and --logo-outline). The ring holes are cut out, so whatever
+// each part can be overridden with a --logo-* variable (themes set
+// --logo-accent, --logo-page and --logo-outline). The ring holes are cut out, so whatever
 // sits behind the mark shows through.
 const ACCENT = 'var(--logo-accent, var(--color-accent))';
 const PAGE = 'var(--logo-page, var(--color-text))';

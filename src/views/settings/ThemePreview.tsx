@@ -2,6 +2,7 @@ import type { CSSProperties } from 'react';
 import { Bell, MagnifyingGlass, Sparkle, Warning } from '@phosphor-icons/react';
 import { ProposalCard } from '@/chat/ProposalCard';
 import type { Proposal } from '@/chat/proposals';
+import { BlotterMark } from '@/components/BlotterMark';
 import { ItemCard } from '@/components/ItemCard';
 import { Button } from '@/components/ui/button';
 import { KeyChips } from '@/components/ui/kbd';
@@ -215,6 +216,16 @@ export function ThemePreview({ vars }: { vars: ThemeVars }) {
         style={vars as CSSProperties}
         className="grid grid-cols-1 gap-3 rounded-lg bg-bg p-3 font-ui text-base text-text select-none @min-[640px]:grid-cols-2"
       >
+        <Panel title="Logo">
+          {/* The sidebar's lockup, on the sidebar's surface. */}
+          <div className="flex items-baseline gap-2 rounded-md bg-surface px-3 pt-3.5 pb-3">
+            <BlotterMark className="size-6 flex-none" />
+            <span className="wordmark-shadow font-brand text-[25px] leading-none font-brand-weight">
+              Blotter
+            </span>
+          </div>
+        </Panel>
+
         <Panel title="Controls">
           <div className="flex flex-wrap gap-1.5">
             <Button variant="primary">Apply</Button>

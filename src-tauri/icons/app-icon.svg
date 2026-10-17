@@ -1,17 +1,17 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
   <!-- The app, taskbar and tray icon: public/blotter.svg with a full-bleed tile and the mark at 1.5x, so it reads larger at taskbar sizes. Regenerate with: pnpm tauri icon src-tauri/icons/app-icon.svg -->
-  <rect width="1024" height="1024" rx="200" fill="#0f0e2c"/>
+  <rect width="1024" height="1024" rx="200" fill="#121317"/>
   <g transform="translate(512 512) scale(1.5) translate(-524 -498)">
-    <path fill="#5b66fb" fill-rule="evenodd" d="M210 336a90 90 0 0 1 90-90h395a90 90 0 0 1 90 90v84a90 90 0 0 1-90 90H210Z M320 293a40 40 0 1 0 80 0a40 40 0 1 0-80 0Z M585 293a40 40 0 1 0 80 0a40 40 0 1 0-80 0Z"/>
-    <path fill="#5b66fb" d="M556 812V640l191-72c55 14 91 64 91 124c0 66-54 120-120 120Z"/>
-    <path fill="#f8f7f9" d="M210 396h487c49 0 88 40 88 89c0 32-14 62-38 83L586 716c-19 17-30 41-30 66v30H290a80 80 0 0 1-80-80Z"/>
-    <path fill="#4347ca" d="M747 568C705 660 650 760 580 806c-7 4-15 6-24 6v-30c0-25 11-49 30-66Z"/>
-    <rect x="331" y="190" width="58" height="125" rx="29" fill="#ecebfe"/>
-    <rect x="596" y="190" width="58" height="125" rx="29" fill="#ecebfe"/>
-    <rect x="266" y="448" width="116" height="114" rx="22" fill="#c8ccec"/>
-    <rect x="414" y="448" width="116" height="114" rx="22" fill="#515df8"/>
-    <rect x="562" y="448" width="116" height="114" rx="22" fill="#c8ccec"/>
-    <rect x="266" y="596" width="116" height="114" rx="22" fill="#c8ccec"/>
-    <rect x="414" y="596" width="116" height="114" rx="22" fill="#61c19b"/>
+    <path fill="#fe5858" fill-rule="evenodd" d="M210 336a90 90 0 0 1 90-90h395a90 90 0 0 1 90 90v84a90 90 0 0 1-90 90H210Z M320 293a40 40 0 1 0 80 0a40 40 0 1 0-80 0Z M585 293a40 40 0 1 0 80 0a40 40 0 1 0-80 0Z"/>
+    <path fill="#fe5858" d="M556 812V640l191-72c55 14 91 64 91 124c0 66-54 120-120 120Z"/>
+    <path fill="#fef6e1" d="M210 396h487c49 0 88 40 88 89c0 32-14 62-38 83L586 716c-19 17-30 41-30 66v30H290a80 80 0 0 1-80-80Z"/>
+    <path fill="#b73f3f" d="M747 568C705 660 650 760 580 806c-7 4-15 6-24 6v-30c0-25 11-49 30-66Z"/>
+    <rect x="331" y="190" width="58" height="125" rx="29" fill="#fef6e1"/>
+    <rect x="596" y="190" width="58" height="125" rx="29" fill="#fef6e1"/>
+    <rect x="266" y="448" width="116" height="114" rx="22" fill="#fec3b5"/>
+    <rect x="414" y="448" width="116" height="114" rx="22" fill="#fe5858"/>
+    <rect x="562" y="448" width="116" height="114" rx="22" fill="#fec3b5"/>
+    <rect x="266" y="596" width="116" height="114" rx="22" fill="#fec3b5"/>
+    <rect x="414" y="596" width="116" height="114" rx="22" fill="#56c49b"/>
   </g>
 </svg>

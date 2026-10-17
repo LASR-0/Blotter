@@ -17,6 +17,7 @@ mod rollover;
 mod shell;
 mod subscriptions;
 mod themes;
+mod titlebar;
 
 use std::path::PathBuf;
 use std::sync::Mutex;
@@ -173,6 +174,7 @@ pub fn run() {
             themes::delete_theme,
             themes::export_theme,
             themes::pick_theme_import,
+            titlebar::set_titlebar,
             capture::show_capture,
             capture::hide_capture,
             capture::fit_capture,

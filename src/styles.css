@@ -178,10 +178,12 @@
   font-weight: var(--brand-weight);
 }
 
-/* The wordmark's offset shadow: a solid extrusion down and right in the accent
-   (override with --brand-shadow). Steps in em so the depth follows the size. */
+/* The wordmark: letters in --logo-text over a solid extrusion down and right in
+   --logo-shadow (both theme tokens, apart from the accent). Steps in em so the
+   depth follows the size. */
 @utility wordmark-shadow {
-  --wm: var(--brand-shadow, var(--color-accent));
+  color: var(--logo-text, var(--color-text));
+  --wm: var(--logo-shadow, var(--color-accent));
   --wm-depth: 0.1em;
   /* Lift the word by the shadow depth, so the extrusion (not the letters) rests on
      the baseline and lines up with the mark beside it. */

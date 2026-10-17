@@ -62,8 +62,20 @@ function writeCache(theme: Theme): void {
   }
 }
 
+/** The window's title bar in the theme's Window colours (Windows 11; light/dark elsewhere). */
+function applyTitlebar(vars: ThemeVars): void {
+  invoke('set_titlebar', {
+    caption: vars['--titlebar'] ?? vars['--color-bg'],
+    text: vars['--titlebar-text'] ?? vars['--color-text'],
+    dark: isDark(vars),
+  }).catch(() => {
+    // Not in a Tauri window (tests, a browser): nothing to colour.
+  });
+}
+
 function activate(theme: Theme): void {
   applyTheme(theme);
+  applyTitlebar(theme.vars);
   writeCache(theme);
 }
 
@@ -137,5 +149,7 @@ export const useTheme = create<ThemeState>((set, get) => ({
 
 /** Applies the cached theme synchronously, before React renders. */
 export function bootTheme(): void {
-  applyTheme(useTheme.getState().theme);
+  const { theme } = useTheme.getState();
+  applyTheme(theme);
+  applyTitlebar(theme.vars);
 }

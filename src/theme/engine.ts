@@ -17,9 +17,27 @@ import {
 const BASE: ThemeVars = (findPreset(DEFAULT_THEME_ID) ?? (PRESETS[0] as Theme)).vars;
 export const TOKEN_NAMES = Object.keys(BASE) as TokenName[];
 
+const NAMED_COLORS = [
+  '--logo-accent',
+  '--logo-page',
+  '--logo-text',
+  '--logo-shadow',
+  '--titlebar',
+  '--titlebar-text',
+];
+
 /** Colour tokens, edited with a picker and checked as `#rrggbb`. */
 export const isColorToken = (name: string): boolean =>
-  /^--(color|heat|tag)-/.test(name) || name === '--logo-page';
+  /^--(color|heat|tag)-/.test(name) || NAMED_COLORS.includes(name);
+
+/** Tokens added after themes were first saved, and the theme's own token they started as. */
+const DERIVED: readonly [TokenName, TokenName][] = [
+  ['--logo-accent', '--color-accent'],
+  ['--logo-text', '--color-text'],
+  ['--logo-shadow', '--color-accent'],
+  ['--titlebar', '--color-bg'],
+  ['--titlebar-text', '--color-text'],
+];
 
 /** A user theme as stored (mirrors `store::themes::UserTheme`). */
 export interface UserTheme {
@@ -162,6 +180,11 @@ export function readTokens(
       (!isColorToken(name) || HEX.test(value));
     if (ok) vars[name as TokenName] = (value as string).trim();
     else dropped++;
+  }
+  // An older theme keeps the look it was saved with, not the base's.
+  for (const [token, from] of DERIVED) {
+    const value = vars[from];
+    if (!(token in raw) && value) vars[token] = value;
   }
   return { vars, dropped };
 }
