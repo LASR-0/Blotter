@@ -2,6 +2,10 @@
 //! group). Windows 11 takes any caption and text colour; Windows 10 only
 //! light or dark, which `set_theme` gives it. Elsewhere the desktop draws
 //! the title bar (Hyprland has none), so only the light/dark hint applies.
+//!
+//! On Windows the bar draws neither the icon nor the title (Luke): the
+//! window keeps its title, so the taskbar, Alt+Tab and screen readers
+//! still name it.
 
 use tauri::{Theme, WebviewWindow};
 
@@ -31,10 +35,11 @@ pub fn set_titlebar(
         .set_theme(Some(if dark { Theme::Dark } else { Theme::Light }))
         .map_err(|e| CommandError::internal(e.to_string()))?;
     #[cfg(windows)]
-    if let (Some(caption), Some(text), Ok(hwnd)) =
-        (colorref(&caption), colorref(&text), window.hwnd())
-    {
-        dwm::set_colors(hwnd.0, caption, text);
+    if let Ok(hwnd) = window.hwnd() {
+        dwm::hide_icon_and_title(hwnd.0);
+        if let (Some(caption), Some(text)) = (colorref(&caption), colorref(&text)) {
+            dwm::set_colors(hwnd.0, caption, text);
+        }
     }
     #[cfg(not(windows))]
     let _ = (caption, text);
@@ -50,6 +55,43 @@ mod dwm {
     const DWMWA_BORDER_COLOR: u32 = 34;
     const DWMWA_CAPTION_COLOR: u32 = 35;
     const DWMWA_TEXT_COLOR: u32 = 36;
+
+    // SetWindowThemeAttribute's non-client options: draw no caption text, no icon.
+    const WTA_NONCLIENT: i32 = 1;
+    const WTNCA_NODRAWCAPTION: u32 = 0x1;
+    const WTNCA_NODRAWICON: u32 = 0x2;
+
+    #[repr(C)]
+    struct WtaOptions {
+        flags: u32,
+        mask: u32,
+    }
+
+    #[link(name = "uxtheme")]
+    unsafe extern "system" {
+        fn SetWindowThemeAttribute(
+            hwnd: *mut c_void,
+            attr: i32,
+            value: *const c_void,
+            size: u32,
+        ) -> i32;
+    }
+
+    pub fn hide_icon_and_title(hwnd: *mut c_void) {
+        let flags = WTNCA_NODRAWCAPTION | WTNCA_NODRAWICON;
+        let options = WtaOptions { flags, mask: flags };
+        // SAFETY: `hwnd` is this live window's handle from Tauri, and `options`
+        // is a WTA_OPTIONS that outlives the call, its size passed with it.
+        // A failure leaves the default caption; nothing to undo.
+        unsafe {
+            SetWindowThemeAttribute(
+                hwnd,
+                WTA_NONCLIENT,
+                (&raw const options).cast(),
+                size_of::<WtaOptions>() as u32,
+            );
+        }
+    }
 
     #[link(name = "dwmapi")]
     unsafe extern "system" {

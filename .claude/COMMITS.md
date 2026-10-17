@@ -112,7 +112,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 42 | 13 | `build: Flatpak manifest and sandbox support` | committed `686a4c2` |
 | 43 | 13 | `build: AUR PKGBUILD` | committed `cfc2e8f` |
 | 44 | 13 | `docs: README, Hyprland notes, MCP setup and keybindings` | committed `d84fe70` |
-| 45 | 13 | `chore(release): v1.0.0` | committed (untagged; Luke tags after the smoke checks) |
+| 45 | 13 | `chore(release): v1.0.0` | committed `c263ecb` (untagged; Luke tags after the smoke checks) |
+| 45a | 13 | `feat(app): no icon or title in the Windows title bar` | committed (hash in the next entry) |
 
 ---
 
@@ -3774,7 +3775,7 @@ Files:
 Test steps:
     - pnpm format:check → clean; the keybinding table was read from buildActions()
 
-### #45 — v1.0.0            [status: committed — untagged]
+### #45 — v1.0.0            [status: committed c263ecb — untagged]
 Phase: 13
 Message:
     chore(release): v1.0.0
@@ -3789,3 +3790,17 @@ Notes:
       before publishing the draft release.
     - Still open before publishing: Anthropic's terms on driving Claude Code (D29); the ICS
       checks (Phase 9, Monday); the API-key providers stay Experimental.
+
+### #45a — No icon or title in the Windows title bar            [status: committed — hash in the next entry]
+Phase: 13 (Luke, before the Windows release)
+Message:
+    feat(app): no icon or title in the Windows title bar
+Files:
+    M  src-tauri/src/titlebar.rs     (SetWindowThemeAttribute: WTNCA_NODRAWCAPTION | WTNCA_NODRAWICON)
+    M  .claude/COMMITS.md
+Test steps:
+    - cargo test -p blotter → 47; clippy -D warnings / fmt clean
+    - pnpm tauri build → 1.0.0 installers
+Notes:
+    - The window keeps its title, so the taskbar, Alt+Tab and screen readers still say Blotter.
+      Applied with the theme colours by set_titlebar, to the main window and the chat pop-out.
