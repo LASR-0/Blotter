@@ -1,0 +1,58 @@
+# Maintainer: LASR-0 <71620670+LASR-0@users.noreply.github.com>
+#
+# Builds Blotter from the release tag's source. At each release: bump
+# pkgver, run `updpkgsums` for the real checksum, then
+# `makepkg --printsrcinfo > .SRCINFO`.
+pkgname=blotter
+pkgver=1.0.0
+pkgrel=1
+pkgdesc="Keyboard-first daily planner with an AI that pencils things in for you"
+arch=('x86_64' 'aarch64')
+url="https://github.com/LASR-0/Blotter"
+license=('MIT')
+depends=('webkit2gtk-4.1' 'gtk3' 'libayatana-appindicator' 'xdg-desktop-portal'
+         'hicolor-icon-theme')
+makedepends=('rust' 'nodejs' 'pnpm')
+optdepends=('claude-code: the Claude Code AI route (signed in with your subscription)'
+            'gnome-keyring: a Secret Service keychain for AI provider API keys'
+            'xdg-desktop-portal-gtk: file pickers on desktops without their own portal')
+options=('!lto')
+source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
+sha256sums=('SKIP')
+
+prepare() {
+  cd "Blotter-$pkgver"
+  pnpm install --frozen-lockfile
+  cargo fetch --locked --target "$(rustc -vV | sed -n 's/host: //p')"
+}
+
+build() {
+  cd "Blotter-$pkgver"
+  # tauri::generate_context! embeds dist/ at compile time.
+  pnpm build
+  cargo build --frozen --release -p blotter
+}
+
+check() {
+  cd "Blotter-$pkgver"
+  cargo test --frozen --release -p blotter-core
+}
+
+package() {
+  cd "Blotter-$pkgver"
+  install -Dm755 target/release/blotter "$pkgdir/usr/bin/blotter"
+  install -Dm644 packaging/linux/io.github.lasr0.Blotter.desktop \
+    "$pkgdir/usr/share/applications/io.github.lasr0.Blotter.desktop"
+  install -Dm644 packaging/linux/io.github.lasr0.Blotter.metainfo.xml \
+    "$pkgdir/usr/share/metainfo/io.github.lasr0.Blotter.metainfo.xml"
+  local size
+  for size in 32 64 128; do
+    install -Dm644 "src-tauri/icons/${size}x${size}.png" \
+      "$pkgdir/usr/share/icons/hicolor/${size}x${size}/apps/io.github.lasr0.Blotter.png"
+  done
+  install -Dm644 src-tauri/icons/128x128@2x.png \
+    "$pkgdir/usr/share/icons/hicolor/256x256/apps/io.github.lasr0.Blotter.png"
+  install -Dm644 src-tauri/icons/icon.png \
+    "$pkgdir/usr/share/icons/hicolor/512x512/apps/io.github.lasr0.Blotter.png"
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}

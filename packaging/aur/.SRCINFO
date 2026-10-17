@@ -1,0 +1,24 @@
+pkgbase = blotter
+	pkgdesc = Keyboard-first daily planner with an AI that pencils things in for you
+	pkgver = 1.0.0
+	pkgrel = 1
+	url = https://github.com/LASR-0/Blotter
+	arch = x86_64
+	arch = aarch64
+	license = MIT
+	makedepends = rust
+	makedepends = nodejs
+	makedepends = pnpm
+	depends = webkit2gtk-4.1
+	depends = gtk3
+	depends = libayatana-appindicator
+	depends = xdg-desktop-portal
+	depends = hicolor-icon-theme
+	optdepends = claude-code: the Claude Code AI route (signed in with your subscription)
+	optdepends = gnome-keyring: a Secret Service keychain for AI provider API keys
+	optdepends = xdg-desktop-portal-gtk: file pickers on desktops without their own portal
+	options = !lto
+	source = blotter-1.0.0.tar.gz::https://github.com/LASR-0/Blotter/archive/refs/tags/v1.0.0.tar.gz
+	sha256sums = SKIP
+
+pkgname = blotter
