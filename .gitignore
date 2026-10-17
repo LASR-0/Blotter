@@ -19,3 +19,7 @@ Thumbs.db
 
 # Claude Code local state (the roadmap, ledger and design references stay tracked)
 .claude/settings.local.json
+packaging/flatpak/blotter.deb
+packaging/flatpak/shared-modules/
+packaging/flatpak/build-dir/
+packaging/flatpak/.flatpak-builder/

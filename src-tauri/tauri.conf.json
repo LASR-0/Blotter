@@ -21,7 +21,7 @@
         "minHeight": 720,
         "center": true,
         "visible": false,
-        "backgroundColor": "#121317"
+        "backgroundColor": "#1c1814"
       }
     ],
     "security": {
@@ -31,6 +31,10 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "publisher": "LASR-0",
+    "copyright": "Copyright © 2026 LASR-0. MIT licence.",
+    "homepage": "https://github.com/LASR-0/Blotter",
+    "license": "MIT",
     "category": "Productivity",
     "shortDescription": "Keyboard-first daily planner",
     "longDescription": "A keyboard-first daily planner with an AI that pencils things in for you.",
@@ -40,6 +44,21 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser"
+      }
+    },
+    "linux": {
+      "deb": {
+        "files": {
+          "/usr/share/metainfo/io.github.lasr0.Blotter.metainfo.xml": "../packaging/linux/io.github.lasr0.Blotter.metainfo.xml"
+        }
+      },
+      "appimage": {
+        "bundleMediaFramework": false
+      }
+    }
   }
 }

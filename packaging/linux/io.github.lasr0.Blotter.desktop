@@ -1,0 +1,15 @@
+[Desktop Entry]
+Type=Application
+Name=Blotter
+GenericName=Daily planner
+Comment=Keyboard-first daily planner with an AI that pencils things in for you
+Exec=blotter
+Icon=io.github.lasr0.Blotter
+Terminal=false
+Categories=Office;Calendar;ProjectManagement;
+Keywords=planner;calendar;tasks;todo;diary;schedule;
+Actions=capture;
+
+[Desktop Action capture]
+Name=Quick capture
+Exec=blotter --capture
