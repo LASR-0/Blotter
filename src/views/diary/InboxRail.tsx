@@ -12,6 +12,7 @@ import { runAutoSlot } from '@/app/autoSlot';
 import { runSmartSlot } from '@/app/smartSlot';
 import { useNav } from '@/app/nav';
 import { startPointerDrag, useDrag } from '@/app/drag';
+import { useDraft } from '@/app/drafts';
 import { useOverlay } from '@/app/overlay';
 import { SlidePanel } from '@/components/ui/slide-panel';
 import { Tooltip } from '@/components/ui/tooltip';
@@ -28,7 +29,7 @@ export function InboxRail() {
   const toggle = useNav((s) => s.toggleDiaryInbox);
   const inbox = useOp<Item[]>('list_inbox');
   const items = (inbox.data ?? []).filter((i) => i.status === 'open');
-  const [draft, setDraft] = useState('');
+  const [draft, setDraft] = useDraft('rail');
   const [error, setError] = useState<string | null>(null);
   const dropHere = useDrag((s) => s.hover?.kind === 'inbox');
   const draggingId = useDrag((s) => s.item?.id);

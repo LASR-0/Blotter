@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { format, parseISO } from 'date-fns';
 import { Check, Tray } from '@phosphor-icons/react';
+import { useDraft } from '@/app/drafts';
 import { startPointerDrag, useDrag } from '@/app/drag';
 import { useFocus, useScrollFocusIntoView, useViewController } from '@/app/focus';
 import { useOverlay } from '@/app/overlay';
@@ -84,7 +85,7 @@ function InboxRow({ item }: { item: Item }) {
 export function InboxView() {
   const inbox = useOp<Item[]>('list_inbox');
   const items = (inbox.data ?? []).filter((i) => i.status !== 'done');
-  const [draft, setDraft] = useState('');
+  const [draft, setDraft] = useDraft('inbox');
   // The box starts at two lines and grows a line at a time with the text (up to half the window).
   const box = useRef<HTMLTextAreaElement>(null);
   useLayoutEffect(() => {

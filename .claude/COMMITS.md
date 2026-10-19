@@ -118,8 +118,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 46 | 14a | `docs: v1.1.0 plan` | committed `674340a` |
 | 47 | 14a | `fix(ui): held arrows keep moving focus and items` | committed `4502a85` |
 | 48 | 14a | `fix(ui): resize handle wins over move` | committed `24eddd5` |
-| 49 | 14a | `fix(ui): Shift+arrows in the Year view` | committed (hash in the next entry) |
-| 50 | 14a | `feat(ui): brain-dump draft survives switching views` | planned |
+| 49 | 14a | `fix(ui): Shift+arrows in the Year view` | committed `ab21b49` |
+| 50 | 14a | `feat(ui): brain-dump draft survives switching views` | committed (hash in the next entry) |
 | 51 | 14a | `feat(ui): parse preview in the brain-dump box` | planned |
 | 52 | 14a | `fix(ui): Week view add indicator clears after Enter` | planned |
 | 53 | 14a | `fix(ui): Blotter mark on the setup screens` | planned |
@@ -3903,7 +3903,7 @@ Test steps:
 Notes:
     - Only the Week view has mouse resize; the Diary timeline doesn't.
 
-### #49 — Shift+arrows in the Year view            [status: committed — hash in the next entry]
+### #49 — Shift+arrows in the Year view            [status: committed ab21b49]
 Phase: 14a (Luke: "shift arrow left or right in year view skips over a month")
 Message:
     fix(ui): Shift+arrows in the Year view
@@ -3923,3 +3923,22 @@ Test steps:
 Notes:
     - Read as a request (Shift+←/→ should jump a month); if Luke meant a bug where it skipped
       two months, this needs his repro: in code nothing handled Shift+arrows here.
+
+### #50 — Brain-dump draft survives switching views            [status: committed — hash in the next entry]
+Phase: 14a
+Message:
+    feat(ui): brain-dump draft survives switching views
+
+    Text typed into the Inbox's brain-dump box, or the Diary rail's, is
+    kept while you switch to another view and back, until it is added or
+    cleared. The drafts live in a small store instead of each box's own
+    state, which was lost when the view unmounted. Session only: they
+    don't survive quitting the app.
+Files:
+    A  src/app/drafts.ts
+    M  src/views/inbox/InboxView.tsx
+    M  src/views/diary/InboxRail.tsx
+    M  .claude/COMMITS.md
+Test steps:
+    - pnpm check → clean; Vitest 217
+    - Live (pending): type two lines in the Inbox box, g w, g i → both lines still there
