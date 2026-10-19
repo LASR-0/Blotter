@@ -180,19 +180,22 @@ function EventBlock({
           {done && item.completed_at && `  ✓ ${timeOf(item.completed_at)}`}
         </span>
       )}
-      {item.start_at && !compact && (
+      {focused && (
+        <span
+          aria-hidden
+          className="pointer-events-none absolute -bottom-1 left-1/2 h-1 w-[18px] -translate-x-1/2 rounded-[2px] bg-focus-ring"
+        />
+      )}
+      {item.start_at && (
+        // Last, so it sits over the focus bar: a press on the bottom edge always resizes.
         <span
           aria-hidden
           title="Drag to resize (or Alt+↑/↓)"
           onPointerDown={(e) => startPointerDrag(e, item, { mode: 'resize' })}
-          className="absolute inset-x-0 bottom-0 h-1.5 cursor-ns-resize"
-        />
-      )}
-      {focused && (
-        <span
-          aria-hidden
-          title="Resize (Alt+↑/↓)"
-          className="absolute -bottom-1 left-1/2 h-1 w-[18px] -translate-x-1/2 rounded-[2px] bg-focus-ring"
+          className={cn(
+            'absolute inset-x-0 cursor-ns-resize',
+            compact ? 'bottom-0 h-1.5' : focused ? '-bottom-1.5 h-3.5' : 'bottom-0 h-2.5',
+          )}
         />
       )}
     </div>

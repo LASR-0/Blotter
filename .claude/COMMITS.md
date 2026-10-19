@@ -116,8 +116,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 45a | 13 | `feat(app): no icon or title in the Windows title bar` | committed `e957972` |
 | 45b | 13 | `fix(app): plain Windows title bar from the first frame` | committed `d3fb700` |
 | 46 | 14a | `docs: v1.1.0 plan` | committed `674340a` |
-| 47 | 14a | `fix(ui): held arrows keep moving focus and items` | committed (hash in the next entry) |
-| 48 | 14a | `fix(ui): resize handle wins over move` | planned |
+| 47 | 14a | `fix(ui): held arrows keep moving focus and items` | committed `4502a85` |
+| 48 | 14a | `fix(ui): resize handle wins over move` | committed (hash in the next entry) |
 | 49 | 14a | `fix(ui): Shift+arrows in the Year view` | planned |
 | 50 | 14a | `feat(ui): brain-dump draft survives switching views` | planned |
 | 51 | 14a | `feat(ui): parse preview in the brain-dump box` | planned |
@@ -3857,7 +3857,7 @@ Notes:
     - Logo study (both concepts traced to SVG, in each preset's logo colours):
       https://claude.ai/artifact/FJ37WR7jJ1hwoQntHT9vFE. Open questions in roadmap §12.
 
-### #47 — Held arrows keep moving focus and items            [status: committed — hash in the next entry]
+### #47 — Held arrows keep moving focus and items            [status: committed 4502a85]
 Phase: 14a
 Message:
     fix(ui): held arrows keep moving focus and items
@@ -3881,3 +3881,24 @@ Test steps:
 Notes:
     - Each repeated move is its own change-log entry, so Ctrl+Z steps back one 15m / one day
       at a time.
+
+### #48 — Resize handle wins over move            [status: committed — hash in the next entry]
+Phase: 14a
+Message:
+    fix(ui): resize handle wins over move
+
+    Dragging the bottom edge of a Week view item resizes it every time.
+    On a focused item the focus bar was drawn over the 6px resize strip
+    with no handler of its own, so a press there started a move. The bar
+    now ignores the pointer, the strip is drawn last and is taller (10px,
+    14px reaching below the edge when focused), and short items get a
+    strip too, so 30-minute items can be stretched by mouse.
+Files:
+    M  src/views/WeekView.tsx
+    M  .claude/COMMITS.md
+Test steps:
+    - pnpm check → clean; Vitest 217
+    - Live (pending, Luke's release build was running): drag the bottom edge of a focused
+      and an unfocused item, and of a 30-minute item → each resizes
+Notes:
+    - Only the Week view has mouse resize; the Diary timeline doesn't.
