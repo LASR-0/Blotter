@@ -114,7 +114,26 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 44 | 13 | `docs: README, Hyprland notes, MCP setup and keybindings` | committed `d84fe70` |
 | 45 | 13 | `chore(release): v1.0.0` | committed `c263ecb` (untagged; Luke tags after the smoke checks) |
 | 45a | 13 | `feat(app): no icon or title in the Windows title bar` | committed `e957972` |
-| 45b | 13 | `fix(app): plain Windows title bar from the first frame` | committed (hash in the next entry) |
+| 45b | 13 | `fix(app): plain Windows title bar from the first frame` | committed `d3fb700` |
+| 46 | 14a | `docs: v1.1.0 plan` | planned |
+| 47 | 14a | `fix(ui): held arrows keep moving focus and items` | planned |
+| 48 | 14a | `fix(ui): resize handle wins over move` | planned |
+| 49 | 14a | `fix(ui): Shift+arrows in the Year view` | planned |
+| 50 | 14a | `feat(ui): brain-dump draft survives switching views` | planned |
+| 51 | 14a | `feat(ui): parse preview in the brain-dump box` | planned |
+| 52 | 14a | `fix(ui): Week view add indicator clears after Enter` | planned |
+| 53 | 14a | `fix(ui): Blotter mark on the setup screens` | planned |
+| 54 | 14b | `feat: tag management in Settings` | planned |
+| 55 | 14b | `feat(ui): themed context menu` | planned |
+| 56 | 14c | `feat(ui): drag items in the Month view and all-day lane` | planned |
+| 57 | 14d | `feat: task context in quick add and Smart slot` | planned |
+| 58 | 14d | `feat(core): holidays` | planned |
+| 59 | 14d | `feat(core): task windows with replanning` | planned |
+| 60 | 14d | `feat: weekly tasks` | planned |
+| 61 | 14e | `feat(ai): Codex CLI sessions` | planned |
+| 62 | 14e | `feat(ai): Consult me slot mode` | planned |
+| 63 | 14f | `feat(ui): new Blotter logo` | planned (after Luke picks) |
+| 64 | 14f | `chore(release): v1.1.0` | planned |
 
 ---
 
@@ -3806,7 +3825,7 @@ Notes:
     - The window keeps its title, so the taskbar, Alt+Tab and screen readers still say Blotter.
       Applied with the theme colours by set_titlebar, to the main window and the chat pop-out.
 
-### #45b — Plain Windows title bar from the first frame            [status: committed — hash in the next entry]
+### #45b — Plain Windows title bar from the first frame            [status: committed d3fb700]
 Phase: 13 (Luke: "the logo is still in the windows title bar")
 Message:
     fix(app): plain Windows title bar from the first frame
@@ -3823,3 +3842,17 @@ Notes:
     - Cause: #45a set the attribute when the page applied its theme, after the window had
       drawn its caption, and Windows doesn't repaint the caption for a theme attribute, so
       the icon stayed until something redrew the frame (showing it from the tray did).
+
+### #46 — v1.1.0 plan            [status: committed — hash in the next entry]
+Phase: 14a (Luke's v1.1.0 list, 2026-10-20)
+Message:
+    docs: v1.1.0 plan
+Files:
+    A  .claude/LogoRedesign1.png, .claude/LogoRedesign2.png   (Luke's logo concepts)
+    M  .claude/roadmap.md     (§12 v1.1.0; §10 email invites, Codex moved into v1.1.0)
+    M  .claude/COMMITS.md     (planned #46–#64)
+Test steps:
+    - none (docs)
+Notes:
+    - Logo study (both concepts traced to SVG, in each preset's logo colours):
+      https://claude.ai/artifact/FJ37WR7jJ1hwoQntHT9vFE. Open questions in roadmap §12.

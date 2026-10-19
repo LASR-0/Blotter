@@ -634,7 +634,8 @@ The Claude Design prompt (`design-prompt.md`, which also sets the visual directi
 - Auto-update via the Tauri updater, plus code signing.
 - Splitting a task across multiple slots.
 - Using the GlobalShortcuts portal for native hotkeys on Wayland.
-- Driving other agent CLIs (OpenAI Codex CLI, GitHub Copilot CLI) headless with Blotter's MCP server, the way Claude Code is driven. Desktop chat apps (ChatGPT, the Copilot app) can't be driven this way.
+- Driving other agent CLIs (GitHub Copilot CLI) headless with Blotter's MCP server, the way Claude Code is driven (Codex CLI moved into v1.1.0, §12). Desktop chat apps (ChatGPT, the Copilot app) can't be driven this way.
+- **Propose a meeting by email** (Luke, 2026-10-20). Possible through public APIs: Gmail API `users.messages.send` (OAuth, `gmail.send` scope; a restricted scope, so a published app needs Google's verification) and Microsoft Graph `sendMail` (OAuth, `Mail.Send`). Both send an `.ics` `METHOD:REQUEST` attachment so the recipient gets a real invite. A no-account fallback: write the invite `.ics` and open a `mailto:` draft with it attached by hand, or SMTP with an app password.
 
 ---
 
@@ -672,3 +673,49 @@ The Claude Design prompt (`design-prompt.md`, which also sets the visual directi
 | D28 | Daily briefing off by default; 07:30 when turned on | Confirmed |
 | D29 | AI runs through two routes. **Claude Code** (the user's installed, signed-in `claude` CLI, driven headless with Blotter's MCP server) is the tested, primary route and uses the user's existing subscription. **API-key providers** (Anthropic, OpenAI, OpenAI-compatible/Ollama) are built and unit-tested against recorded responses but labelled "Experimental — untested" until checked with a real key. The MCP server moves from Phase 12 into Phase 8 (#29a), since the Claude Code route needs it. Check Anthropic's terms on driving Claude Code from another app before publishing that route | Confirmed |
 | D30 | Live tests of the Claude Code route run on Luke's subscription. MCP and AI writes stay on before #32, applying directly with a snapshot before the first change of each session or turn, plus undo. Snapshot policy is the implementer's call (the test data isn't precious) | Confirmed |
+
+---
+
+## 12. v1.1.0 (Luke, 2026-10-20)
+
+Phase 14. Same protocol as v1 (§7): one ledger entry per increment in `COMMITS.md`, committed locally, Luke pushes. Items are grouped so the quick fixes land first and the scheduling-model changes, which share a data-model change, land together.
+
+### 14a — Fixes and small features
+- **Held arrows keep moving.** Holding an arrow (or `h j k l`, Shift+arrow, Alt+arrow) repeats focus moves, item moves and resizes. Today `useKeymap` drops every auto-repeated key. Only movement actions repeat; everything else still fires once per press.
+- **Resize beats move.** Dragging the bottom edge of a Week or timeline card resizes it every time. Today the focus bar drawn over the 6px resize strip has no handler, so a press there starts a move. The resize strip grows to a comfortable hit area and sits above the focus bar.
+- **Year view Shift+←/→.** Reported as skipping over a month. Reproduce first; the intended behaviour is that Shift+←/→ moves focus a month (same day, clamped to the month's length) and Shift+↑/↓ a row of months.
+- **Brain-dump draft survives tab switches.** Text typed into the Inbox's brain-dump box (and the Diary rail's) is kept while switching views, until it is added or cleared. Session only, not persisted to disk.
+- **Brain-dump preview.** Each line in the brain-dump box shows the same parse chips as quick add, including the event/fixed reading (dentist tue 3pm → event), so you can see what will be created before pressing Enter.
+- **Week view add.** After Enter in the Week view's add box, the "new item here" indicator clears, so the created event is visible and it's clear it was made.
+- **Setup screens use the logo.** First-run setup shows the Blotter mark instead of the "B" tile (the current mark until the new logo lands in 14f, then that).
+
+### 14b — Tags and menus
+- **Tags in Settings.** A Tags page lists every tag with its colour and use count: rename (merging into an existing tag), recolour, delete (removes it from items), create. New ops `rename_tag`, `set_tag_color`, `delete_tag`, logged and undoable like other mutations.
+- **Themed right-click menu.** A context menu drawn with the theme (Radix ContextMenu) on cards, calendar items and days, replacing the browser's: open, edit, complete, schedule/unschedule, move to Inbox, delete, and for days "add here" and "lift block-out on this day". Text fields keep the native menu (copy/paste/spellcheck).
+
+### 14c — Drag everywhere
+- Tasks, events and reminders drag in the **Month view** (between days, keeping the time of day), the **Week view's all-day lane**, and to and from the Inbox rail where it is open. The same drop rules as now: flexible items are refused inside block-outs.
+
+### 14d — Scheduling model
+- **Task context.** Free text attached to a task that Smart slot and Consult me read when placing it. It reuses `notes` (no schema change). Quick-add/brain-dump syntax, proposed: everything after `//` on the line is the context, e.g. `groceries ~1h #home // need the car, shops shut 9pm`. Shown as a chip in the preview.
+- **Holidays.** A new block-out kind for date ranges (e.g. 22 Dec – 4 Jan). Flexible tasks are never slotted inside, they're shown as a band across the days in every view, and by default other block-outs (work) are lifted on those days. Proposed quick setup in Settings → Block-outs.
+- **Task windows.** A task can carry a window: earliest and latest date it may be done (e.g. "book holiday" between 1 and 15 Nov), optionally a time-of-day window. Every slotter (auto-slot, rollover reslot, Smart slot, drag) keeps it inside the window. If its slot passes undone, it is replanned to the next free slot inside the window; if the window has ended it goes back to the Inbox flagged overdue.
+- **Weekly tasks.** A repeating flexible task (groceries, meal prep, laundry) with a home day and a usual time window, e.g. "Saturday, 9–12, once a week". Each week's occurrence is slotted on its home day in that window; if it passes undone it is replanned to the next suitable day and time that week (same time window first, then any planning hours), so it is done some time in the week. It's a task window that repeats, so it shares the 14d machinery. Quick-add syntax proposed: `laundry weekly sat 9-12 ~1h`.
+
+### 14e — AI
+- **Codex sessions.** OpenAI's Codex CLI driven headless with Blotter's MCP server, the way Claude Code is (§D29): status card in Settings → AI, chat, Smart slot, briefing. Needs Codex installed and signed in on the test machine (it isn't on this one yet).
+- **Consult me.** A third slot mode beside Auto-slot and Smart slot. The AI goes through the Inbox one task at a time in the chat, asking the questions that matter for placing it (how long, by when, where, what it depends on, best time of day), writes the answers into the task's context and fields, then slots it. Propose mode applies as usual.
+
+### 14f — Brand
+- **New logo** from Luke's two concepts (`.claude/LogoRedesign1.png`, `LogoRedesign2.png`), traced to vectors and tried in every preset's logo colours (study: https://claude.ai/artifact/FJ37WR7jJ1hwoQntHT9vFE). After Luke picks: `public/blotter.svg`, `BlotterMark`, regenerated desktop icons, setup screens.
+- **v1.1.0** release commit.
+
+### Open questions (Luke)
+1. Logo: concept A (calendar-B with spark) or B (grid with spark); flat theme colours or the references' gradient?
+2. Context syntax: `//` as proposed, or something else?
+3. Holidays: lift work block-outs on those days by default (leave), or keep them (just no personal tasks)?
+4. Task window ended undone: back to the Inbox (proposed), or keep rolling forward day by day?
+
+### Moved to post-v1.1 (§10)
+- Home-server sync across devices (already §10).
+- Sending a meeting proposal by email from Blotter.
