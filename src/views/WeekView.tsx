@@ -319,7 +319,10 @@ export function WeekView() {
 
   // Keyboard focus: an item, or (after Tab) a half-hour cursor on the grid.
   const focusedId = useFocus((s) => s.itemId);
-  const [mode, setMode] = useState<'item' | 'cell'>('item');
+  const [cursorMode, setMode] = useState<'item' | 'cell'>('item');
+  // An item taking focus (e.g. one just added at the cursor) ends cursor mode, so
+  // the cursor doesn't sit over the new item.
+  const mode = cursorMode === 'cell' && focusedId ? 'item' : cursorMode;
   const [cursor, setCursor] = useState({ day: 0, minute: 9 * 60 });
   useScrollFocusIntoView(mode === 'cell' ? `cursor-${cursor.day}-${cursor.minute}` : focusedId);
   // Keyboard focus moves over items only; calendar events are read-only.

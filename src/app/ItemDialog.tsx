@@ -39,6 +39,7 @@ import { describeRule, presetOf, ruleFor, withEnd, type RepeatPreset } from '@/l
 import { useOp } from '@/lib/queries';
 import { tagColor } from '@/lib/tags';
 import type { Item, ItemKind } from '@/lib/types';
+import { useFocus } from './focus';
 import { useOverlay } from './overlay';
 
 interface ItemDetail extends Item {
@@ -152,7 +153,9 @@ function ItemForm({
     setSaving(true);
     try {
       if (result.create) {
-        await runOp<Item>('create_item', result.create);
+        const created = await runOp<Item>('create_item', result.create);
+        // The new item takes keyboard focus, so it's clear where it landed.
+        useFocus.getState().setItem(created.id);
       } else if (result.calls.length) {
         await runBatch(result.calls);
       }

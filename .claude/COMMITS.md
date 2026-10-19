@@ -120,8 +120,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 48 | 14a | `fix(ui): resize handle wins over move` | committed `24eddd5` |
 | 49 | 14a | `fix(ui): Shift+arrows in the Year view` | committed `ab21b49` |
 | 50 | 14a | `feat(ui): brain-dump draft survives switching views` | committed `1ecc376` |
-| 51 | 14a | `feat(ui): parse preview in the brain-dump box` | committed (hash in the next entry) |
-| 52 | 14a | `fix(ui): Week view add indicator clears after Enter` | planned |
+| 51 | 14a | `feat(ui): parse preview in the brain-dump box` | committed `08ec23e` |
+| 52 | 14a | `fix(ui): Week view add indicator clears after Enter` | committed (hash in the next entry) |
 | 53 | 14a | `fix(ui): Blotter mark on the setup screens` | planned |
 | 54 | 14b | `feat: tag management in Settings` | planned |
 | 55 | 14b | `feat(ui): themed context menu` | planned |
@@ -3943,7 +3943,7 @@ Test steps:
     - pnpm check → clean; Vitest 217
     - Live (pending): type two lines in the Inbox box, g w, g i → both lines still there
 
-### #51 — Parse preview in the brain-dump box            [status: committed — hash in the next entry]
+### #51 — Parse preview in the brain-dump box            [status: committed 08ec23e]
 Phase: 14a (Luke: "syntax displayed for events on the inbox dump as well")
 Message:
     feat(ui): parse preview in the brain-dump box
@@ -3969,3 +3969,23 @@ Test steps:
       Flexible task · 1h · #home … Inbox
 Notes:
     - The Diary rail's one-line box doesn't get the preview (too narrow); quick add (n) has it.
+
+### #52 — Week view add indicator clears after Enter            [status: committed — hash in the next entry]
+Phase: 14a
+Message:
+    fix(ui): Week view add indicator clears after Enter
+
+    Adding an item at the Week view's grid cursor (click or Tab, then
+    Enter, then save) left the "↵ to add" cursor drawn over the new item,
+    so it wasn't clear it had been made. The item dialog now gives a newly
+    created item keyboard focus, in every view, and the Week view leaves
+    cursor mode whenever an item has focus, so the new item shows focused
+    in place of the cursor.
+Files:
+    M  src/app/ItemDialog.tsx     (focus the created item)
+    M  src/views/WeekView.tsx     (cursor mode derived from focus)
+    M  .claude/COMMITS.md
+Test steps:
+    - pnpm check → clean; Vitest 219
+    - Live (pending): Week view, click an empty slot, Enter, type a title, Enter → the new
+      item shows with the focus ring, no cursor over it; Tab brings the cursor back
