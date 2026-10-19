@@ -94,7 +94,13 @@ export function computeHover(x: number, y: number): Hover | null {
     };
   }
 
-  const zone = document.elementFromPoint(x, y)?.closest<HTMLElement>('[data-drop]');
+  // The topmost zone under the pointer, looking through elements that sit over a
+  // zone without being inside it (the Week view's all-day bars).
+  let zone: HTMLElement | null = null;
+  for (const el of document.elementsFromPoint(x, y)) {
+    zone = el.closest<HTMLElement>('[data-drop]');
+    if (zone) break;
+  }
   if (!zone) return null;
   const kind = zone.dataset.drop;
 
@@ -129,10 +135,13 @@ export function computeHover(x: number, y: number): Hover | null {
     const untimed = (c: HTMLElement | undefined) => c?.dataset.untimed === 'true';
     const before = cards.slice(0, index).reverse().find(untimed);
     const after = cards.slice(index).find(untimed);
-    const sortOrder = between(
-      before ? Number(before.dataset.sort) : undefined,
-      after ? Number(after.dataset.sort) : undefined,
-    );
+    // Zones without cards (Month cells, the all-day lane) leave the order alone.
+    const sortOrder = cards.length
+      ? between(
+          before ? Number(before.dataset.sort) : undefined,
+          after ? Number(after.dataset.sort) : undefined,
+        )
+      : undefined;
     return { kind: 'day', date: parseDate(zone.dataset.date as string), index, sortOrder };
   }
   return null;

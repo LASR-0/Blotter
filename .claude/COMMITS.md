@@ -124,8 +124,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 52 | 14a | `fix(ui): Week view add indicator clears after Enter` | committed `9c1078e` |
 | 53 | 14a | `fix(ui): Blotter mark on the setup screens` | committed `5b36d32` |
 | 54 | 14b | `feat: tag management in Settings` | committed `ab38e15` |
-| 55 | 14b | `feat(ui): themed context menu` | committed (hash in the next entry) |
-| 56 | 14c | `feat(ui): drag items in the Month view and all-day lane` | planned |
+| 55 | 14b | `feat(ui): themed context menu` | committed `a836678` |
+| 56 | 14c | `feat(ui): drag items in the Month view and all-day lane` | committed (hash in the next entry) |
 | 57 | 14d | `feat: task context in quick add and Smart slot` | planned |
 | 58 | 14d | `feat(core): holidays` | planned |
 | 59 | 14d | `feat(core): task windows with replanning` | planned |
@@ -4047,7 +4047,7 @@ Notes:
       go through Propose like every mutation).
     - The sidebar's "Calendars & tags" + still opens Calendars; Tags is next to it in Settings.
 
-### #55 — Themed context menu            [status: committed — hash in the next entry]
+### #55 — Themed context menu            [status: committed a836678]
 Phase: 14b (Luke: "right click menu themable?")
 Message:
     feat(ui): themed context menu
@@ -4076,3 +4076,31 @@ Test steps:
       slot (shows its time), a Month cell, and the brain-dump box (browser menu); each theme
 Notes:
     - Main window only; the chat pop-out and quick capture keep the browser menu.
+
+### #56 — Drag items in the Month view and all-day lane            [status: committed — hash in the next entry]
+Phase: 14c (Luke: "make tasks, events and reminders dragable on all tabs month view, week view")
+Message:
+    feat(ui): drag items in the Month view and all-day lane
+
+    Tasks, events and reminders can be dragged between days in the Month
+    view, and along the Week view's all-day lane. A timed item keeps its
+    time of day on the new day; an untimed one keeps its place in the day.
+    The day under the pointer is outlined (Month) or tinted (all-day lane)
+    while dragging, and Esc cancels as before. All-day bars also open on
+    double-click and get the right-click menu.
+
+    Drop hit-testing now looks through elements stacked over a drop zone
+    without being inside it, so dropping onto an all-day bar lands on its
+    day. Zones with no cards leave an item's sort order alone.
+Files:
+    M  src/app/drag.ts            (elementsFromPoint; no sort order without cards)
+    M  src/views/MonthView.tsx    (draggable chips, day drop zones)
+    M  src/views/WeekView.tsx     (all-day lane zones and draggable bars)
+    M  .claude/COMMITS.md
+Test steps:
+    - pnpm check → clean; Vitest 222
+    - Live (pending): Month: drag a timed event and an untimed task to another day (time
+      kept); Week: drag an all-day item along the lane and onto a cell with another bar
+Notes:
+    - Items inside the Month "+N" popover are buttons and don't drag (open the day in Week).
+    - Already draggable before this: Week timed blocks, Diary cards, timeline, Inbox rail.

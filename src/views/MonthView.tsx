@@ -9,6 +9,7 @@ import {
   startOfWeek,
 } from 'date-fns';
 import { LinkSimple, X } from '@phosphor-icons/react';
+import { startPointerDrag, useDrag } from '@/app/drag';
 import { useViewController } from '@/app/focus';
 import { useNav } from '@/app/nav';
 import { useOverlay } from '@/app/overlay';
@@ -46,16 +47,21 @@ function chipTime(item: Item): string {
 function Chip({ item }: { item: Item }) {
   const done = item.status === 'done';
   const color = itemColor(item);
+  const dragging = useDrag((s) => s.item?.id === item.id);
   return (
     <div
       title={`${chipTime(item)} ${item.title}`}
       data-menu-item={item.id}
       onDoubleClick={() => useOverlay.getState().openItem({ id: item.id })}
+      onPointerDown={(e) => startPointerDrag(e, item)}
       style={{
         background: `color-mix(in srgb, ${color} ${done ? 7 : 16}%, var(--color-bg))`,
         borderLeft: `3px solid ${color}`,
       }}
-      className="flex h-[19px] min-w-0 flex-none items-center gap-[5px] rounded-[3px] border border-transparent px-[5px] text-xs"
+      className={cn(
+        'flex h-[19px] min-w-0 flex-none cursor-grab items-center gap-[5px] rounded-[3px] border border-transparent px-[5px] text-xs',
+        dragging && 'opacity-45',
+      )}
     >
       <span className="flex-none font-mono text-[10px] text-text-muted">{chipTime(item)}</span>
       <span className={cn('truncate font-medium', done && 'text-text-muted line-through')}>
@@ -176,6 +182,8 @@ function DayPopover({
 
 export function MonthView() {
   const anchor = useNav((s) => s.anchor);
+  // The day a dragged item would drop on, outlined.
+  const dropDay = useDrag((s) => (s.hover?.kind === 'day' ? isoDate(s.hover.date) : null));
   const openWeek = useNav((s) => s.openWeek);
   const now = useNow(60_000);
   const days = useMemo(() => {
@@ -251,12 +259,14 @@ export function MonthView() {
           return (
             <div
               key={day.getTime()}
+              data-drop="day"
               data-date={isoDate(day)}
               aria-selected={focused}
               onClick={() => setChosen(day)}
               className={cn(
                 'relative flex min-h-0 flex-col border-r border-b border-border',
                 focused && 'z-1 outline-2 -outline-offset-2 outline-focus-ring',
+                dropDay === isoDate(day) && 'z-1 outline-2 -outline-offset-2 outline-accent',
                 !inMonth
                   ? 'bg-surface'
                   : isWeekend(day)

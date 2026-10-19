@@ -281,6 +281,8 @@ export function WeekView() {
     [items, events, first],
   );
   const allDayRows = Math.max(1, ...allDay.map((p) => p.row + 1));
+  // The all-day cell a dragged item would drop on, tinted.
+  const dropDay = useDrag((s) => (s.hover?.kind === 'day' ? isoDate(s.hover.date) : null));
 
   const columns = useMemo(
     () =>
@@ -490,6 +492,16 @@ export function WeekView() {
             <div className="row-start-1 pt-[5px] pr-2 text-right text-[10px] text-text-muted">
               all-day
             </div>
+            {/* One drop zone per day behind the bars: drop an item to move it to that day. */}
+            {days.map((d, i) => (
+              <div
+                key={d.getTime()}
+                data-drop="day"
+                data-date={isoDate(d)}
+                style={{ gridRow: '1 / -1', gridColumn: i + 2 }}
+                className={cn('-my-1 rounded-sm', dropDay === isoDate(d) && 'bg-accent-tint')}
+              />
+            ))}
             {allDay.map((p) => {
               const event = eventByKey.get(p.id);
               if (event) {
@@ -522,6 +534,9 @@ export function WeekView() {
                 <div
                   key={p.id}
                   title={item.title}
+                  data-menu-item={item.id}
+                  onDoubleClick={() => useOverlay.getState().openItem({ id: item.id })}
+                  onPointerDown={(e) => startPointerDrag(e, item)}
                   style={{
                     gridRow: p.row + 1,
                     gridColumn: `${p.first + 2} / span ${p.last - p.first + 1}`,
@@ -529,7 +544,7 @@ export function WeekView() {
                     borderLeft: `3px solid ${color}`,
                   }}
                   className={cn(
-                    'mx-1 flex items-center gap-[5px] overflow-hidden rounded-sm px-1.5 text-xs',
+                    'z-1 mx-1 flex cursor-grab items-center gap-[5px] overflow-hidden rounded-sm px-1.5 text-xs',
                     done && 'text-text-muted line-through',
                   )}
                 >
