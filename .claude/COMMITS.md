@@ -117,8 +117,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 45b | 13 | `fix(app): plain Windows title bar from the first frame` | committed `d3fb700` |
 | 46 | 14a | `docs: v1.1.0 plan` | committed `674340a` |
 | 47 | 14a | `fix(ui): held arrows keep moving focus and items` | committed `4502a85` |
-| 48 | 14a | `fix(ui): resize handle wins over move` | committed (hash in the next entry) |
-| 49 | 14a | `fix(ui): Shift+arrows in the Year view` | planned |
+| 48 | 14a | `fix(ui): resize handle wins over move` | committed `24eddd5` |
+| 49 | 14a | `fix(ui): Shift+arrows in the Year view` | committed (hash in the next entry) |
 | 50 | 14a | `feat(ui): brain-dump draft survives switching views` | planned |
 | 51 | 14a | `feat(ui): parse preview in the brain-dump box` | planned |
 | 52 | 14a | `fix(ui): Week view add indicator clears after Enter` | planned |
@@ -3882,7 +3882,7 @@ Notes:
     - Each repeated move is its own change-log entry, so Ctrl+Z steps back one 15m / one day
       at a time.
 
-### #48 — Resize handle wins over move            [status: committed — hash in the next entry]
+### #48 — Resize handle wins over move            [status: committed 24eddd5]
 Phase: 14a
 Message:
     fix(ui): resize handle wins over move
@@ -3902,3 +3902,24 @@ Test steps:
       and an unfocused item, and of a 30-minute item → each resizes
 Notes:
     - Only the Week view has mouse resize; the Diary timeline doesn't.
+
+### #49 — Shift+arrows in the Year view            [status: committed — hash in the next entry]
+Phase: 14a (Luke: "shift arrow left or right in year view skips over a month")
+Message:
+    fix(ui): Shift+arrows in the Year view
+
+    Shift+Left/Right moves the focused day a month back or forward, and
+    Shift+Up/Down a row of months (four), keeping the day of the month
+    (or the month's last day when it is shorter) and crossing into the
+    next or previous year. Shift+arrows did nothing in the Year view: they
+    are the item-move keys elsewhere, and the Year view has no items to
+    move.
+Files:
+    M  src/views/YearView.tsx
+    M  .claude/COMMITS.md
+Test steps:
+    - pnpm check → clean; Vitest 217
+    - Live (pending): Year view, Shift+→ from 31 Jan → 28/29 Feb; Shift+↓ from Oct → Feb next year
+Notes:
+    - Read as a request (Shift+←/→ should jump a month); if Luke meant a bug where it skipped
+      two months, this needs his repro: in code nothing handled Shift+arrows here.

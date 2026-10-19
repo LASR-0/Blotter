@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import {
   addDays,
+  addMonths,
   endOfYear,
   format,
   getDaysInMonth,
@@ -77,12 +78,15 @@ export function YearView() {
       : isSameYear(now, anchor)
         ? new Date(now.getFullYear(), now.getMonth(), now.getDate())
         : startOfYear(anchor);
+  const focusOn = (next: Date) => {
+    setChosen(next);
+    if (!isSameYear(next, anchor)) useNav.getState().goToDate(next);
+  };
   useViewController({
-    move: (dir) => {
-      const next = addDays(focusDay, { left: -1, right: 1, up: -7, down: 7 }[dir]);
-      setChosen(next);
-      if (!isSameYear(next, anchor)) useNav.getState().goToDate(next);
-    },
+    move: (dir) => focusOn(addDays(focusDay, { left: -1, right: 1, up: -7, down: 7 }[dir])),
+    // Shift+arrows step a month across, or a row of months (four) up and down; the
+    // day is kept, or the month's last day when it is shorter.
+    shift: (dir) => focusOn(addMonths(focusDay, { left: -1, right: 1, up: -4, down: 4 }[dir])),
     enter: () => {
       openWeek(focusDay);
       return true;
