@@ -21,13 +21,28 @@ export function runSpec(spec: OpCallSpec | null): void {
   if (spec) runOp(spec.name, spec.args).catch(report);
 }
 
-/** Runs `build` against the focused item (fetched fresh) and applies the result. */
+/** Calls on the focused item still running, the oldest first. */
+let queue: Promise<void> = Promise.resolve();
+let queued = 0;
+
+/**
+ * Runs `build` against the focused item (fetched fresh) and applies the result.
+ * Calls run one after another, so each builds on the last; with one already
+ * waiting, further calls are dropped, so a held key can't pile up moves.
+ */
 export function withFocusedItem(build: (item: Item) => OpCallSpec | null): void {
   const id = useFocus.getState().itemId;
-  if (!id) return;
-  fetchItem(id)
-    .then((item) => runSpec(build(item)))
-    .catch(report);
+  if (!id || queued >= 2) return;
+  queued += 1;
+  queue = queue
+    .then(async () => {
+      const spec = build(await fetchItem(id));
+      if (spec) await runOp(spec.name, spec.args);
+    })
+    .catch(report)
+    .finally(() => {
+      queued -= 1;
+    });
 }
 
 export function toggleFocused(): void {

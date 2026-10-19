@@ -63,12 +63,15 @@ export function useKeymap(
     };
 
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.defaultPrevented || e.isComposing || e.repeat) return;
+      if (e.defaultPrevented || e.isComposing) return;
+      // A held key repeats only movement, and never mid-chord.
+      if (e.repeat && pending.current.length) return;
       const token = eventToken(e);
       if (!token) return;
       if ((token === 'enter' || token === 'space') && isActivatable(e.target)) return;
       const typing = isTyping(e.target);
       const result = resolve(bindings, pending.current, token, contextSet, typing);
+      if (e.repeat && !(result.type === 'run' && byId.get(result.actionId)?.repeats)) return;
       if (result.type === 'run' && typing && byId.get(result.actionId)?.yieldsToText) return;
       if (result.type === 'none') {
         if (pending.current.length) clear();

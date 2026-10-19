@@ -115,8 +115,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 45 | 13 | `chore(release): v1.0.0` | committed `c263ecb` (untagged; Luke tags after the smoke checks) |
 | 45a | 13 | `feat(app): no icon or title in the Windows title bar` | committed `e957972` |
 | 45b | 13 | `fix(app): plain Windows title bar from the first frame` | committed `d3fb700` |
-| 46 | 14a | `docs: v1.1.0 plan` | planned |
-| 47 | 14a | `fix(ui): held arrows keep moving focus and items` | planned |
+| 46 | 14a | `docs: v1.1.0 plan` | committed `674340a` |
+| 47 | 14a | `fix(ui): held arrows keep moving focus and items` | committed (hash in the next entry) |
 | 48 | 14a | `fix(ui): resize handle wins over move` | planned |
 | 49 | 14a | `fix(ui): Shift+arrows in the Year view` | planned |
 | 50 | 14a | `feat(ui): brain-dump draft survives switching views` | planned |
@@ -3843,7 +3843,7 @@ Notes:
       drawn its caption, and Windows doesn't repaint the caption for a theme attribute, so
       the icon stayed until something redrew the frame (showing it from the tray did).
 
-### #46 — v1.1.0 plan            [status: committed — hash in the next entry]
+### #46 — v1.1.0 plan            [status: committed 674340a]
 Phase: 14a (Luke's v1.1.0 list, 2026-10-20)
 Message:
     docs: v1.1.0 plan
@@ -3856,3 +3856,28 @@ Test steps:
 Notes:
     - Logo study (both concepts traced to SVG, in each preset's logo colours):
       https://claude.ai/artifact/FJ37WR7jJ1hwoQntHT9vFE. Open questions in roadmap §12.
+
+### #47 — Held arrows keep moving focus and items            [status: committed — hash in the next entry]
+Phase: 14a
+Message:
+    fix(ui): held arrows keep moving focus and items
+
+    Holding an arrow (or h j k l, Shift+arrow, Alt+arrow) now repeats
+    focus moves, item moves and resizes. The key handler dropped every
+    auto-repeated keydown; actions now opt in with `repeats`, and only
+    the movement ones do, so everything else still fires once per press
+    and a held key never repeats mid-chord.
+
+    Calls on the focused item run one after another, each on a fresh
+    copy of the item, so held Shift+arrows build on the last move; with
+    one already waiting, extra repeats are dropped instead of piling up.
+Files:
+    M  src/keymap/useKeymap.ts
+    M  src/actions/actions.ts        (repeats on focus.*, item.move.*, item.resize.*)
+    M  src/actions/itemActions.ts    (withFocusedItem queue)
+    M  .claude/COMMITS.md
+Test steps:
+    - pnpm check → clean; Vitest 217
+Notes:
+    - Each repeated move is its own change-log entry, so Ctrl+Z steps back one 15m / one day
+      at a time.

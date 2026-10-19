@@ -81,6 +81,8 @@ export interface Action {
   yieldsToText?: boolean;
   /** The binding also works while an overlay (palette, sheet) is open. */
   inOverlay?: boolean;
+  /** Holding the key repeats it (movement); other actions fire once per press. */
+  repeats?: boolean;
   /** Hidden from the command palette (pure navigation keys). */
   paletteHidden?: boolean;
   /** Shortcut-sheet override: hide (false) or show one summary row for a family. */
@@ -204,6 +206,7 @@ export function buildActions(): Action[] {
       binding: key,
       altBindings: [vim],
       context: NAV_CONTEXT,
+      repeats: true,
       paletteHidden: true,
       sheet: dir === 'left' ? { label: 'Move focus (or arrows)', keys: 'h j k l' } : false,
       run: () => controller()?.move(dir),
@@ -222,6 +225,7 @@ export function buildActions(): Action[] {
       icon: ArrowsDownUp,
       binding: key,
       context: NAV_CONTEXT,
+      repeats: true,
       paletteHidden: true,
       sheet: dir === 'left' ? { label: 'Move item (day / 15m)', keys: 'Shift+←↑↓→' } : false,
       run: () => controller()?.shift?.(dir),
@@ -233,6 +237,7 @@ export function buildActions(): Action[] {
       icon: ArrowsOutLineVertical,
       binding: 'Alt+ArrowDown',
       context: NAV_CONTEXT,
+      repeats: true,
       paletteHidden: true,
       sheet: { label: 'Resize item', keys: 'Alt+↑↓' },
       run: () => controller()?.resize?.('down'),
@@ -244,6 +249,7 @@ export function buildActions(): Action[] {
       icon: ArrowsOutLineVertical,
       binding: 'Alt+ArrowUp',
       context: NAV_CONTEXT,
+      repeats: true,
       paletteHidden: true,
       sheet: false,
       run: () => controller()?.resize?.('up'),
