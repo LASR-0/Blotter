@@ -122,8 +122,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 50 | 14a | `feat(ui): brain-dump draft survives switching views` | committed `1ecc376` |
 | 51 | 14a | `feat(ui): parse preview in the brain-dump box` | committed `08ec23e` |
 | 52 | 14a | `fix(ui): Week view add indicator clears after Enter` | committed `9c1078e` |
-| 53 | 14a | `fix(ui): Blotter mark on the setup screens` | committed (hash in the next entry) |
-| 54 | 14b | `feat: tag management in Settings` | planned |
+| 53 | 14a | `fix(ui): Blotter mark on the setup screens` | committed `5b36d32` |
+| 54 | 14b | `feat: tag management in Settings` | committed (hash in the next entry) |
 | 55 | 14b | `feat(ui): themed context menu` | planned |
 | 56 | 14c | `feat(ui): drag items in the Month view and all-day lane` | planned |
 | 57 | 14d | `feat: task context in quick add and Smart slot` | planned |
@@ -3990,7 +3990,7 @@ Test steps:
     - Live (pending): Week view, click an empty slot, Enter, type a title, Enter → the new
       item shows with the focus ring, no cursor over it; Tab brings the cursor back
 
-### #53 — Blotter mark on the setup screens            [status: committed — hash in the next entry]
+### #53 — Blotter mark on the setup screens            [status: committed 5b36d32]
 Phase: 14a
 Message:
     fix(ui): Blotter mark on the setup screens
@@ -4004,3 +4004,45 @@ Files:
 Test steps:
     - pnpm check → clean; Vitest 219
     - Live (pending): palette → "Run setup again" → the header shows the mark
+
+### #54 — Tag management in Settings            [status: committed — hash in the next entry]
+Phase: 14b (Luke: "I can't see where to see tags or edit and delete them")
+Message:
+    feat: tag management in Settings
+
+    A Tags page in Settings lists every tag with its colour and how many
+    items carry it. Tags can be created ahead of use, renamed (renaming
+    onto an existing tag merges the two), recoloured from the theme's tag
+    colours or a custom hex, set back to automatic, and deleted (taken off
+    every item). Rename and delete rewrite each item and log it, so one
+    Ctrl+Z puts everything back.
+
+    Core: new ops set_tag, rename_tag and delete_tag over the existing
+    tags table, which becomes an undoable "tag" entity; list_tags returns
+    each tag's colour and includes tags not on any item yet. JSON export
+    carries the tag records (1.0 exports still import).
+
+    UI: a chosen colour is published as a CSS variable per tag, which
+    tagColor() reads before the automatic colour, so a change shows in
+    every view and window at once without refetching.
+Files:
+    A  crates/blotter-core/src/store/tags.rs
+    A  crates/blotter-core/src/ops/tags.rs        (set_tag, rename_tag, delete_tag; 2 tests)
+    M  crates/blotter-core/src/store/mod.rs, crates/blotter-core/src/ops/mod.rs
+    M  crates/blotter-core/src/ops/reads.rs       (list_tags: colour, unused tags)
+    M  crates/blotter-core/src/ops/undo.rs        ("tag" entity)
+    M  crates/blotter-core/src/export.rs          (tags in JSON export, defaulted)
+    A  src/app/TagColors.tsx
+    A  src/views/settings/TagsPage.tsx
+    M  src/lib/tags.ts, src/lib/tags.test.ts
+    M  src/main.tsx, src/app/nav.ts, src/app/Sidebar.tsx, src/views/SettingsView.tsx
+    M  .claude/COMMITS.md
+Test steps:
+    - cargo test --workspace → 176 core (+2 tags) + 47 app + 6 mcp; clippy -D warnings / fmt clean
+    - pnpm check → clean; Vitest 222
+    - Live (pending): Settings → Tags: add #garden, give it a colour, rename #shops onto
+      #shopping (merges), delete a tag, Ctrl+Z each; colours change in Diary/Week at once
+Notes:
+    - The MCP server now lists 31 tools (set_tag, rename_tag, delete_tag are agent-callable and
+      go through Propose like every mutation).
+    - The sidebar's "Calendars & tags" + still opens Calendars; Tags is next to it in Settings.

@@ -88,6 +88,9 @@ fn current(conn: &Connection, entity: &str, id: &str) -> Result<Option<Value>> {
             .map(serde_json::to_value)
             .transpose()?,
         "setting" => store::settings::get::<Value>(conn, id)?,
+        "tag" => store::tags::get(conn, id)?
+            .map(serde_json::to_value)
+            .transpose()?,
         other => {
             return Err(CoreError::invalid(format!(
                 "changes to '{other}' can't be undone"
@@ -126,6 +129,7 @@ fn write(ctx: &Ctx<'_>, entity: &str, id: &str, state: Option<&Value>) -> Result
             "blockout" => store::blockouts::delete(conn, id).map(|_| ())?,
             "blockout_exception" => store::blockouts::delete_exception(conn, id).map(|_| ())?,
             "setting" => store::settings::delete(conn, id)?,
+            "tag" => store::tags::delete(conn, id).map(|_| ())?,
             _ => unreachable!("checked by current()"),
         }
         return Ok(());
@@ -147,6 +151,7 @@ fn write(ctx: &Ctx<'_>, entity: &str, id: &str, state: Option<&Value>) -> Result
             store::blockouts::upsert_exception(conn, &from_state::<BlockoutException>(state)?)?;
         }
         "setting" => store::settings::set(conn, id, state, ctx.now)?,
+        "tag" => store::tags::upsert(conn, &from_state(state)?)?,
         _ => unreachable!("checked by current()"),
     }
     Ok(())
@@ -172,7 +177,7 @@ fn name_of(c: &Change) -> Option<String> {
         .into_iter()
         .flatten()
         .find_map(|v| {
-            ["title", "label"]
+            ["title", "label", "name"]
                 .into_iter()
                 .find_map(|k| v.get(k).and_then(Value::as_str).map(str::to_owned))
         })

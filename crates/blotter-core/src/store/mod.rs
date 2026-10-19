@@ -13,6 +13,7 @@ pub mod providers;
 pub mod reminders;
 pub mod settings;
 pub mod subscriptions;
+pub mod tags;
 pub mod themes;
 
 use chrono::{NaiveDate, NaiveTime};

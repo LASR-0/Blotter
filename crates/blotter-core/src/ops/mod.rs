@@ -17,6 +17,7 @@ mod reminders;
 mod rollover;
 mod settings;
 mod slots;
+mod tags;
 mod undo;
 
 use std::collections::{BTreeMap, VecDeque};
@@ -236,6 +237,7 @@ impl Registry {
             .chain(slots::defs())
             .chain(rollover::defs())
             .chain(settings::defs())
+            .chain(tags::defs())
             .chain(undo::defs())
             .chain(ics::defs())
             .chain(history::defs())

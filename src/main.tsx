@@ -6,6 +6,7 @@ import { AppShell } from './app/AppShell';
 import { CaptureApp } from './app/CaptureApp';
 import { ChatApp } from './app/ChatApp';
 import { ErrorBoundary } from './app/ErrorBoundary';
+import { TagColors } from './app/TagColors';
 import { TitleTips } from './components/ui/title-tips';
 import { TooltipProvider } from './components/ui/tooltip';
 import { queryClient } from './lib/queries';
@@ -30,6 +31,7 @@ createRoot(root).render(
           {label === 'capture' ? <CaptureApp /> : label === 'chat' ? <ChatApp /> : <AppShell />}
         </ErrorBoundary>
         <TitleTips />
+        <TagColors />
       </TooltipProvider>
     </QueryClientProvider>
   </StrictMode>,

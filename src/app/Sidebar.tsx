@@ -21,7 +21,7 @@ import { DEFAULT_CALENDAR_COLOR, useCalendarList } from '@/lib/calendarEvents';
 import { cn } from '@/lib/cn';
 import type { View } from '@/lib/period';
 import { useOp } from '@/lib/queries';
-import { tagColor } from '@/lib/tags';
+import { tagColor, type TagInfo } from '@/lib/tags';
 import type { Blockout } from '@/lib/types';
 import { useFilters } from './filters';
 import { isSidebarCollapsed, useNav } from './nav';
@@ -156,7 +156,7 @@ function FilterRow({
 
 /** Tags in use and subscribed calendars, each shown or hidden in the Diary and calendar views. */
 function CalendarsAndTags() {
-  const tags = useOp<{ name: string; items: number }[]>('list_tags');
+  const tags = useOp<TagInfo[]>('list_tags');
   const calendars = useCalendarList();
   const { hiddenTags, hiddenCalendars, toggleTag, toggleCalendar } = useFilters();
   const openSettings = useNav((s) => s.openSettings);

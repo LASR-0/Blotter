@@ -32,6 +32,9 @@ pub struct Export {
     pub reminders: Vec<Reminder>,
     pub blockouts: Vec<Blockout>,
     pub blockout_exceptions: Vec<BlockoutException>,
+    /// Tag colours and tags made ahead of use (absent in 1.0 exports).
+    #[serde(default)]
+    pub tags: Vec<store::tags::Tag>,
     /// User settings; this install's own (theme, snapshot folder…) are left out.
     pub settings: BTreeMap<String, Value>,
 }
@@ -69,6 +72,7 @@ pub fn export(conn: &rusqlite::Connection, now: Instant) -> Result<Export> {
         reminders: store::reminders::list_all(conn)?,
         blockouts: store::blockouts::list(conn)?,
         blockout_exceptions: store::blockouts::list_exceptions(conn, None, None)?,
+        tags: store::tags::list(conn)?,
         settings,
     })
 }
@@ -113,6 +117,7 @@ fn replace_all(db: &mut Database, e: &Export) -> Result<()> {
         "blockout_exceptions",
         "items",
         "blockouts",
+        "tags",
         "changes",
     ] {
         tx.execute(&format!("DELETE FROM {table}"), [])?;
@@ -136,6 +141,9 @@ fn replace_all(db: &mut Database, e: &Export) -> Result<()> {
     }
     for r in &e.reminders {
         store::reminders::upsert(&tx, r)?;
+    }
+    for t in &e.tags {
+        store::tags::upsert(&tx, t)?;
     }
     for (key, v) in e
         .settings

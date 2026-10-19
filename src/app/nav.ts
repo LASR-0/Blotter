@@ -6,6 +6,7 @@ export type SettingsPage =
   | 'general'
   | 'blockouts'
   | 'calendars'
+  | 'tags'
   | 'notifications'
   | 'ai'
   | 'keybindings'

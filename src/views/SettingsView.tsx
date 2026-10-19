@@ -4,6 +4,7 @@ import {
   Bell,
   CalendarDots,
   ClockCounterClockwise,
+  Hash,
   Info,
   Keyboard,
   Palette,
@@ -24,6 +25,7 @@ import { CalendarsPage } from './settings/CalendarsPage';
 import { GeneralPage } from './settings/GeneralPage';
 import { KeybindingsPage } from './settings/KeybindingsPage';
 import { NotificationsPage } from './settings/NotificationsPage';
+import { TagsPage } from './settings/TagsPage';
 
 // Pages appear here as their phases land: General, Block-outs, Calendars,
 // AI providers, Notifications, Keybindings and Backups (design S1–S9).
@@ -31,6 +33,7 @@ const PAGES: readonly { id: SettingsPage; label: string; icon: Icon }[] = [
   { id: 'general', label: 'General', icon: SlidersHorizontal },
   { id: 'blockouts', label: 'Block-outs', icon: Prohibit },
   { id: 'calendars', label: 'Calendars (ICS)', icon: CalendarDots },
+  { id: 'tags', label: 'Tags', icon: Hash },
   { id: 'notifications', label: 'Notifications', icon: Bell },
   { id: 'ai', label: 'AI providers', icon: Sparkle },
   { id: 'keybindings', label: 'Keybindings', icon: Keyboard },
@@ -62,6 +65,8 @@ function PageBody({ page }: { page: SettingsPage }) {
       return <BlockoutsPage />;
     case 'calendars':
       return <CalendarsPage />;
+    case 'tags':
+      return <TagsPage />;
     case 'notifications':
       return <NotificationsPage />;
     case 'ai':

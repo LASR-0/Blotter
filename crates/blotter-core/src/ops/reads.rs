@@ -42,7 +42,7 @@ pub(super) fn defs() -> Vec<OpDef> {
         ),
         OpDef::new(
             "list_tags",
-            "List every tag in use, lowercased, with how many items carry it.",
+            "List every tag, lowercased, with how many items carry it and its colour (null:              automatic). Tags made in Settings are listed before any item uses them.",
             false,
             list_tags,
         ),
@@ -253,13 +253,31 @@ fn search_items(ctx: &mut Ctx<'_>, a: SearchArgs) -> Result<Vec<Item>> {
 pub struct TagCount {
     pub name: String,
     pub items: u32,
+    pub color: Option<String>,
 }
 
 fn list_tags(ctx: &mut Ctx<'_>, _: NoArgs) -> Result<Vec<TagCount>> {
-    Ok(store::items::list_tags(ctx.conn)?
+    let mut tags: std::collections::BTreeMap<String, TagCount> = store::items::list_tags(ctx.conn)?
         .into_iter()
-        .map(|(name, items)| TagCount { name, items })
-        .collect())
+        .map(|(name, items)| {
+            let t = TagCount {
+                name: name.clone(),
+                items,
+                color: None,
+            };
+            (name, t)
+        })
+        .collect();
+    for t in store::tags::list(ctx.conn)? {
+        tags.entry(t.name.clone())
+            .or_insert(TagCount {
+                name: t.name,
+                items: 0,
+                color: None,
+            })
+            .color = t.color;
+    }
+    Ok(tags.into_values().collect())
 }
 
 fn list_inbox(ctx: &mut Ctx<'_>, _: NoArgs) -> Result<Vec<Item>> {
@@ -658,7 +676,10 @@ mod tests {
         }
         assert_eq!(
             run(&mut p, "list_tags", json!({})),
-            json!([{ "name": "health", "items": 1 }, { "name": "work", "items": 2 }])
+            json!([
+                { "name": "health", "items": 1, "color": null },
+                { "name": "work", "items": 2, "color": null }
+            ])
         );
     }
 }
