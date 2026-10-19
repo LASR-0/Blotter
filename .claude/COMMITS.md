@@ -121,8 +121,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 49 | 14a | `fix(ui): Shift+arrows in the Year view` | committed `ab21b49` |
 | 50 | 14a | `feat(ui): brain-dump draft survives switching views` | committed `1ecc376` |
 | 51 | 14a | `feat(ui): parse preview in the brain-dump box` | committed `08ec23e` |
-| 52 | 14a | `fix(ui): Week view add indicator clears after Enter` | committed (hash in the next entry) |
-| 53 | 14a | `fix(ui): Blotter mark on the setup screens` | planned |
+| 52 | 14a | `fix(ui): Week view add indicator clears after Enter` | committed `9c1078e` |
+| 53 | 14a | `fix(ui): Blotter mark on the setup screens` | committed (hash in the next entry) |
 | 54 | 14b | `feat: tag management in Settings` | planned |
 | 55 | 14b | `feat(ui): themed context menu` | planned |
 | 56 | 14c | `feat(ui): drag items in the Month view and all-day lane` | planned |
@@ -3970,7 +3970,7 @@ Test steps:
 Notes:
     - The Diary rail's one-line box doesn't get the preview (too narrow); quick add (n) has it.
 
-### #52 — Week view add indicator clears after Enter            [status: committed — hash in the next entry]
+### #52 — Week view add indicator clears after Enter            [status: committed 9c1078e]
 Phase: 14a
 Message:
     fix(ui): Week view add indicator clears after Enter
@@ -3989,3 +3989,18 @@ Test steps:
     - pnpm check → clean; Vitest 219
     - Live (pending): Week view, click an empty slot, Enter, type a title, Enter → the new
       item shows with the focus ring, no cursor over it; Tab brings the cursor back
+
+### #53 — Blotter mark on the setup screens            [status: committed — hash in the next entry]
+Phase: 14a
+Message:
+    fix(ui): Blotter mark on the setup screens
+
+    First-run setup's header showed the design's placeholder "B" tile; it
+    now shows the Blotter mark in the theme's logo colours, as the sidebar
+    and About do. It follows the new logo when that lands.
+Files:
+    M  src/app/FirstRun.tsx
+    M  .claude/COMMITS.md
+Test steps:
+    - pnpm check → clean; Vitest 219
+    - Live (pending): palette → "Run setup again" → the header shows the mark

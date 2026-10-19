@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { Dialog } from 'radix-ui';
 import { invoke } from '@tauri-apps/api/core';
 import { LockKey, Power, PushPin } from '@phosphor-icons/react';
+import { BlotterMark } from '@/components/BlotterMark';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { TimeField } from '@/components/ui/time-field';
@@ -522,9 +523,7 @@ function SetupDialog() {
           className="fixed top-[80px] left-1/2 z-41 flex w-[620px] max-w-[calc(100vw-32px)] -translate-x-1/2 flex-col rounded-lg bg-surface-raised text-base text-text shadow-overlay focus:outline-none"
         >
           <div className="flex items-center gap-2.5 px-[22px] pt-4">
-            <span className="grid size-6 place-items-center rounded-[6px] bg-accent text-[13px] font-semibold text-on-accent">
-              B
-            </span>
+            <BlotterMark className="size-6 flex-none" />
             <span className="font-medium">Set up Blotter</span>
             <span className="flex-1" />
             <div aria-hidden className="flex gap-1">
