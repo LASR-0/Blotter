@@ -21,8 +21,8 @@
 // stays a flexible task.
 
 import * as chrono from 'chrono-node';
-import { format } from 'date-fns';
-import { parseDuration } from './duration';
+import { format, parseISO } from 'date-fns';
+import { formatDuration, parseDuration } from './duration';
 import type { Anchoring, ItemKind } from './types';
 
 export type ChipKind =
@@ -248,4 +248,28 @@ export function destination(p: QuickParse): 'inbox' | 'day' | 'calendar' {
   if (p.date && p.time) return 'calendar';
   if (p.date) return 'day';
   return 'inbox';
+}
+
+/** One-line description of what will be created, as in the design preview. */
+export function describeParse(p: QuickParse): string {
+  const parts: string[] = [`${p.anchoring === 'fixed' ? 'Fixed' : 'Flexible'} ${p.kind}`];
+  if (p.date) {
+    const day = format(parseISO(p.date), 'EEE d MMM');
+    if (p.time) {
+      const [h, m] = p.time.split(':').map(Number);
+      const end = (h ?? 0) * 60 + (m ?? 0) + (p.durationMin ?? (p.kind === 'event' ? 60 : 30));
+      const endText = `${String(Math.floor(end / 60) % 24).padStart(2, '0')}:${String(end % 60).padStart(2, '0')}`;
+      parts.push(`${day} ${p.time}–${endText}`);
+    } else {
+      parts.push(day);
+      if (p.durationMin) parts.push(formatDuration(p.durationMin));
+    }
+  } else if (p.durationMin) {
+    parts.push(formatDuration(p.durationMin));
+  }
+  const repeat = p.chips.find((c) => c.kind === 'repeat');
+  if (repeat) parts.push(repeat.value);
+  if (p.priority) parts.push(`!${p.priority}`);
+  if (p.due) parts.push(`due ${format(parseISO(p.due), 'EEE d MMM')}`);
+  return parts.join(' · ');
 }

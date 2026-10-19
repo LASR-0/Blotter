@@ -1,5 +1,4 @@
 import { useMemo, useState, type KeyboardEvent } from 'react';
-import { format, parseISO } from 'date-fns';
 import {
   ArrowsClockwise,
   CalendarBlank,
@@ -19,13 +18,12 @@ import {
 import { Kbd } from '@/components/ui/kbd';
 import { isOpError, runOp } from '@/lib/api';
 import { cn } from '@/lib/cn';
-import { formatDuration } from '@/lib/duration';
 import {
+  describeParse,
   destination,
   parseQuick,
   toCreateArgs,
   type ChipKind,
-  type QuickParse,
 } from '@/lib/quickParse';
 import { tagColor } from '@/lib/tags';
 import type { Item } from '@/lib/types';
@@ -40,30 +38,6 @@ const CHIP_ICONS: Record<ChipKind, Icon> = {
   repeat: ArrowsClockwise,
   due: FlagCheckered,
 };
-
-/** One-line description of what will be created, as in the design preview. */
-function summary(p: QuickParse): string {
-  const parts: string[] = [`${p.anchoring === 'fixed' ? 'Fixed' : 'Flexible'} ${p.kind}`];
-  if (p.date) {
-    const day = format(parseISO(p.date), 'EEE d MMM');
-    if (p.time) {
-      const [h, m] = p.time.split(':').map(Number);
-      const end = (h ?? 0) * 60 + (m ?? 0) + (p.durationMin ?? (p.kind === 'event' ? 60 : 30));
-      const endText = `${String(Math.floor(end / 60) % 24).padStart(2, '0')}:${String(end % 60).padStart(2, '0')}`;
-      parts.push(`${day} ${p.time}–${endText}`);
-    } else {
-      parts.push(day);
-      if (p.durationMin) parts.push(formatDuration(p.durationMin));
-    }
-  } else if (p.durationMin) {
-    parts.push(formatDuration(p.durationMin));
-  }
-  const repeat = p.chips.find((c) => c.kind === 'repeat');
-  if (repeat) parts.push(repeat.value);
-  if (p.priority) parts.push(`!${p.priority}`);
-  if (p.due) parts.push(`due ${format(parseISO(p.due), 'EEE d MMM')}`);
-  return parts.join(' · ');
-}
 
 const DESTINATIONS = {
   inbox: { label: 'Inbox', icon: Tray },
@@ -179,7 +153,7 @@ export function QuickAddPanel({
         <span className="w-1 self-stretch rounded-[2px]" style={{ background: color }} />
         <div className="flex min-w-0 flex-1 flex-col gap-[3px]">
           <span className="truncate font-medium">{parsed.title || 'Untitled'}</span>
-          <span className="font-mono text-xs text-text-muted">{summary(parsed)}</span>
+          <span className="font-mono text-xs text-text-muted">{describeParse(parsed)}</span>
         </div>
         <span className="flex items-center gap-[5px] rounded-full border border-border-strong px-2 py-0.5 text-xs whitespace-nowrap text-text-muted">
           <dest.icon />

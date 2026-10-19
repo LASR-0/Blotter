@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { destination, parseQuick, toCreateArgs } from './quickParse';
+import { describeParse, destination, parseQuick, toCreateArgs } from './quickParse';
 
 // Wednesday 14 October 2026, 09:00 local.
 const NOW = new Date(2026, 9, 14, 9, 0);
@@ -112,5 +112,17 @@ describe('parseQuick', () => {
     expect(p('email bob@example.com').title).toBe('email bob@example.com');
     expect(p('fix issue #42').tags).toEqual(['42']);
     expect(p('buy 4 apples ~soon').title).toBe('buy 4 apples ~soon');
+  });
+});
+
+describe('describeParse', () => {
+  it('says what an event line will create', () => {
+    expect(describeParse(parseQuick('dentist tue 3pm ~45m', NOW))).toBe(
+      'Fixed event · Tue 20 Oct 15:00–15:45',
+    );
+  });
+
+  it('keeps an undated task short', () => {
+    expect(describeParse(parseQuick('laundry ~1h !2', NOW))).toBe('Flexible task · 1h · !2');
   });
 });

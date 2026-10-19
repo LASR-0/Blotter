@@ -7,6 +7,7 @@ import { useFocus, useScrollFocusIntoView, useViewController } from '@/app/focus
 import { useOverlay } from '@/app/overlay';
 import { useSelection } from '@/app/selection';
 import { EmptyState, ErrorPanel } from '@/components/EmptyState';
+import { ParseLines } from '@/components/ParseLines';
 import { Kbd } from '@/components/ui/kbd';
 import { isOpError, runBatch } from '@/lib/api';
 import { cn } from '@/lib/cn';
@@ -141,10 +142,14 @@ export function InboxView() {
             aria-label="Brain-dump tasks, one per line"
             className="max-h-[50vh] resize-none overflow-y-auto bg-transparent px-3 py-2.5 text-md text-text outline-none"
           />
-          <div className="flex items-center gap-3 border-t border-border px-2.5 py-1.5 text-xs text-text-muted">
+          <ParseLines text={draft} className="border-t border-border px-3 py-2" />
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-border px-2.5 py-1.5 text-xs text-text-muted">
+            <span className="font-mono">tue 3pm</span>
             <span className="font-mono">~45m</span>
             <span className="font-mono">#tag</span>
             <span className="font-mono">!1–!3</span>
+            <span className="font-mono">@fixed</span>
+            <span className="font-mono">every mon</span>
             <span className="font-mono">due fri</span>
             <span className="flex-1" />
             <span className="flex items-center gap-1.5">

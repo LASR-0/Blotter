@@ -119,8 +119,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 47 | 14a | `fix(ui): held arrows keep moving focus and items` | committed `4502a85` |
 | 48 | 14a | `fix(ui): resize handle wins over move` | committed `24eddd5` |
 | 49 | 14a | `fix(ui): Shift+arrows in the Year view` | committed `ab21b49` |
-| 50 | 14a | `feat(ui): brain-dump draft survives switching views` | committed (hash in the next entry) |
-| 51 | 14a | `feat(ui): parse preview in the brain-dump box` | planned |
+| 50 | 14a | `feat(ui): brain-dump draft survives switching views` | committed `1ecc376` |
+| 51 | 14a | `feat(ui): parse preview in the brain-dump box` | committed (hash in the next entry) |
 | 52 | 14a | `fix(ui): Week view add indicator clears after Enter` | planned |
 | 53 | 14a | `fix(ui): Blotter mark on the setup screens` | planned |
 | 54 | 14b | `feat: tag management in Settings` | planned |
@@ -3924,7 +3924,7 @@ Notes:
     - Read as a request (Shift+←/→ should jump a month); if Luke meant a bug where it skipped
       two months, this needs his repro: in code nothing handled Shift+arrows here.
 
-### #50 — Brain-dump draft survives switching views            [status: committed — hash in the next entry]
+### #50 — Brain-dump draft survives switching views            [status: committed 1ecc376]
 Phase: 14a
 Message:
     feat(ui): brain-dump draft survives switching views
@@ -3942,3 +3942,30 @@ Files:
 Test steps:
     - pnpm check → clean; Vitest 217
     - Live (pending): type two lines in the Inbox box, g w, g i → both lines still there
+
+### #51 — Parse preview in the brain-dump box            [status: committed — hash in the next entry]
+Phase: 14a (Luke: "syntax displayed for events on the inbox dump as well")
+Message:
+    feat(ui): parse preview in the brain-dump box
+
+    As you type in the Inbox's brain-dump box, each line shows what it
+    will create, read with the quick-add grammar: title, kind (an event
+    when it reads like one, e.g. "dentist tue 3pm" is a fixed event),
+    when, tags, and where it lands (Inbox, Diary or Calendar). Six lines
+    show, then "+N more". The hint row lists the date/time, @fixed and
+    "every" syntax too, not just ~duration, #tag, !priority and due.
+
+    The quick-add summary moves into quickParse as describeParse so both
+    places describe a line the same way.
+Files:
+    A  src/components/ParseLines.tsx
+    M  src/lib/quickParse.ts, src/lib/quickParse.test.ts   (describeParse; 2 tests)
+    M  src/components/QuickAddPanel.tsx
+    M  src/views/inbox/InboxView.tsx
+    M  .claude/COMMITS.md
+Test steps:
+    - pnpm check → clean; Vitest 219
+    - Live (pending): type "dentist tue 3pm" and "laundry ~1h #home" → Fixed event … Calendar,
+      Flexible task · 1h · #home … Inbox
+Notes:
+    - The Diary rail's one-line box doesn't get the preview (too narrow); quick add (n) has it.
