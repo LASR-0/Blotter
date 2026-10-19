@@ -35,6 +35,7 @@ import { QuickAddDialog } from './QuickAddDialog';
 import { SIDEBAR_AUTO_COLLAPSE_PX, useNav } from './nav';
 import { useOverlay } from './overlay';
 import { ShortcutSheet } from './ShortcutSheet';
+import { ContextMenu } from './ContextMenu';
 import { Sidebar } from './Sidebar';
 import { TopBar } from './TopBar';
 import { ChatPanel } from '@/chat/ChatPanel';
@@ -164,6 +165,7 @@ export function AppShell() {
       <ReminderToasts />
       <Notice />
       <DragLayer windows={windows} />
+      <ContextMenu />
     </div>
   );
 }

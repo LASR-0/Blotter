@@ -137,6 +137,7 @@ export function TimelineRail({
               <div
                 key={item.id}
                 title={item.title}
+                data-menu-item={item.id}
                 onDoubleClick={() => useOverlay.getState().openItem({ id: item.id })}
                 onPointerDown={(e) => {
                   const r = e.currentTarget.getBoundingClientRect();

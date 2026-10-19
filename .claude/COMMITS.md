@@ -123,8 +123,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 51 | 14a | `feat(ui): parse preview in the brain-dump box` | committed `08ec23e` |
 | 52 | 14a | `fix(ui): Week view add indicator clears after Enter` | committed `9c1078e` |
 | 53 | 14a | `fix(ui): Blotter mark on the setup screens` | committed `5b36d32` |
-| 54 | 14b | `feat: tag management in Settings` | committed (hash in the next entry) |
-| 55 | 14b | `feat(ui): themed context menu` | planned |
+| 54 | 14b | `feat: tag management in Settings` | committed `ab38e15` |
+| 55 | 14b | `feat(ui): themed context menu` | committed (hash in the next entry) |
 | 56 | 14c | `feat(ui): drag items in the Month view and all-day lane` | planned |
 | 57 | 14d | `feat: task context in quick add and Smart slot` | planned |
 | 58 | 14d | `feat(core): holidays` | planned |
@@ -4005,7 +4005,7 @@ Test steps:
     - pnpm check → clean; Vitest 219
     - Live (pending): palette → "Run setup again" → the header shows the mark
 
-### #54 — Tag management in Settings            [status: committed — hash in the next entry]
+### #54 — Tag management in Settings            [status: committed ab38e15]
 Phase: 14b (Luke: "I can't see where to see tags or edit and delete them")
 Message:
     feat: tag management in Settings
@@ -4046,3 +4046,33 @@ Notes:
     - The MCP server now lists 31 tools (set_tag, rename_tag, delete_tag are agent-callable and
       go through Propose like every mutation).
     - The sidebar's "Calendars & tags" + still opens Calendars; Tags is next to it in Settings.
+
+### #55 — Themed context menu            [status: committed — hash in the next entry]
+Phase: 14b (Luke: "right click menu themable?")
+Message:
+    feat(ui): themed context menu
+
+    Right-click opens Blotter's own menu, drawn in the theme, instead of
+    the browser's Back / Reload / Inspect menu.
+
+    - On an item (Diary card, Week and timeline blocks, Month chips and
+      day popover, Inbox rows): Open, Mark done / not done, Move to Inbox
+      (scheduled flexible tasks), Delete (with the usual confirmation).
+    - On a day (Diary column, Week or timeline grid, Month cell): Add item
+      on this day, or at the half hour under the pointer on a time grid,
+      and Lift block-outs on this day.
+
+    Text fields keep the browser menu for copy, paste and spelling, and
+    Shift+right-click still opens it everywhere, for the dev tools.
+Files:
+    A  src/app/ContextMenu.tsx
+    M  src/app/AppShell.tsx
+    M  src/views/MonthView.tsx            (data-menu-item on chips, data-date on cells)
+    M  src/views/diary/TimelineRail.tsx   (data-menu-item)
+    M  .claude/COMMITS.md
+Test steps:
+    - pnpm check → clean; Vitest 222
+    - Live (pending): right-click a Week block, a Diary card, a Month chip, an empty Week
+      slot (shows its time), a Month cell, and the brain-dump box (browser menu); each theme
+Notes:
+    - Main window only; the chat pop-out and quick capture keep the browser menu.

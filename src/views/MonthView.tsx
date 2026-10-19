@@ -49,6 +49,7 @@ function Chip({ item }: { item: Item }) {
   return (
     <div
       title={`${chipTime(item)} ${item.title}`}
+      data-menu-item={item.id}
       onDoubleClick={() => useOverlay.getState().openItem({ id: item.id })}
       style={{
         background: `color-mix(in srgb, ${color} ${done ? 7 : 16}%, var(--color-bg))`,
@@ -121,6 +122,7 @@ function DayPopover({
               <button
                 type="button"
                 key={item.id}
+                data-menu-item={item.id}
                 onClick={() => useOverlay.getState().openItem({ id: item.id })}
                 title="Open"
                 style={{
@@ -249,6 +251,7 @@ export function MonthView() {
           return (
             <div
               key={day.getTime()}
+              data-date={isoDate(day)}
               aria-selected={focused}
               onClick={() => setChosen(day)}
               className={cn(
