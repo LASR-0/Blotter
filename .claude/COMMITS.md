@@ -127,12 +127,13 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 55 | 14b | `feat(ui): themed context menu` | committed `a836678` |
 | 56 | 14c | `feat(ui): drag items in the Month view and all-day lane` | committed `5b957f5` |
 | 57 | 14d | `feat: task context in quick add and Smart slot` | committed `99707a6` |
-| 58 | 14d | `feat(core): holidays` | committed (hash in the next entry) |
+| 58 | 14d | `feat(core): holidays` | committed `cfc4052` |
 | 59 | 14d | `feat(core): task windows with replanning` | planned |
 | 60 | 14d | `feat: weekly tasks` | planned |
 | 61 | 14e | `feat(ai): Codex CLI sessions` | planned |
 | 62 | 14e | `feat(ai): Consult me slot mode` | planned |
 | 63 | 14f | `feat(ui): new Blotter logo` | committed `690777d` |
+| 63a | 14f | `fix(ui): no grey edge on the logo's spark and rings` | committed (hash in the next entry) |
 | 64 | 14f | `chore(release): v1.1.0` | planned |
 
 ---
@@ -4165,7 +4166,7 @@ Test steps:
     - pnpm check → clean; Vitest 224
     - cargo test -p blotter-core smart_slot → ok
 
-### #58 — Holidays            [status: committed — hash in the next entry]
+### #58 — Holidays            [status: committed cfc4052]
 Phase: 14d (Luke: holidays are a type of block-out that lift the block-outs they collide
 with, expire on their own, allow everything but work, and prioritise #holiday tasks)
 Message:
@@ -4216,3 +4217,20 @@ Notes:
     - "Work" means the #work tag. A block-out made after a holiday isn't lifted on its days
       (edit the holiday to re-lift).
     - Expiry is checked every minute while the app runs, and at startup.
+
+### #63a — No grey edge on the logo's spark and rings            [status: committed — hash in the next entry]
+Phase: 14f (Luke: "remove the gray outlines off the star and the calendar binder")
+Message:
+    fix(ui): no grey edge on the logo's spark and rings
+
+    The light presets' --logo-outline drew a grey edge round the spark and
+    the binder rings. The mark no longer strokes them; they are flat
+    --logo-page like the rest of the drawing.
+Files:
+    M  src/components/BlotterMark.tsx
+    M  .claude/COMMITS.md
+Test steps:
+    - pnpm check → clean
+Notes:
+    - --logo-outline is still set by the presets but nothing reads it now. The app icon
+      and favicon never had the edge.

@@ -6,19 +6,11 @@ import { cn } from '@/lib/cn';
 // The geometry matches public/blotter.svg (the brand icon, 1024 grid) minus
 // its backdrop tile; keep the two in step. Colours come from theme tokens,
 // and each part can be overridden with a --logo-* variable (themes set
-// --logo-accent, --logo-page and --logo-outline). The window is cut out, so
+// --logo-accent and --logo-page). The window is cut out, so
 // whatever sits behind the mark shows through.
 const ACCENT = 'var(--logo-accent, var(--color-accent))';
 const PAGE = 'var(--logo-page, var(--color-text))';
 const FOLD = `var(--logo-fold, color-mix(in srgb, ${ACCENT} 72%, #000))`;
-// Light themes give the light parts a thin edge; drawn behind the fill, so the shape stays the same.
-const EDGED = {
-  fill: PAGE,
-  stroke: 'var(--logo-outline, transparent)',
-  strokeWidth: 28,
-  paintOrder: 'stroke',
-  strokeLinejoin: 'round',
-} as const;
 
 /** The page: two bowls on the right, with the window cut out. */
 const MARK_BODY =
@@ -34,21 +26,16 @@ export function BlotterMark({ className }: { className?: string }) {
   const clip = useId();
   return (
     // Cropped tight to the artwork (its bottom edge is the drawing's), so a word set on
-    // its baseline lines up; overflow shows the light themes' outline at the edges.
-    <svg
-      viewBox="219 206 615 615"
-      overflow="visible"
-      aria-hidden
-      className={cn('block', className)}
-    >
+    // its baseline lines up.
+    <svg viewBox="219 206 615 615" aria-hidden className={cn('block', className)}>
       <clipPath id={clip}>
         <path clipRule="evenodd" d={MARK_BODY} />
       </clipPath>
       <path style={{ fill: ACCENT }} fillRule="evenodd" d={MARK_BODY} />
       <path style={{ fill: FOLD }} clipPath={`url(#${clip})`} d={MARK_SWEEP} />
-      <path style={EDGED} d={MARK_SPARK} />
-      <rect x="356" y="206" width="58" height="134" rx="29" style={EDGED} />
-      <rect x="586" y="206" width="58" height="134" rx="29" style={EDGED} />
+      <path style={{ fill: PAGE }} d={MARK_SPARK} />
+      <rect x="356" y="206" width="58" height="134" rx="29" style={{ fill: PAGE }} />
+      <rect x="586" y="206" width="58" height="134" rx="29" style={{ fill: PAGE }} />
     </svg>
   );
 }
