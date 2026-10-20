@@ -83,7 +83,8 @@ would plan their own week rather than packing tasks back to back.\n\nTasks:\n",
     let _ = write!(
         p,
         "\nToday is {}. First read the calendar for the next two weeks (list_agenda, \
-list_blockout_windows, list_calendar_events) so you know what's already there.\n\n\
+list_blockout_windows, list_calendar_events, list_holidays) so you know what's already \
+there.\n\n\
 How to place them:\n\
 - Fit the kind of task to the time. Personal, home, social and errand tasks suit weekends \
 and evenings; work tasks suit working days, around the work block-out if there is one. \
@@ -91,6 +92,8 @@ Health and exercise suit mornings or early evenings. Use the tags, the title and
 to tell.\n\
 - A task's context is the user's own note on it (when it can happen, what it needs, who it \
 involves). Follow it over these general rules.\n\
+- Holidays are days away from the usual week: never put a work task on one; tasks tagged \
+holiday get first pick of them, and other personal tasks may go there too.\n\
 - Leave breathing room: at least 15 minutes between items, more after long or demanding \
 ones. Don't stack a day solid; spread tasks across days instead of filling one.\n\
 - Allow travel time. When a task happens somewhere else (a location, or an errand like \

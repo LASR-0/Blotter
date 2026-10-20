@@ -45,7 +45,9 @@ import { layoutAllDay, layoutDay, type Placed } from '@/lib/layout';
 import { isoDate, weekStartsOn } from '@/lib/period';
 import { useOp } from '@/lib/queries';
 import { itemColor } from '@/lib/tags';
-import type { Agenda, Item } from '@/lib/types';
+import { useHolidayOn } from '@/lib/holidays';
+import type { Agenda, Holiday, Item } from '@/lib/types';
+import { HolidayTag } from '@/components/HolidayTag';
 import { useBlockoutWindows } from '@/lib/useBlockoutWindows';
 import { useNow } from '@/lib/useNow';
 
@@ -283,6 +285,7 @@ export function WeekView() {
   const allDayRows = Math.max(1, ...allDay.map((p) => p.row + 1));
   // The all-day cell a dragged item would drop on, tinted.
   const dropDay = useDrag((s) => (s.hover?.kind === 'day' ? isoDate(s.hover.date) : null));
+  const holidayOn = useHolidayOn();
 
   const columns = useMemo(
     () =>
@@ -481,6 +484,9 @@ export function WeekView() {
                   >
                     {format(d, 'd')}
                   </span>
+                  {holidayOn(isoDate(d)) && (
+                    <HolidayTag holiday={holidayOn(isoDate(d)) as Holiday} className="ml-auto" />
+                  )}
                 </div>
               );
             })}

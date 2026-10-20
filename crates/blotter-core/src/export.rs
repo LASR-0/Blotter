@@ -35,6 +35,9 @@ pub struct Export {
     /// Tag colours and tags made ahead of use (absent in 1.0 exports).
     #[serde(default)]
     pub tags: Vec<store::tags::Tag>,
+    /// Holidays (absent in 1.0 exports).
+    #[serde(default)]
+    pub holidays: Vec<crate::model::Holiday>,
     /// User settings; this install's own (theme, snapshot folder…) are left out.
     pub settings: BTreeMap<String, Value>,
 }
@@ -73,6 +76,7 @@ pub fn export(conn: &rusqlite::Connection, now: Instant) -> Result<Export> {
         blockouts: store::blockouts::list(conn)?,
         blockout_exceptions: store::blockouts::list_exceptions(conn, None, None)?,
         tags: store::tags::list(conn)?,
+        holidays: store::holidays::list(conn)?,
         settings,
     })
 }
@@ -118,6 +122,7 @@ fn replace_all(db: &mut Database, e: &Export) -> Result<()> {
         "items",
         "blockouts",
         "tags",
+        "holidays",
         "changes",
     ] {
         tx.execute(&format!("DELETE FROM {table}"), [])?;
@@ -144,6 +149,9 @@ fn replace_all(db: &mut Database, e: &Export) -> Result<()> {
     }
     for t in &e.tags {
         store::tags::upsert(&tx, t)?;
+    }
+    for h in &e.holidays {
+        store::holidays::upsert(&tx, h)?;
     }
     for (key, v) in e
         .settings

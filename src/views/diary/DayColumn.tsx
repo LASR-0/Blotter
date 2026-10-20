@@ -9,7 +9,9 @@ import { eventTimes, eventTitle, type ShownEvent } from '@/lib/calendarEvents';
 import { cn } from '@/lib/cn';
 import { formatDuration } from '@/lib/duration';
 import { isoDate } from '@/lib/period';
+import { useHolidayOn } from '@/lib/holidays';
 import type { Item } from '@/lib/types';
+import { HolidayTag } from '@/components/HolidayTag';
 
 export interface DayColumnProps {
   day: Date;
@@ -141,6 +143,7 @@ export function DayColumn({
     if (item.id === draggingId) return null;
     return insertAt === cardIndex++ ? <InsertLine /> : null;
   };
+  const holiday = useHolidayOn()(isoDate(day));
   const freeMin = Math.max(0, availableMin - plannedMin);
   const pct =
     availableMin > 0 ? Math.min(100, (plannedMin / availableMin) * 100) : plannedMin > 0 ? 100 : 0;
@@ -178,6 +181,7 @@ export function DayColumn({
             </span>
           )}
         </div>
+        {holiday && <HolidayTag holiday={holiday} className="self-start text-xs" />}
         <div className="flex flex-col gap-[5px]">
           <div
             role="meter"

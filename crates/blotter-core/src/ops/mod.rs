@@ -8,6 +8,7 @@
 
 mod blockouts;
 mod history;
+mod holidays;
 mod ics;
 pub mod input;
 mod items;
@@ -238,6 +239,7 @@ impl Registry {
             .chain(rollover::defs())
             .chain(settings::defs())
             .chain(tags::defs())
+            .chain(holidays::defs())
             .chain(undo::defs())
             .chain(ics::defs())
             .chain(history::defs())

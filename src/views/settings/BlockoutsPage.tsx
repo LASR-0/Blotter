@@ -33,6 +33,7 @@ import { cn } from '@/lib/cn';
 import { parseTime } from '@/lib/format';
 import { useOp } from '@/lib/queries';
 import type { Blockout } from '@/lib/types';
+import { HolidaysSection } from './HolidaysSection';
 
 const errorText = (e: unknown) =>
   isOpError(e) ? e.message : e instanceof Error ? e.message : String(e);
@@ -245,6 +246,8 @@ export function BlockoutsPage() {
           )}
         </div>
       )}
+
+      <HolidaysSection blockouts={list} />
     </div>
   );
 }

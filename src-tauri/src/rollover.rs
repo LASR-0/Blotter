@@ -10,6 +10,8 @@ use std::time::Duration;
 use serde_json::{Value, json};
 use tauri::{AppHandle, Emitter, Manager, State};
 
+use blotter_core::model::Actor;
+
 use crate::AppState;
 use crate::commands::CHANGED_EVENT;
 
@@ -29,6 +31,7 @@ pub fn start(app: AppHandle) {
         .spawn(move || {
             loop {
                 check(&app);
+                prune_holidays(&app);
                 crate::backups::daily(&app);
                 crate::ai::chat::briefing_if_due(&app);
                 thread::sleep(CHECK_EVERY);
@@ -65,6 +68,29 @@ fn check(app: &AppHandle) {
         }
         Ok(None) => {}
         Err(err) => eprintln!("blotter: rollover failed: {err}"),
+    }
+}
+
+/// Removes holidays whose last day has passed (they drop out of Settings →
+/// Block-outs on their own). A no-op, writing nothing, on most checks.
+fn prune_holidays(app: &AppHandle) {
+    let Some(state) = app.try_state::<AppState>() else {
+        return;
+    };
+    let outcome = match state.planner.lock() {
+        Ok(mut planner) => planner.execute("prune_holidays", json!({}), &Actor::System),
+        Err(_) => return,
+    };
+    match outcome {
+        Ok(outcome) => {
+            if let Some(batch_id) = outcome.batch_id {
+                let _ = app.emit(
+                    CHANGED_EVENT,
+                    json!({ "batch_id": batch_id, "ops": ["prune_holidays"] }),
+                );
+            }
+        }
+        Err(err) => eprintln!("blotter: removing past holidays failed: {err}"),
     }
 }
 

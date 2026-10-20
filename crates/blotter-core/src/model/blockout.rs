@@ -49,6 +49,9 @@ pub struct BlockoutException {
     pub date: NaiveDate,
     pub note: String,
     pub created_at: Instant,
+    /// The holiday that lifted the block-out on this date, if one did.
+    #[serde(default)]
+    pub holiday_id: Option<String>,
 }
 
 /// A set of weekdays, stored as a bitmask (Monday = 1 … Sunday = 64) and

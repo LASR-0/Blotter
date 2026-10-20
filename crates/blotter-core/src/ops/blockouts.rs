@@ -243,6 +243,7 @@ fn add_blockout_exception(ctx: &mut Ctx<'_>, a: AddExceptionArgs) -> Result<Bloc
         date: a.date.0,
         note: a.note.trim().to_owned(),
         created_at: ctx.now,
+        holiday_id: None,
     };
     store::blockouts::upsert_exception(ctx.conn, &e)?;
     ctx.record(EXCEPTION_ENTITY, &e.id, None, Some(&e))?;

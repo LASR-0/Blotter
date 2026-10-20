@@ -126,8 +126,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 54 | 14b | `feat: tag management in Settings` | committed `ab38e15` |
 | 55 | 14b | `feat(ui): themed context menu` | committed `a836678` |
 | 56 | 14c | `feat(ui): drag items in the Month view and all-day lane` | committed `5b957f5` |
-| 57 | 14d | `feat: task context in quick add and Smart slot` | committed (hash in the next entry) |
-| 58 | 14d | `feat(core): holidays` | planned |
+| 57 | 14d | `feat: task context in quick add and Smart slot` | committed `99707a6` |
+| 58 | 14d | `feat(core): holidays` | committed (hash in the next entry) |
 | 59 | 14d | `feat(core): task windows with replanning` | planned |
 | 60 | 14d | `feat: weekly tasks` | planned |
 | 61 | 14e | `feat(ai): Codex CLI sessions` | planned |
@@ -4140,7 +4140,7 @@ Notes:
     - --logo-cell and --logo-done no longer have anything to colour (the old grid's cells).
     - Colours are left to Luke in the theme engine; the presets still share one logo palette.
 
-### #57 — Task context in quick add and Smart slot            [status: committed — hash in the next entry]
+### #57 — Task context in quick add and Smart slot            [status: committed 99707a6]
 Phase: 14d (Luke: "// is fine … notes is the right call")
 Message:
     feat: task context in quick add and Smart slot
@@ -4164,3 +4164,55 @@ Files:
 Test steps:
     - pnpm check → clean; Vitest 224
     - cargo test -p blotter-core smart_slot → ok
+
+### #58 — Holidays            [status: committed — hash in the next entry]
+Phase: 14d (Luke: holidays are a type of block-out that lift the block-outs they collide
+with, expire on their own, allow everything but work, and prioritise #holiday tasks)
+Message:
+    feat(core): holidays
+
+    A holiday is a date range away from the usual week, made in
+    Settings → Block-outs → Holidays (or by the AI, through Propose).
+
+    - Making one lifts every block-out that falls on its days: an
+      exception per block-out and date, noted "Holiday: <name>" and
+      carrying the holiday's id, shown with the block-out's other
+      exceptions. Dates the user had already lifted are left alone.
+      Changing the dates moves the lifts; deleting it puts the
+      block-outs back. Each is one undoable batch.
+    - Slotting: work-tagged tasks are kept off holiday days (the holiday
+      joins their block-outs), every other task may go there, and tasks
+      tagged #holiday are placed first so they get first pick. Smart
+      slot reads list_holidays and is told the same rules.
+    - Once a holiday's last day has passed it is removed by the app's
+      minute check (prune_holidays, as the system), so it drops out of
+      Settings on its own.
+    - The Diary, Week and Month day headers show a holiday tag.
+
+    Core: migration 0007 (holidays table; holiday_id on block-out
+    exceptions), store and ops (list_holidays, create_holiday,
+    update_holiday, delete_holiday, prune_holidays), "holiday" in undo,
+    holidays in the JSON export.
+Files:
+    A  crates/blotter-core/migrations/0007_holidays.sql
+    A  crates/blotter-core/src/model/holiday.rs
+    A  crates/blotter-core/src/store/holidays.rs
+    A  crates/blotter-core/src/ops/holidays.rs     (4 tests)
+    M  crates/blotter-core/src/db.rs, model/mod.rs, model/blockout.rs, store/mod.rs,
+       store/blockouts.rs, ops/mod.rs, ops/blockouts.rs, ops/undo.rs, ops/slots.rs,
+       export.rs, smart_slot.rs, windows.rs
+    M  src-tauri/src/rollover.rs                   (prune each minute check)
+    A  src/views/settings/HolidaysSection.tsx, src/components/HolidayTag.tsx, src/lib/holidays.ts
+    M  src/views/settings/BlockoutsPage.tsx, src/lib/types.ts
+    M  src/views/WeekView.tsx, src/views/MonthView.tsx, src/views/diary/DayColumn.tsx
+    M  .claude/COMMITS.md
+Test steps:
+    - cargo test --workspace → 180 core (+4 holidays) + 47 app + 6 mcp; clippy -D warnings / fmt
+    - pnpm check → clean; Vitest 224
+    - Live (pending): add a holiday over a work week → Work shows those dates lifted,
+      day headers show the tag; Auto-slot leaves a #work task out of it and puts a
+      #holiday task in; delete → lifts gone; Ctrl+Z → back
+Notes:
+    - "Work" means the #work tag. A block-out made after a holiday isn't lifted on its days
+      (edit the holiday to re-lift).
+    - Expiry is checked every minute while the app runs, and at startup.

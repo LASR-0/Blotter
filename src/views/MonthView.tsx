@@ -32,7 +32,9 @@ import { timeOf } from '@/lib/format';
 import { isoDate, weekStartsOn } from '@/lib/period';
 import { useOp } from '@/lib/queries';
 import { itemColor } from '@/lib/tags';
-import type { Agenda, Item } from '@/lib/types';
+import { useHolidayOn } from '@/lib/holidays';
+import type { Agenda, Holiday, Item } from '@/lib/types';
+import { HolidayTag } from '@/components/HolidayTag';
 import { useBlockoutWindows } from '@/lib/useBlockoutWindows';
 import { useNow } from '@/lib/useNow';
 
@@ -184,6 +186,7 @@ export function MonthView() {
   const anchor = useNav((s) => s.anchor);
   // The day a dragged item would drop on, outlined.
   const dropDay = useDrag((s) => (s.hover?.kind === 'day' ? isoDate(s.hover.date) : null));
+  const holidayOn = useHolidayOn();
   const openWeek = useNav((s) => s.openWeek);
   const now = useNow(60_000);
   const days = useMemo(() => {
@@ -291,6 +294,9 @@ export function MonthView() {
                 >
                   {day.getDate() === 1 ? format(day, 'MMM d') : format(day, 'd')}
                 </button>
+                {holidayOn(isoDate(day)) && (
+                  <HolidayTag holiday={holidayOn(isoDate(day)) as Holiday} className="min-w-0" />
+                )}
                 {dayBlocks.length > 0 && (
                   <span
                     title={dayBlocks.map((b) => windowTitle(b.window)).join('\n')}

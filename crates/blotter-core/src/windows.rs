@@ -191,6 +191,7 @@ mod tests {
             date: on,
             note: String::new(),
             created_at: at(2026, 1, 1, 0, 0),
+            holiday_id: None,
         }
     }
 

@@ -18,7 +18,37 @@ use crate::slots::{Interval, Slot, SlotEngine, overlapping};
 use crate::store;
 use crate::store::items::ItemRange;
 use crate::time::Instant;
-use crate::windows;
+use crate::windows::{self, BlockoutWindow};
+
+/// Tasks with this tag aren't slotted on holidays.
+const WORK_TAG: &str = "work";
+/// Tasks with this tag are slotted first, so they get the holiday's days.
+const HOLIDAY_TAG: &str = "holiday";
+
+fn has_tag(item: &Item, tag: &str) -> bool {
+    item.tags.iter().any(|t| t.eq_ignore_ascii_case(tag))
+}
+
+/// Each holiday overlapping `[from, until)` as one whole-days window.
+fn holiday_windows(ctx: &Ctx<'_>, from: Instant, until: Instant) -> Result<Vec<BlockoutWindow>> {
+    let tz = ctx.settings.tz;
+    let first = from.with_timezone(&tz).date_naive();
+    let last = until.with_timezone(&tz).date_naive();
+    Ok(store::holidays::overlapping(ctx.conn, first, last)?
+        .into_iter()
+        .map(|h| BlockoutWindow {
+            blockout_id: h.id,
+            label: format!("Holiday: {}", h.label),
+            date: h.start_date,
+            start: start_of_day(tz, h.start_date),
+            end: start_of_day(tz, h.end_date.succ_opt().unwrap_or(h.end_date)),
+            permits_fixed: true,
+            color: h.color,
+            subscription_id: None,
+            calendar: None,
+        })
+        .collect())
+}
 
 /// How far ahead slot searches look when no `until` is given.
 const DEFAULT_SEARCH_DAYS: i64 = 14;
@@ -262,9 +292,11 @@ pub(crate) fn place(
     };
     let mut placed = Vec::new();
     let mut unplaced = Vec::new();
-    // Due date (none last), then priority, then longest first.
+    // Holiday tasks first (they get first pick of a holiday's days), then due
+    // date (none last), then priority, then longest first.
     tasks.sort_by_key(|i| {
         (
+            !has_tag(i, HOLIDAY_TAG),
             i.due_at.is_none(),
             i.due_at,
             Reverse(i.priority),
@@ -274,6 +306,9 @@ pub(crate) fn place(
 
     let buffer = buffer(ctx);
     let blockouts = windows::load(ctx.conn, ctx.settings.tz, from, until)?;
+    // Work tasks also stay off holidays: the holidays join their block-outs.
+    let mut work_blockouts = blockouts.clone();
+    work_blockouts.extend(holiday_windows(ctx, from, until)?);
     // The tasks being placed don't block each other's old spots.
     let moving: HashSet<String> = tasks.iter().map(|i| i.id.clone()).collect();
     let mut busy = busy_time(ctx, from - buffer, until + buffer, &moving)?;
@@ -323,7 +358,11 @@ pub(crate) fn place(
         let engine = SlotEngine {
             tz,
             planning: &ctx.settings.planning_hours,
-            blockouts: &blockouts,
+            blockouts: if has_tag(&item, WORK_TAG) {
+                &work_blockouts
+            } else {
+                &blockouts
+            },
             busy: &busy,
             buffer,
         };

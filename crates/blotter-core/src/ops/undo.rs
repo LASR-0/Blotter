@@ -91,6 +91,9 @@ fn current(conn: &Connection, entity: &str, id: &str) -> Result<Option<Value>> {
         "tag" => store::tags::get(conn, id)?
             .map(serde_json::to_value)
             .transpose()?,
+        "holiday" => store::holidays::get(conn, id)?
+            .map(serde_json::to_value)
+            .transpose()?,
         other => {
             return Err(CoreError::invalid(format!(
                 "changes to '{other}' can't be undone"
@@ -130,6 +133,7 @@ fn write(ctx: &Ctx<'_>, entity: &str, id: &str, state: Option<&Value>) -> Result
             "blockout_exception" => store::blockouts::delete_exception(conn, id).map(|_| ())?,
             "setting" => store::settings::delete(conn, id)?,
             "tag" => store::tags::delete(conn, id).map(|_| ())?,
+            "holiday" => store::holidays::delete(conn, id).map(|_| ())?,
             _ => unreachable!("checked by current()"),
         }
         return Ok(());
@@ -152,6 +156,7 @@ fn write(ctx: &Ctx<'_>, entity: &str, id: &str, state: Option<&Value>) -> Result
         }
         "setting" => store::settings::set(conn, id, state, ctx.now)?,
         "tag" => store::tags::upsert(conn, &from_state(state)?)?,
+        "holiday" => store::holidays::upsert(conn, &from_state::<crate::model::Holiday>(state)?)?,
         _ => unreachable!("checked by current()"),
     }
     Ok(())
@@ -190,6 +195,7 @@ fn rank(entity: &str) -> u8 {
         "item" => 0,
         "blockout" => 1,
         "reminder" => 2,
+        "holiday" => 1,
         "blockout_exception" => 3,
         _ => 4,
     }

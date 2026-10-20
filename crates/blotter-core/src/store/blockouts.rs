@@ -101,6 +101,7 @@ fn read_exception(row: &Row<'_>) -> Result<BlockoutException> {
         date: time::parse_date("date", &row.get::<_, String>("date")?)?,
         note: row.get("note")?,
         created_at: time::parse_instant("created_at", &row.get::<_, String>("created_at")?)?,
+        holiday_id: row.get("holiday_id")?,
     })
 }
 
@@ -108,16 +109,18 @@ fn read_exception(row: &Row<'_>) -> Result<BlockoutException> {
 /// block-out and date violates the unique constraint.
 pub fn upsert_exception(conn: &Connection, e: &BlockoutException) -> Result<()> {
     conn.execute(
-        "INSERT INTO blockout_exceptions (id, blockout_id, date, note, created_at) \
-         VALUES (:id, :blockout_id, :date, :note, :created_at) \
+        "INSERT INTO blockout_exceptions (id, blockout_id, date, note, created_at, holiday_id) \
+         VALUES (:id, :blockout_id, :date, :note, :created_at, :holiday_id) \
          ON CONFLICT (id) DO UPDATE SET blockout_id = excluded.blockout_id, \
-         date = excluded.date, note = excluded.note, created_at = excluded.created_at",
+         date = excluded.date, note = excluded.note, created_at = excluded.created_at, \
+         holiday_id = excluded.holiday_id",
         named_params! {
             ":id": e.id,
             ":blockout_id": e.blockout_id,
             ":date": time::fmt_date(e.date),
             ":note": e.note,
             ":created_at": time::fmt_instant(e.created_at),
+            ":holiday_id": e.holiday_id,
         },
     )?;
     Ok(())
@@ -125,7 +128,7 @@ pub fn upsert_exception(conn: &Connection, e: &BlockoutException) -> Result<()> 
 
 pub fn get_exception(conn: &Connection, id: &str) -> Result<Option<BlockoutException>> {
     let mut stmt = conn.prepare(
-        "SELECT id, blockout_id, date, note, created_at FROM blockout_exceptions WHERE id = ?1",
+        "SELECT id, blockout_id, date, note, created_at, holiday_id FROM blockout_exceptions WHERE id = ?1",
     )?;
     stmt.query_row([id], |row| Ok(read_exception(row)))
         .optional()?
@@ -147,7 +150,7 @@ pub fn list_exceptions(
         .map(|(f, t)| (Some(time::fmt_date(f)), Some(time::fmt_date(t))))
         .unwrap_or((None, None));
     let mut stmt = conn.prepare(
-        "SELECT id, blockout_id, date, note, created_at FROM blockout_exceptions \
+        "SELECT id, blockout_id, date, note, created_at, holiday_id FROM blockout_exceptions \
          WHERE (:bid IS NULL OR blockout_id = :bid) \
            AND (:from IS NULL OR date >= :from) AND (:to IS NULL OR date <= :to) \
          ORDER BY date, blockout_id",
@@ -204,6 +207,7 @@ mod tests {
             date: d(20),
             note: "Leave".into(),
             created_at: b.created_at,
+            holiday_id: None,
         };
         upsert_exception(db.conn(), &e).unwrap();
         let dup = BlockoutException {

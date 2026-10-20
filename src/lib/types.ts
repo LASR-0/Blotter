@@ -44,6 +44,19 @@ export interface BlockoutException {
   date: string;
   note: string;
   created_at: string;
+  /** The holiday that lifted the block-out on this date, if one did. */
+  holiday_id?: string | null;
+}
+
+/** A stretch of days away from the usual week (inclusive dates). */
+export interface Holiday {
+  id: string;
+  label: string;
+  start_date: string;
+  end_date: string;
+  color: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Blockout {

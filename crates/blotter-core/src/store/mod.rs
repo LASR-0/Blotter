@@ -7,6 +7,7 @@
 pub mod blockouts;
 pub mod changes;
 pub mod chat;
+pub mod holidays;
 pub mod items;
 pub mod keybindings;
 pub mod providers;
