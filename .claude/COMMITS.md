@@ -125,14 +125,14 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 53 | 14a | `fix(ui): Blotter mark on the setup screens` | committed `5b36d32` |
 | 54 | 14b | `feat: tag management in Settings` | committed `ab38e15` |
 | 55 | 14b | `feat(ui): themed context menu` | committed `a836678` |
-| 56 | 14c | `feat(ui): drag items in the Month view and all-day lane` | committed (hash in the next entry) |
+| 56 | 14c | `feat(ui): drag items in the Month view and all-day lane` | committed `5b957f5` |
 | 57 | 14d | `feat: task context in quick add and Smart slot` | planned |
 | 58 | 14d | `feat(core): holidays` | planned |
 | 59 | 14d | `feat(core): task windows with replanning` | planned |
 | 60 | 14d | `feat: weekly tasks` | planned |
 | 61 | 14e | `feat(ai): Codex CLI sessions` | planned |
 | 62 | 14e | `feat(ai): Consult me slot mode` | planned |
-| 63 | 14f | `feat(ui): new Blotter logo` | planned (after Luke picks) |
+| 63 | 14f | `feat(ui): new Blotter logo` | committed (hash in the next entry) |
 | 64 | 14f | `chore(release): v1.1.0` | planned |
 
 ---
@@ -4077,7 +4077,7 @@ Test steps:
 Notes:
     - Main window only; the chat pop-out and quick capture keep the browser menu.
 
-### #56 — Drag items in the Month view and all-day lane            [status: committed — hash in the next entry]
+### #56 — Drag items in the Month view and all-day lane            [status: committed 5b957f5]
 Phase: 14c (Luke: "make tasks, events and reminders dragable on all tabs month view, week view")
 Message:
     feat(ui): drag items in the Month view and all-day lane
@@ -4104,3 +4104,38 @@ Test steps:
 Notes:
     - Items inside the Month "+N" popover are buttons and don't drag (open the day in Week).
     - Already draggable before this: Week timed blocks, Diary cards, timeline, Inbox rail.
+
+### #63 — New Blotter logo            [status: committed — hash in the next entry]
+Phase: 14f (Luke, 2026-10-20: "Logo A … make the swap"; done ahead of 14d)
+Message:
+    feat(ui): new Blotter logo
+
+    The mark is Luke's concept A (.claude/LogoRedesign1.png), traced as a
+    vector on the 1024 grid: a calendar page whose right edge is a "B",
+    two binder rings, a window cut through the page holding a four-point
+    spark, and a diagonal sweep across its foot.
+
+    - BlotterMark draws it from the theme: the page in --logo-accent, the
+      sweep in a darker shade of it (--logo-fold overrides), the spark and
+      rings in --logo-page, with --logo-outline edging them on light
+      themes. The window is cut out, so the sidebar shows through.
+    - public/blotter.svg (favicon) and src-tauri/icons/app-icon.svg are
+      the same geometry in the Blotter Dark logo colours; the desktop
+      icons are regenerated from the latter.
+    - The wordmark's extrusion is twenty layers instead of four, so it
+      reads as one solid block with no gaps between the copies at the
+      sizes it is shown (sidebar, About, setup, theme preview).
+Files:
+    M  src/components/BlotterMark.tsx
+    M  public/blotter.svg, src-tauri/icons/app-icon.svg
+    M  src-tauri/icons/32x32.png, 64x64.png, 128x128.png, 128x128@2x.png, icon.png, icon.ico, icon.icns
+    M  src/styles.css              (wordmark-shadow: 20 layers)
+    M  .claude/COMMITS.md
+Test steps:
+    - pnpm check → clean; Vitest 222
+    - Rendered app-icon.svg through pnpm tauri icon and looked at the 256px PNG
+    - Live (pending): sidebar, About, setup and the Theme preview's Logo panel in all four
+      presets; the wordmark extrusion at 30px (About) has no steps
+Notes:
+    - --logo-cell and --logo-done no longer have anything to colour (the old grid's cells).
+    - Colours are left to Luke in the theme engine; the presets still share one logo palette.

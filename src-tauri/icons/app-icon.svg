@@ -1,17 +1,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
-  <!-- The app, taskbar and tray icon: public/blotter.svg with a full-bleed tile and the mark at 1.5x, so it reads larger at taskbar sizes. Regenerate with: pnpm tauri icon src-tauri/icons/app-icon.svg -->
+  <!-- The app, taskbar and tray icon: public/blotter.svg with a full-bleed tile and the mark at 1.35x, so it reads larger at taskbar sizes. Regenerate with: pnpm tauri icon src-tauri/icons/app-icon.svg -->
   <rect width="1024" height="1024" rx="200" fill="#121317"/>
-  <g transform="translate(512 512) scale(1.5) translate(-524 -498)">
-    <path fill="#fe5858" fill-rule="evenodd" d="M210 336a90 90 0 0 1 90-90h395a90 90 0 0 1 90 90v84a90 90 0 0 1-90 90H210Z M320 293a40 40 0 1 0 80 0a40 40 0 1 0-80 0Z M585 293a40 40 0 1 0 80 0a40 40 0 1 0-80 0Z"/>
-    <path fill="#fe5858" d="M556 812V640l191-72c55 14 91 64 91 124c0 66-54 120-120 120Z"/>
-    <path fill="#fef6e1" d="M210 396h487c49 0 88 40 88 89c0 32-14 62-38 83L586 716c-19 17-30 41-30 66v30H290a80 80 0 0 1-80-80Z"/>
-    <path fill="#b73f3f" d="M747 568C705 660 650 760 580 806c-7 4-15 6-24 6v-30c0-25 11-49 30-66Z"/>
-    <rect x="331" y="190" width="58" height="125" rx="29" fill="#fef6e1"/>
-    <rect x="596" y="190" width="58" height="125" rx="29" fill="#fef6e1"/>
-    <rect x="266" y="448" width="116" height="114" rx="22" fill="#fec3b5"/>
-    <rect x="414" y="448" width="116" height="114" rx="22" fill="#fe5858"/>
-    <rect x="562" y="448" width="116" height="114" rx="22" fill="#fec3b5"/>
-    <rect x="266" y="596" width="116" height="114" rx="22" fill="#fec3b5"/>
-    <rect x="414" y="596" width="116" height="114" rx="22" fill="#56c49b"/>
+  <g transform="translate(512 512) scale(1.35) translate(-526 -513)">
+    <clipPath id="page"><path clip-rule="evenodd" d="M296 282H655C724 282 778 334 778 402C778 453 752 494 712 521C770 546 806 600 806 666C806 752 739 821 653 821H296C268 821 246 799 246 771V332C246 304 268 282 296 282Z M478 392H648C663 392 674 403 674 418V598L478 704C463 712 452 704 452 688V418C452 403 463 392 478 392Z"/></clipPath>
+    <path fill="#fe5858" fill-rule="evenodd" d="M296 282H655C724 282 778 334 778 402C778 453 752 494 712 521C770 546 806 600 806 666C806 752 739 821 653 821H296C268 821 246 799 246 771V332C246 304 268 282 296 282Z M478 392H648C663 392 674 403 674 418V598L478 704C463 712 452 704 452 688V418C452 403 463 392 478 392Z"/>
+    <path fill="#b73f3f" clip-path="url(#page)" d="M230 814L830 522V840H230Z"/>
+    <path fill="#fef6e1" d="M563 424C578 505 578 505 659 520C578 535 578 535 563 616C548 535 548 535 467 520C548 505 548 505 563 424Z"/>
+    <rect x="356" y="206" width="58" height="134" rx="29" fill="#fef6e1"/>
+    <rect x="586" y="206" width="58" height="134" rx="29" fill="#fef6e1"/>
   </g>
 </svg>

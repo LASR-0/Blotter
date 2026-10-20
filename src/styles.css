@@ -189,11 +189,29 @@
      the baseline and lines up with the mark beside it. */
   position: relative;
   top: calc(-1 * var(--wm-depth));
+  /* Twenty layers 1/20 of the depth apart: no more than half a pixel between
+     copies up to ~100px type, so the extrusion reads as one solid, smooth block. */
   text-shadow:
-    0.025em 0.025em 0 var(--wm),
-    0.05em 0.05em 0 var(--wm),
-    0.075em 0.075em 0 var(--wm),
-    var(--wm-depth) var(--wm-depth) 0 var(--wm);
+    calc(var(--wm-depth) * 0.05) calc(var(--wm-depth) * 0.05) 0 var(--wm),
+    calc(var(--wm-depth) * 0.1) calc(var(--wm-depth) * 0.1) 0 var(--wm),
+    calc(var(--wm-depth) * 0.15) calc(var(--wm-depth) * 0.15) 0 var(--wm),
+    calc(var(--wm-depth) * 0.2) calc(var(--wm-depth) * 0.2) 0 var(--wm),
+    calc(var(--wm-depth) * 0.25) calc(var(--wm-depth) * 0.25) 0 var(--wm),
+    calc(var(--wm-depth) * 0.3) calc(var(--wm-depth) * 0.3) 0 var(--wm),
+    calc(var(--wm-depth) * 0.35) calc(var(--wm-depth) * 0.35) 0 var(--wm),
+    calc(var(--wm-depth) * 0.4) calc(var(--wm-depth) * 0.4) 0 var(--wm),
+    calc(var(--wm-depth) * 0.45) calc(var(--wm-depth) * 0.45) 0 var(--wm),
+    calc(var(--wm-depth) * 0.5) calc(var(--wm-depth) * 0.5) 0 var(--wm),
+    calc(var(--wm-depth) * 0.55) calc(var(--wm-depth) * 0.55) 0 var(--wm),
+    calc(var(--wm-depth) * 0.6) calc(var(--wm-depth) * 0.6) 0 var(--wm),
+    calc(var(--wm-depth) * 0.65) calc(var(--wm-depth) * 0.65) 0 var(--wm),
+    calc(var(--wm-depth) * 0.7) calc(var(--wm-depth) * 0.7) 0 var(--wm),
+    calc(var(--wm-depth) * 0.75) calc(var(--wm-depth) * 0.75) 0 var(--wm),
+    calc(var(--wm-depth) * 0.8) calc(var(--wm-depth) * 0.8) 0 var(--wm),
+    calc(var(--wm-depth) * 0.85) calc(var(--wm-depth) * 0.85) 0 var(--wm),
+    calc(var(--wm-depth) * 0.9) calc(var(--wm-depth) * 0.9) 0 var(--wm),
+    calc(var(--wm-depth) * 0.95) calc(var(--wm-depth) * 0.95) 0 var(--wm),
+    calc(var(--wm-depth) * 1) calc(var(--wm-depth) * 1) 0 var(--wm);
 }
 
 /* Block-out hatching: 135°, 1.5px lines every 8px at 30% of --color-blockout. */
