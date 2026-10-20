@@ -20,6 +20,7 @@ export const TOKEN_NAMES = Object.keys(BASE) as TokenName[];
 const NAMED_COLORS = [
   '--logo-accent',
   '--logo-page',
+  '--logo-shade',
   '--logo-text',
   '--logo-shadow',
   '--titlebar',
@@ -38,6 +39,18 @@ const DERIVED: readonly [TokenName, TokenName][] = [
   ['--titlebar', '--color-bg'],
   ['--titlebar-text', '--color-text'],
 ];
+
+/** `#rrggbb` mixed 72% with black, as `color-mix(… 72%, #000)` would. */
+export function shade(hex: string): string {
+  const n = parseInt(hex.slice(1), 16);
+  return `#${[16, 8, 0]
+    .map((b) =>
+      Math.round(((n >> b) & 255) * 0.72)
+        .toString(16)
+        .padStart(2, '0'),
+    )
+    .join('')}`;
+}
 
 /** A user theme as stored (mirrors `store::themes::UserTheme`). */
 export interface UserTheme {
@@ -186,6 +199,9 @@ export function readTokens(
     const value = vars[from];
     if (!(token in raw) && value) vars[token] = value;
   }
+  // The logo's shaded underside started as a darker mix of its accent.
+  const accent = vars['--logo-accent'];
+  if (!('--logo-shade' in raw) && accent && HEX.test(accent)) vars['--logo-shade'] = shade(accent);
   return { vars, dropped };
 }
 

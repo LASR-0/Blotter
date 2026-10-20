@@ -135,7 +135,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 63 | 14f | `feat(ui): new Blotter logo` | committed `690777d` |
 | 63a | 14f | `fix(ui): no grey edge on the logo's spark and rings` | committed `0e139df` |
 | 63b | 14f | `fix(ui): logo closer to its design, gradient, no taskbar tile` | committed `7359512` |
-| 63c | 14f | `fix(ui): logo keeps a shaded underside below the gradient` | committed (hash in the next entry) |
+| 63c | 14f | `fix(ui): logo keeps a shaded underside below the gradient` | committed `521ee95` |
+| 63d | 14f | `feat(theme): a colour for the logo's shaded underside` | committed (hash in the next entry) |
 | 64 | 14f | `chore(release): v1.1.0` | planned |
 
 ---
@@ -4305,7 +4306,7 @@ Notes:
     - The usual time is a preference, not a rule: with no room in it, any free time is used.
     - Weekly tasks (#60) reuse the usual time of day.
 
-### #63c — Logo keeps a shaded underside below the gradient            [status: committed — hash in the next entry]
+### #63c — Logo keeps a shaded underside below the gradient            [status: committed 521ee95]
 Phase: 14f (Luke: "keep the shaded under side of the B and keeping the rest above the under side
 gradient … make the logo on the task bar match the logo for the blotter light theme")
 Message:
@@ -4328,3 +4329,20 @@ Notes:
     - No custom themes are saved in Luke's database, so "Blotter Light" is the preset:
       #fe5858 → #fef6e1, shade #b73f3f (the same logo tokens as Blotter Dark today). If the
       preset's logo tokens change, edit app-icon.svg and run pnpm tauri icon again.
+
+### #63d — A colour for the logo's shaded underside            [status: committed — hash in the next entry]
+Phase: 14f (Luke: "make a colour value for the shaded under part of B")
+Message:
+    feat(theme): a colour for the logo's shaded underside
+
+    New theme token --logo-shade colours the shaded underside of the B.
+    It sits in the Theme page's Logo group beside logo-accent and
+    logo-page; the presets set it to #b73f3f. A theme saved before it
+    existed gets a shade worked out from its own logo accent (72% of it,
+    mixed with black), so it keeps the look it had.
+Files:
+    M  src/theme/presets.ts, src/theme/engine.ts, src/theme/engine.test.ts
+    M  src/components/BlotterMark.tsx
+    M  .claude/COMMITS.md
+Test steps:
+    - pnpm check → clean; Vitest 227 (engine test extended)

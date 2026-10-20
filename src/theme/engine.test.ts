@@ -112,6 +112,8 @@ describe('reading themes', () => {
     expect(vars['--logo-text']).toBe('#111111');
     expect(vars['--logo-shadow']).toBe('#ff0000');
     expect(vars['--logo-accent']).toBe('#ff0000');
+    // The shade underneath follows its own accent: 72% of #ff0000.
+    expect(vars['--logo-shade']).toBe('#b80000');
     expect(vars['--titlebar-text']).toBe('#111111');
     const set = readTokens({ '--color-text': '#111111', '--logo-text': '#222222' });
     expect(set.vars['--logo-text']).toBe('#222222');
