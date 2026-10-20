@@ -128,13 +128,14 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 56 | 14c | `feat(ui): drag items in the Month view and all-day lane` | committed `5b957f5` |
 | 57 | 14d | `feat: task context in quick add and Smart slot` | committed `99707a6` |
 | 58 | 14d | `feat(core): holidays` | committed `cfc4052` |
-| 59 | 14d | `feat(core): task windows with replanning` | committed (hash in the next entry) |
+| 59 | 14d | `feat(core): task windows with replanning` | committed `0579005` |
 | 60 | 14d | `feat: weekly tasks` | planned |
 | 61 | 14e | `feat(ai): Codex CLI sessions` | planned |
 | 62 | 14e | `feat(ai): Consult me slot mode` | planned |
 | 63 | 14f | `feat(ui): new Blotter logo` | committed `690777d` |
 | 63a | 14f | `fix(ui): no grey edge on the logo's spark and rings` | committed `0e139df` |
 | 63b | 14f | `fix(ui): logo closer to its design, gradient, no taskbar tile` | committed `7359512` |
+| 63c | 14f | `fix(ui): logo keeps a shaded underside below the gradient` | committed (hash in the next entry) |
 | 64 | 14f | `chore(release): v1.1.0` | planned |
 
 ---
@@ -4264,7 +4265,7 @@ Notes:
     - The icon files carry the Blotter Dark colours (#fe5858 → #fef6e1); the in-app mark
       follows the theme's logo tokens.
 
-### #59 — Task windows with replanning            [status: committed — hash in the next entry]
+### #59 — Task windows with replanning            [status: committed 0579005]
 Phase: 14d (Luke: the window by which a task like planning a trip must be done; overdue
 and back to the Inbox once it closes)
 Message:
@@ -4303,3 +4304,27 @@ Test steps:
 Notes:
     - The usual time is a preference, not a rule: with no room in it, any free time is used.
     - Weekly tasks (#60) reuse the usual time of day.
+
+### #63c — Logo keeps a shaded underside below the gradient            [status: committed — hash in the next entry]
+Phase: 14f (Luke: "keep the shaded under side of the B and keeping the rest above the under side
+gradient … make the logo on the task bar match the logo for the blotter light theme")
+Message:
+    fix(ui): logo keeps a shaded underside below the gradient
+
+    The sweep across the foot of the B is a solid shade again (a darker
+    mix of --logo-accent; --logo-fold overrides it), and the gradient
+    from --logo-accent to --logo-page covers only the page above it,
+    reaching the page colour at the shade line. The app, taskbar and tray
+    icon use the Blotter Light logo colours.
+Files:
+    M  src/components/BlotterMark.tsx
+    M  public/blotter.svg, src-tauri/icons/app-icon.svg
+    M  src-tauri/icons/32x32.png, 64x64.png, 128x128.png, 128x128@2x.png, icon.png, icon.ico, icon.icns
+    M  .claude/COMMITS.md
+Test steps:
+    - pnpm check → clean
+    - Rendered app-icon.svg through pnpm tauri icon and looked at it
+Notes:
+    - No custom themes are saved in Luke's database, so "Blotter Light" is the preset:
+      #fe5858 → #fef6e1, shade #b73f3f (the same logo tokens as Blotter Dark today). If the
+      preset's logo tokens change, edit app-icon.svg and run pnpm tauri icon again.

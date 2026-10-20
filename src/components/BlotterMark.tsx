@@ -4,13 +4,16 @@ import { cn } from '@/lib/cn';
 // The Blotter mark (v1.1): a calendar page whose right edge is a "B", with a
 // window cut through it holding a spark and a diagonal sweep across its foot.
 // The geometry matches public/blotter.svg and src-tauri/icons/app-icon.svg
-// (1024 grid); keep the three in step. The page is a gradient from
-// --logo-accent (top left) to --logo-page (bottom right); the rings are
-// --logo-page. The window is cut out, so whatever sits behind the mark shows
-// through, and the spark is cut the other way: filled inside the window, a
-// hole where its tail crosses into the page.
+// (1024 grid); keep the three in step. Above the sweep the page is a
+// gradient from --logo-accent (top left) to --logo-page (bottom right); the
+// sweep, the B's underside, is a solid shade of the accent (--logo-fold
+// overrides it); the rings are --logo-page. The window is cut out, so
+// whatever sits behind the mark shows through, and the spark is cut the
+// other way: filled inside the window, a notch where its tail crosses into
+// the page.
 const ACCENT = 'var(--logo-accent, var(--color-accent))';
 const PAGE = 'var(--logo-page, var(--color-text))';
+const FOLD = `var(--logo-fold, color-mix(in srgb, ${ACCENT} 72%, #000))`;
 
 /** The page: two bowls on the right. */
 const MARK_BODY =
@@ -22,7 +25,7 @@ const MARK_WINDOW =
 /** The spark, its lower point long enough to cut through the window's foot. */
 const MARK_SPARK =
   'M512 420C526 520 526 524 614 540C532 556 540 610 512 712C484 610 492 556 410 540C498 524 498 520 512 420Z';
-/** The sweep: the page below the window's foot line, lightened. */
+/** The sweep: the page below the window's foot line, shaded. */
 const MARK_SWEEP = 'M246 819L806 532V840H230Z';
 const SHAPE = `${MARK_BODY} ${MARK_WINDOW} ${MARK_SPARK}`;
 
@@ -38,8 +41,8 @@ export function BlotterMark({ className }: { className?: string }) {
           gradientUnits="userSpaceOnUse"
           x1="246"
           y1="282"
-          x2="806"
-          y2="821"
+          x2="760"
+          y2="580"
         >
           <stop offset="0" style={{ stopColor: ACCENT }} />
           <stop offset="1" style={{ stopColor: PAGE }} />
@@ -51,7 +54,7 @@ export function BlotterMark({ className }: { className?: string }) {
       {/* Page, window and spark in one even-odd shape: the window is a hole, the
           spark fills inside it, and its tail cuts a notch where it meets the page. */}
       <path fill={`url(#${id}g)`} fillRule="evenodd" d={SHAPE} />
-      <path clipPath={`url(#${id}c)`} style={{ fill: PAGE, fillOpacity: 0.22 }} d={MARK_SWEEP} />
+      <path clipPath={`url(#${id}c)`} style={{ fill: FOLD }} d={MARK_SWEEP} />
       <rect x="356" y="206" width="58" height="134" rx="29" style={{ fill: PAGE }} />
       <rect x="586" y="206" width="58" height="134" rx="29" style={{ fill: PAGE }} />
     </svg>
