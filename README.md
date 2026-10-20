@@ -6,6 +6,11 @@ A keyboard-first daily planner with an AI that pencils things in for you.
 
 The name comes from the desk blotter (the paper calendar pad on a desk) and from _blotting out_ time, which is what block-out windows do.
 
+<p align="center">
+  <img src="docs/screenshots/diary-dark.png" width="49%" alt="Blotter's Diary view in the dark theme, with the timeline and AI chat panel open">
+  <img src="docs/screenshots/diary-light.png" width="49%" alt="Blotter's Diary view in the light theme, with the timeline and AI chat panel open">
+</p>
+
 - **Diary, Week, Month and Year** views, all usable from the keyboard alone.
 - An **Inbox** to brain-dump tasks into, then place them with the built-in auto-slot, the AI's **Smart slot**, or **Consult me**, where the AI asks you about each task before placing it.
 - **Task windows** ("book the trip between 1 and 15 Nov") and **weekly tasks** (groceries some time each week, usually Saturday morning) that re-plan themselves when a slot is missed.
