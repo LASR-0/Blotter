@@ -187,3 +187,45 @@ describe('recurring items', () => {
     expect(noDate.ok).toBe(false);
   });
 });
+
+describe('do-window', () => {
+  it('creates with a window and clears it on edit', () => {
+    const draft = emptyDraft({
+      title: 'Book trip',
+      notBefore: '2026-11-01',
+      dueDate: '2026-11-15',
+      windowStart: '6pm',
+      windowEnd: '20:00',
+    });
+    const created = buildChanges(draft);
+    expect(created.ok && created.create).toMatchObject({
+      not_before: '2026-11-01',
+      window_start: '18:00',
+      window_end: '20:00',
+    });
+
+    const item: Item = {
+      ...gym,
+      not_before: '2026-11-01',
+      window_start: '18:00',
+      window_end: '20:00',
+    };
+    const before = draftFromItem(item);
+    const cleared = buildChanges(
+      { ...before, notBefore: '', windowStart: '', windowEnd: '' },
+      { item, draft: before },
+    );
+    expect(cleared.ok && cleared.calls[0]?.args).toMatchObject({
+      not_before: null,
+      window_start: null,
+      window_end: null,
+    });
+  });
+
+  it('wants both ends of the usual time, in order', () => {
+    expect(buildChanges(emptyDraft({ title: 'X', windowStart: '18:00' })).ok).toBe(false);
+    expect(
+      buildChanges(emptyDraft({ title: 'X', windowStart: '20:00', windowEnd: '18:00' })).ok,
+    ).toBe(false);
+  });
+});

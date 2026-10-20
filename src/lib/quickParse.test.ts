@@ -146,3 +146,19 @@ describe('context', () => {
     expect(p.title).toBe('read https://example.com/post');
   });
 });
+
+describe('do-window', () => {
+  it('reads "after" as the window start and a range as start and due', () => {
+    const a = parseQuick('book holiday after 1 nov due 15 nov', NOW);
+    expect(a.title).toBe('book holiday');
+    expect(a.notBefore).toBe('2026-11-01');
+    expect(a.due).toBe('2026-11-15T17:00');
+    expect(a.date).toBeUndefined();
+    expect(toCreateArgs(a).not_before).toBe('2026-11-01');
+
+    const b = parseQuick('plan trip from 1 nov to 15 nov', NOW);
+    expect(b.title).toBe('plan trip');
+    expect(b.notBefore).toBe('2026-11-01');
+    expect(b.due).toBe('2026-11-15T17:00');
+  });
+});

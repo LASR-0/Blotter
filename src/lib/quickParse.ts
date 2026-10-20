@@ -13,6 +13,8 @@
 //   every monday[, wed and fri] | every 2 weeks | every other week
 //                               recurrence (RFC 5545 RRULE)
 //   due <date [time]>           deadline
+//   after <date> | from <date> to <date>
+//                               do-window (not before; a range's end is the due date)
 //   // anything to the end      context for Smart slot, kept in the notes
 //   <date> <time>               when (chrono: tue, tomorrow, 20/10, next friday, 3pm, 18:30, noon…)
 //
@@ -27,7 +29,16 @@ import { formatDuration, parseDuration } from './duration';
 import type { Anchoring, ItemKind } from './types';
 
 export type ChipKind =
-  'date' | 'time' | 'duration' | 'priority' | 'tag' | 'anchoring' | 'repeat' | 'due' | 'context';
+  | 'date'
+  | 'time'
+  | 'duration'
+  | 'priority'
+  | 'tag'
+  | 'anchoring'
+  | 'repeat'
+  | 'due'
+  | 'window'
+  | 'context';
 
 export interface Chip {
   kind: ChipKind;
@@ -51,6 +62,8 @@ export interface QuickParse {
   /** YYYY-MM-DDTHH:MM (local) */
   due?: string;
   rrule?: string;
+  /** Do-window start (after / from …), YYYY-MM-DD. */
+  notBefore?: string;
   /** Context after `//`, for the notes. */
   notes?: string;
   chips: Chip[];
@@ -182,6 +195,13 @@ export function parseQuick(input: string, now: Date = new Date()): QuickParse {
     rest = rest.slice(0, m.index) + ' ' + rest.slice(m.index + m[0].length);
   }
 
+  // chrono reads "from 1 nov" as 1 o'clock; a "from" before something date-like
+  // starts a do-window, so it is read as "between" (which chrono leaves alone).
+  rest = rest.replace(
+    /\bfrom(\s+)(?=(?:\d{1,2}(?:st|nd|rd|th)?\s+[a-z]{3}|\d{1,2}\/\d{1,2}|mon|tue|wed|thu|fri|sat|sun|next\b|tomorrow|today))/gi,
+    'between$1',
+  );
+
   // Dates and times. A match right after "due" is the deadline.
   // "weekend" on its own is almost always part of a title ("weekend
   // shopping"), not a date, so chrono's reading of it is ignored.
@@ -190,10 +210,44 @@ export function parseQuick(input: string, now: Date = new Date()): QuickParse {
   );
   const removals: [number, number][] = [];
   let when: chrono.ParsedResult | undefined;
+  let windowEnds = false;
   for (const r of results) {
     const before = rest.slice(0, r.index);
+    // The date after a window's start ("… to 15 nov") is its due date.
+    const endWord = windowEnds ? /\b(?:to|and|until|till|-)\s*$/i.exec(before) : null;
+    windowEnds = false;
+    if (endWord && !out.due) {
+      const e = r.start.date();
+      out.due = `${fmtDay(e)}T17:00`;
+      chips.push({
+        kind: 'due',
+        label: 'Due',
+        value: showDay(e),
+        source: `${endWord[0]}${r.text}`.trim(),
+      });
+      removals.push([endWord.index, r.index + r.text.length]);
+      continue;
+    }
     const dueWord = /\bdue\s*(?:on|by)?\s*$/i.exec(before);
-    if (dueWord && !out.due) {
+    // "after 1 nov", "from 1 nov to 15 nov": a do-window (a range's end is the due date).
+    const windowWord = /\b(?:after|between|not before)\s*$/i.exec(before);
+    if (windowWord && !out.notBefore) {
+      const d = r.start.date();
+      out.notBefore = fmtDay(d);
+      chips.push({
+        kind: 'window',
+        label: 'Not before',
+        value: showDay(d),
+        source: `${windowWord[0]}${r.text}`.trim(),
+      });
+      windowEnds = true;
+      if (r.end && !out.due) {
+        const e = r.end.date();
+        out.due = `${fmtDay(e)}T17:00`;
+        chips.push({ kind: 'due', label: 'Due', value: showDay(e), source: r.text });
+      }
+      removals.push([windowWord.index, r.index + r.text.length]);
+    } else if (dueWord && !out.due) {
       const d = r.start.date();
       const time = r.start.isCertain('hour') ? fmtTime(d) : '17:00';
       out.due = `${fmtDay(d)}T${time}`;
@@ -256,6 +310,7 @@ export function toCreateArgs(p: QuickParse): Record<string, unknown> {
   if (p.due) args.due = p.due;
   if (p.rrule) args.rrule = p.rrule;
   if (p.notes) args.notes = p.notes;
+  if (p.notBefore) args.not_before = p.notBefore;
   return args;
 }
 
@@ -286,6 +341,7 @@ export function describeParse(p: QuickParse): string {
   const repeat = p.chips.find((c) => c.kind === 'repeat');
   if (repeat) parts.push(repeat.value);
   if (p.priority) parts.push(`!${p.priority}`);
+  if (p.notBefore) parts.push(`from ${format(parseISO(p.notBefore), 'EEE d MMM')}`);
   if (p.due) parts.push(`due ${format(parseISO(p.due), 'EEE d MMM')}`);
   if (p.notes) parts.push(`// ${p.notes.length > 40 ? `${p.notes.slice(0, 39)}…` : p.notes}`);
   return parts.join(' · ');

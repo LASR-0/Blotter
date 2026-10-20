@@ -5,7 +5,7 @@ use chrono_tz::Tz;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use super::input::{DateInput, DateTimeInput, patch};
+use super::input::{DateInput, DateTimeInput, TimeInput, patch};
 use super::occurrences::{self, Scope, Target};
 use super::{Ctx, OpDef, require_item};
 use crate::error::{CoreError, Result};
@@ -90,6 +90,12 @@ pub struct CreateItemArgs {
     pub end_date: Option<DateInput>,
     /// Optional deadline.
     pub due: Option<DateTimeInput>,
+    /// Do-window start: the slot engine won't place it before this date (the window ends
+    /// at `due`). Missed slots are re-planned inside the window.
+    pub not_before: Option<DateInput>,
+    /// The usual time of day to place it (`HH:MM`, with `window_end`); tried first.
+    pub window_start: Option<TimeInput>,
+    pub window_end: Option<TimeInput>,
     /// 0 (none) to 3 (highest).
     #[schemars(range(max = 3))]
     pub priority: Option<u8>,
@@ -130,6 +136,12 @@ pub struct UpdateItemArgs {
     pub duration_min: Option<Option<u32>>,
     #[serde(default, deserialize_with = "patch")]
     pub due: Option<Option<DateTimeInput>>,
+    #[serde(default, deserialize_with = "patch")]
+    pub not_before: Option<Option<DateInput>>,
+    #[serde(default, deserialize_with = "patch")]
+    pub window_start: Option<Option<TimeInput>>,
+    #[serde(default, deserialize_with = "patch")]
+    pub window_end: Option<Option<TimeInput>>,
     #[schemars(range(max = 3))]
     pub priority: Option<u8>,
     pub tags: Option<Vec<String>>,
@@ -197,6 +209,9 @@ fn create_item(ctx: &mut Ctx<'_>, a: CreateItemArgs) -> Result<Item> {
     item.notes = a.notes.unwrap_or_default();
     item.duration_min = a.duration_min;
     item.due_at = a.due.map(|d| d.resolve(ctx.settings.tz));
+    item.not_before = a.not_before.map(|d| d.0);
+    item.window_start = a.window_start.map(|t| t.0);
+    item.window_end = a.window_end.map(|t| t.0);
     item.priority = a.priority.unwrap_or(0);
     item.tags = a.tags;
     item.color = a.color;
@@ -363,6 +378,15 @@ fn update_stored(ctx: &mut Ctx<'_>, a: UpdateItemArgs) -> Result<Item> {
     }
     if let Some(v) = a.due {
         item.due_at = v.map(|d| d.resolve(tz));
+    }
+    if let Some(v) = a.not_before {
+        item.not_before = v.map(|d| d.0);
+    }
+    if let Some(v) = a.window_start {
+        item.window_start = v.map(|t| t.0);
+    }
+    if let Some(v) = a.window_end {
+        item.window_end = v.map(|t| t.0);
     }
     if let Some(status) = a.status {
         set_status(&mut item, status, ctx.now);
@@ -679,6 +703,24 @@ pub(crate) fn finalize(ctx: &Ctx<'_>, item: &mut Item) -> Result<()> {
 
     if item.priority > 3 {
         return Err(CoreError::invalid("priority must be 0–3"));
+    }
+    match (item.window_start, item.window_end) {
+        (Some(s), Some(e)) if e <= s => {
+            return Err(CoreError::invalid(
+                "window_end must be after window_start (windows don't cross midnight)",
+            ));
+        }
+        (Some(_), None) | (None, Some(_)) => {
+            return Err(CoreError::invalid(
+                "give both window_start and window_end, or neither",
+            ));
+        }
+        _ => {}
+    }
+    if let (Some(from), Some(due)) = (item.not_before, item.due_at)
+        && due.with_timezone(&ctx.settings.tz).date_naive() < from
+    {
+        return Err(CoreError::invalid("the due date is before not_before"));
     }
     if item.duration_min == Some(0) {
         item.duration_min = None;

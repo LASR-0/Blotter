@@ -50,6 +50,52 @@ fn holiday_windows(ctx: &Ctx<'_>, from: Instant, until: Instant) -> Result<Vec<B
         .collect())
 }
 
+/// The hours outside `[ws, we)` on each local day of `[lo, hi)`, as windows,
+/// so the engine only finds time inside a task's usual time of day.
+fn outside_hours(
+    tz: chrono_tz::Tz,
+    lo: Instant,
+    hi: Instant,
+    ws: chrono::NaiveTime,
+    we: chrono::NaiveTime,
+) -> Vec<BlockoutWindow> {
+    let mut out = Vec::new();
+    let last = hi.with_timezone(&tz).date_naive();
+    let mut day = lo.with_timezone(&tz).date_naive();
+    while day <= last {
+        let next = day.succ_opt().unwrap_or(day);
+        for (start, end) in [
+            (
+                start_of_day(tz, day),
+                super::input::resolve_local(tz, day.and_time(ws)),
+            ),
+            (
+                super::input::resolve_local(tz, day.and_time(we)),
+                start_of_day(tz, next),
+            ),
+        ] {
+            if end > start {
+                out.push(BlockoutWindow {
+                    blockout_id: String::new(),
+                    label: "Outside its usual time".into(),
+                    date: day,
+                    start,
+                    end,
+                    permits_fixed: true,
+                    color: None,
+                    subscription_id: None,
+                    calendar: None,
+                });
+            }
+        }
+        if next == day {
+            break;
+        }
+        day = next;
+    }
+    out
+}
+
 /// How far ahead slot searches look when no `until` is given.
 const DEFAULT_SEARCH_DAYS: i64 = 14;
 /// Longest span one search covers.
@@ -336,6 +382,13 @@ pub(crate) fn place(
             hi = due;
             limit = format!("before its due date ({} {})", fmt_day(due), fmt_time(due));
         }
+        // A do-window opens on its not-before date.
+        let opens = item.not_before.map(|d| start_of_day(tz, d));
+        if let Some(opens) = opens
+            && opens > lo
+        {
+            lo = opens;
+        }
         let stays = if rollover {
             "It goes back to the Inbox."
         } else if item.is_inbox() {
@@ -348,6 +401,11 @@ pub(crate) fn place(
                 format!("Its due date has passed. {stays}")
             } else if item.start_date.is_some() {
                 format!("Its day has passed. {stays}")
+            } else if let Some(opens) = opens.filter(|o| *o >= until) {
+                format!(
+                    "Its window opens {}, later than this search. {stays}",
+                    fmt_day(opens)
+                )
             } else {
                 format!("Nothing to search {limit}. {stays}")
             };
@@ -355,18 +413,38 @@ pub(crate) fn place(
             continue;
         }
 
+        let base = if has_tag(&item, WORK_TAG) {
+            &work_blockouts
+        } else {
+            &blockouts
+        };
         let engine = SlotEngine {
             tz,
             planning: &ctx.settings.planning_hours,
-            blockouts: if has_tag(&item, WORK_TAG) {
-                &work_blockouts
-            } else {
-                &blockouts
-            },
+            blockouts: base,
             busy: &busy,
             buffer,
         };
-        let Some(slot) = engine.slots(duration, lo, hi, 1).into_iter().next() else {
+        // Its usual time of day first, then any free time.
+        let usual = match (item.window_start, item.window_end) {
+            (Some(ws), Some(we)) => {
+                let mut outside = base.clone();
+                outside.extend(outside_hours(tz, lo, hi, ws, we));
+                SlotEngine {
+                    tz,
+                    planning: &ctx.settings.planning_hours,
+                    blockouts: &outside,
+                    busy: &busy,
+                    buffer,
+                }
+                .slots(duration, lo, hi, 1)
+                .into_iter()
+                .next()
+            }
+            _ => None,
+        };
+        let Some(slot) = usual.or_else(|| engine.slots(duration, lo, hi, 1).into_iter().next())
+        else {
             let gap = engine
                 .free(lo, hi)
                 .into_iter()

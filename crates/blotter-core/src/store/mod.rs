@@ -34,6 +34,10 @@ pub(crate) fn req_time(column: &'static str, v: String) -> Result<NaiveTime> {
     time::parse_time(column, &v)
 }
 
+pub(crate) fn opt_time(column: &'static str, v: Option<String>) -> Result<Option<NaiveTime>> {
+    v.map(|s| time::parse_time(column, &s)).transpose()
+}
+
 pub(crate) fn fmt_opt_instant(v: Option<Instant>) -> Option<String> {
     v.map(time::fmt_instant)
 }

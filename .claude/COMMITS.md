@@ -128,13 +128,13 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 56 | 14c | `feat(ui): drag items in the Month view and all-day lane` | committed `5b957f5` |
 | 57 | 14d | `feat: task context in quick add and Smart slot` | committed `99707a6` |
 | 58 | 14d | `feat(core): holidays` | committed `cfc4052` |
-| 59 | 14d | `feat(core): task windows with replanning` | planned |
+| 59 | 14d | `feat(core): task windows with replanning` | committed (hash in the next entry) |
 | 60 | 14d | `feat: weekly tasks` | planned |
 | 61 | 14e | `feat(ai): Codex CLI sessions` | planned |
 | 62 | 14e | `feat(ai): Consult me slot mode` | planned |
 | 63 | 14f | `feat(ui): new Blotter logo` | committed `690777d` |
 | 63a | 14f | `fix(ui): no grey edge on the logo's spark and rings` | committed `0e139df` |
-| 63b | 14f | `fix(ui): logo closer to its design, gradient, no taskbar tile` | committed (hash in the next entry) |
+| 63b | 14f | `fix(ui): logo closer to its design, gradient, no taskbar tile` | committed `7359512` |
 | 64 | 14f | `chore(release): v1.1.0` | planned |
 
 ---
@@ -4236,7 +4236,7 @@ Notes:
     - --logo-outline is still set by the presets but nothing reads it now. The app icon
       and favicon never had the edge.
 
-### #63b — Logo closer to its design, gradient, no taskbar tile            [status: committed — hash in the next entry]
+### #63b — Logo closer to its design, gradient, no taskbar tile            [status: committed 7359512]
 Phase: 14f (Luke: "the middle square needs to be bigger, the star should cutout part of the B
 … add back the gradient but use the logo page and logo accent … on the task bar logo lets
 remove the black square background")
@@ -4263,3 +4263,43 @@ Test steps:
 Notes:
     - The icon files carry the Blotter Dark colours (#fe5858 → #fef6e1); the in-app mark
       follows the theme's logo tokens.
+
+### #59 — Task windows with replanning            [status: committed — hash in the next entry]
+Phase: 14d (Luke: the window by which a task like planning a trip must be done; overdue
+and back to the Inbox once it closes)
+Message:
+    feat(core): task windows with replanning
+
+    A task can carry a do-window: a not-before date, with its due date as
+    the window's end ("book the holiday some time between 1 and 15
+    Nov"), and optionally a usual time of day to do it.
+
+    - Slotting (auto-slot, rollover, Smart slot's guidance) never places
+      it before the window opens or after it is due, and tries the usual
+      time of day first before any other free time.
+    - If its slot passes undone, the daily rollover re-plans it inside the
+      window whatever the rollover setting; once the window has closed
+      (or nothing fits) it goes back to the Inbox, overdue.
+    - Item dialog: a "Do window" row (from date, until it's due, usually
+      HH:MM–HH:MM). Quick add: "after 1 nov", "from 1 nov to 15 nov" or
+      "between 1 nov and 15 nov" (the range's end is the due date).
+
+    Core: migration 0008 (not_before, window_start, window_end on items),
+    create_item / update_item arguments and validation, Smart slot sees
+    "not before …" and "usually …".
+Files:
+    A  crates/blotter-core/migrations/0008_item_windows.sql
+    M  crates/blotter-core/src/db.rs, time.rs, model/item.rs, store/mod.rs, store/items.rs,
+       ops/items.rs, ops/slots.rs, ops/rollover.rs (2 tests), smart_slot.rs
+    M  src/lib/types.ts, src/lib/itemDraft.ts, src/lib/itemDraft.test.ts (2 tests)
+    M  src/lib/quickParse.ts, src/lib/quickParse.test.ts (1 test), src/components/QuickAddPanel.tsx
+    M  src/app/ItemDialog.tsx
+    M  .claude/COMMITS.md
+Test steps:
+    - cargo test --workspace → 182 core + 47 app + 6 mcp; clippy -D warnings / fmt clean
+    - pnpm check → clean; Vitest 227
+    - Live (pending): "book trip after 1 nov due 15 nov" → Inbox with a window; Auto-slot puts
+      it on 1 Nov or later; the item dialog shows the Window row
+Notes:
+    - The usual time is a preference, not a rule: with no room in it, any free time is used.
+    - Weekly tasks (#60) reuse the usual time of day.

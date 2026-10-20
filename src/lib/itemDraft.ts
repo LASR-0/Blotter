@@ -16,6 +16,11 @@ export interface ItemDraft {
   duration: string;
   dueDate: string;
   dueTime: string;
+  /** Do-window start, `YYYY-MM-DD` or ''. */
+  notBefore: string;
+  /** Usual time of day, `HH:MM` or '' (both or neither). */
+  windowStart: string;
+  windowEnd: string;
   priority: number;
   tags: string[];
   notes: string;
@@ -57,6 +62,9 @@ export function emptyDraft(defaults: Partial<ItemDraft> = {}): ItemDraft {
     duration: '',
     dueDate: '',
     dueTime: '',
+    notBefore: '',
+    windowStart: '',
+    windowEnd: '',
     priority: 0,
     tags: [],
     notes: '',
@@ -76,6 +84,9 @@ export function draftFromItem(item: Item, reminders: readonly ReminderLike[] = [
     duration: item.duration_min ? formatDuration(item.duration_min).replace(' ', '') : '',
     dueDate: item.due_at ? localDate(item.due_at) : '',
     dueTime: item.due_at ? localTime(item.due_at) : '',
+    notBefore: item.not_before ?? '',
+    windowStart: item.window_start ?? '',
+    windowEnd: item.window_end ?? '',
     priority: item.priority,
     tags: [...item.tags],
     notes: item.notes,
@@ -111,6 +122,14 @@ function validate(d: ItemDraft): string | null {
   if (d.dueTime.trim() && !d.dueDate) return 'A due time needs a due date.';
   if ((d.kind === 'event' || d.kind === 'reminder') && !d.date) return `A ${d.kind} needs a date.`;
   if (d.repeat && !d.date) return 'A repeating item needs a date to start from.';
+  for (const t of [d.windowStart, d.windowEnd])
+    if (t.trim() && parseTime(t) === null) return `Can't read "${t}" as a time.`;
+  if (Boolean(d.windowStart.trim()) !== Boolean(d.windowEnd.trim()))
+    return 'Give the usual time a start and an end.';
+  if (d.windowStart.trim() && (parseTime(d.windowEnd) ?? '') <= (parseTime(d.windowStart) ?? ''))
+    return 'The usual time has to end after it starts.';
+  if (d.notBefore && d.dueDate && d.dueDate < d.notBefore)
+    return 'The due date is before the window opens.';
   return null;
 }
 
@@ -130,7 +149,13 @@ export function buildChanges(
   const error = validate(draft);
   if (error) return { ok: false, error };
   // Normalise typed times (5:30pm → 17:30) before comparing or sending.
-  draft = { ...draft, time: parseTime(draft.time) ?? '', dueTime: parseTime(draft.dueTime) ?? '' };
+  draft = {
+    ...draft,
+    time: parseTime(draft.time) ?? '',
+    dueTime: parseTime(draft.dueTime) ?? '',
+    windowStart: parseTime(draft.windowStart) ?? '',
+    windowEnd: parseTime(draft.windowEnd) ?? '',
+  };
   const minutes = draft.duration.trim() ? parseDuration(draft.duration) : null;
 
   if (!original) {
@@ -147,6 +172,11 @@ export function buildChanges(
     if (draft.tags.length) args.tags = draft.tags;
     if (draft.notes.trim()) args.notes = draft.notes;
     if (draft.repeat) args.rrule = draft.repeat;
+    if (draft.notBefore) args.not_before = draft.notBefore;
+    if (draft.windowStart) {
+      args.window_start = draft.windowStart;
+      args.window_end = draft.windowEnd;
+    }
     const newReminders = draft.reminders.flatMap((r) =>
       r.offset_min !== null ? [r.offset_min] : [],
     );
@@ -167,6 +197,11 @@ export function buildChanges(
   if (draft.notes !== before.notes) update.notes = draft.notes;
   if (dueValue(draft) !== dueValue(before)) update.due = dueValue(draft);
   if (draft.repeat !== before.repeat) update.rrule = draft.repeat || null;
+  if (draft.notBefore !== before.notBefore) update.not_before = draft.notBefore || null;
+  if (draft.windowStart !== before.windowStart || draft.windowEnd !== before.windowEnd) {
+    update.window_start = draft.windowStart || null;
+    update.window_end = draft.windowEnd || null;
+  }
 
   const beforeMinutes = before.duration ? parseDuration(before.duration) : null;
   const scheduleChanged = draft.date !== before.date || draft.time !== before.time;

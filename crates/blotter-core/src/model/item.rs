@@ -1,4 +1,4 @@
-use chrono::NaiveDate;
+use chrono::{NaiveDate, NaiveTime};
 use serde::{Deserialize, Serialize};
 
 use super::string_enum;
@@ -68,6 +68,14 @@ pub struct Item {
     /// The iCalendar UID it was imported with; exports reuse it.
     #[serde(default)]
     pub ics_uid: Option<String>,
+    /// Do-window start: not slotted before this date. The window ends at `due_at`.
+    #[serde(default)]
+    pub not_before: Option<NaiveDate>,
+    /// The usual time of day to slot it in (both or neither); tried first, not enforced.
+    #[serde(default, with = "crate::time::opt_hhmm")]
+    pub window_start: Option<NaiveTime>,
+    #[serde(default, with = "crate::time::opt_hhmm")]
+    pub window_end: Option<NaiveTime>,
     pub created_at: Instant,
     pub updated_at: Instant,
 }
@@ -101,6 +109,9 @@ impl Item {
             completed_at: None,
             source: Source::User,
             ics_uid: None,
+            not_before: None,
+            window_start: None,
+            window_end: None,
             created_at: now,
             updated_at: now,
         }

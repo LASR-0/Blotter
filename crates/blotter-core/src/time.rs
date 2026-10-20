@@ -65,6 +65,25 @@ pub mod hhmm {
     }
 }
 
+/// Serde for `Option<NaiveTime>` as `HH:MM` or null.
+pub mod opt_hhmm {
+    use chrono::NaiveTime;
+    use serde::{Deserialize, Deserializer, Serializer};
+
+    pub fn serialize<S: Serializer>(t: &Option<NaiveTime>, s: S) -> Result<S::Ok, S::Error> {
+        match t {
+            Some(t) => s.serialize_str(&super::fmt_time(*t)),
+            None => s.serialize_none(),
+        }
+    }
+
+    pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<Option<NaiveTime>, D::Error> {
+        Option::<String>::deserialize(d)?
+            .map(|s| NaiveTime::parse_from_str(&s, "%H:%M").map_err(serde::de::Error::custom))
+            .transpose()
+    }
+}
+
 /// Source of "now", injectable so tests are deterministic.
 pub trait Clock: Send + Sync {
     fn now(&self) -> Instant;

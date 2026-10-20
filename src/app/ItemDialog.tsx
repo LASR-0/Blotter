@@ -7,6 +7,7 @@ import {
   Bell,
   Calendar,
   CalendarBlank,
+  CalendarDots,
   CheckSquare,
   Clock,
   FlagCheckered,
@@ -130,6 +131,7 @@ function ItemForm({
 }) {
   const [draft, setDraft] = useState(initial);
   const [showDue, setShowDue] = useState(Boolean(initial.dueDate));
+  const [showWindow, setShowWindow] = useState(Boolean(initial.notBefore || initial.windowStart));
   const [addingReminder, setAddingReminder] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -351,6 +353,19 @@ function ItemForm({
               Due date
             </button>
           )}
+          {!showWindow && draft.kind === 'task' && (
+            <button
+              type="button"
+              onClick={() => {
+                setShowWindow(true);
+                setShowDue(true);
+              }}
+              className="flex h-[30px] cursor-pointer items-center gap-1.5 rounded-md border border-dashed border-border-strong px-2.5 text-sm text-text-muted hover:text-text"
+            >
+              <CalendarDots />
+              Do window
+            </button>
+          )}
           {!draft.date && (
             <span className="w-full text-xs text-text-muted">
               No date:{' '}
@@ -385,6 +400,47 @@ function ItemForm({
             >
               <X />
             </Button>
+          </Row>
+        )}
+
+        {showWindow && (
+          <Row label="Window">
+            <DatePicker
+              value={draft.notBefore}
+              onChange={(v) => set('notBefore', v)}
+              ariaLabel="Not before"
+              placeholder="From"
+              clearable
+              icon={<CalendarDots className="text-text-muted" />}
+            />
+            <span className="text-sm text-text-muted">until it’s due · usually</span>
+            <TimeField
+              value={draft.windowStart}
+              onChange={(v) => set('windowStart', v)}
+              ariaLabel="Usual time from"
+            />
+            <span className="text-sm text-text-muted">–</span>
+            <TimeField
+              value={draft.windowEnd}
+              onChange={(v) => set('windowEnd', v)}
+              ariaLabel="Usual time until"
+            />
+            <Button
+              variant="bare"
+              size="icon-sm"
+              aria-label="Remove the window"
+              onClick={() => {
+                setDraft((d) => ({ ...d, notBefore: '', windowStart: '', windowEnd: '' }));
+                setShowWindow(false);
+              }}
+            >
+              <X />
+            </Button>
+            <span className="w-full text-xs text-text-muted">
+              Slotted only inside the window, at the usual time when it can be. A missed slot is
+              re-planned inside the window; once the window has closed it goes back to the Inbox,
+              overdue.
+            </span>
           </Row>
         )}
 

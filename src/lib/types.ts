@@ -21,6 +21,11 @@ export interface Item {
   tz: string | null;
   duration_min: number | null;
   due_at: string | null;
+  /** Do-window start (YYYY-MM-DD): not slotted before it; the window ends at the due date. */
+  not_before?: string | null;
+  /** Usual time of day to slot it (HH:MM, both or neither). */
+  window_start?: string | null;
+  window_end?: string | null;
   priority: number;
   tags: string[];
   color: string | null;

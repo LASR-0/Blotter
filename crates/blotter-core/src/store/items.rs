@@ -1,14 +1,14 @@
 use chrono::NaiveDate;
 use rusqlite::{Connection, OptionalExtension, Row, named_params};
 
-use super::{fmt_opt_date, fmt_opt_instant, opt_date, opt_instant, parse_enum};
+use super::{fmt_opt_date, fmt_opt_instant, opt_date, opt_instant, opt_time, parse_enum};
 use crate::error::{CoreError, Result};
 use crate::model::Item;
 use crate::time::{self, Instant};
 
 const COLUMNS: &str = "id, kind, anchoring, status, title, notes, all_day, start_at, end_at, \
      start_date, end_date, tz, duration_min, due_at, priority, tags, color, sort_order, rrule, \
-     parent_id, recurrence_id, completed_at, source, ics_uid, created_at, updated_at";
+     parent_id, recurrence_id, completed_at, source, ics_uid, not_before, window_start, window_end, \n     created_at, updated_at";
 
 /// A window to list items in. Timed items overlapping `[start, end)` and
 /// all-day items overlapping `[start_date, end_date]` are returned. The
@@ -51,6 +51,9 @@ fn read(row: &Row<'_>) -> Result<Item> {
         completed_at: opt_instant("completed_at", row.get("completed_at")?)?,
         source: parse_enum("source", row.get("source")?)?,
         ics_uid: row.get("ics_uid")?,
+        not_before: opt_date("not_before", row.get("not_before")?)?,
+        window_start: opt_time("window_start", row.get("window_start")?)?,
+        window_end: opt_time("window_end", row.get("window_end")?)?,
         created_at: time::parse_instant("created_at", &row.get::<_, String>("created_at")?)?,
         updated_at: time::parse_instant("updated_at", &row.get::<_, String>("updated_at")?)?,
     })
@@ -88,7 +91,7 @@ fn write(conn: &Connection, item: &Item, upsert: bool) -> Result<usize> {
         "INSERT INTO items ({COLUMNS}) VALUES (:id, :kind, :anchoring, :status, :title, :notes, \
          :all_day, :start_at, :end_at, :start_date, :end_date, :tz, :duration_min, :due_at, \
          :priority, :tags, :color, :sort_order, :rrule, :parent_id, :recurrence_id, \
-         :completed_at, :source, :ics_uid, :created_at, :updated_at){tail}"
+         :completed_at, :source, :ics_uid, :not_before, :window_start, :window_end, :created_at, \n         :updated_at){tail}"
     );
     Ok(conn.execute(
         &sql,
@@ -117,6 +120,9 @@ fn write(conn: &Connection, item: &Item, upsert: bool) -> Result<usize> {
             ":completed_at": fmt_opt_instant(item.completed_at),
             ":source": item.source.as_str(),
             ":ics_uid": item.ics_uid,
+            ":not_before": fmt_opt_date(item.not_before),
+            ":window_start": item.window_start.map(time::fmt_time),
+            ":window_end": item.window_end.map(time::fmt_time),
             ":created_at": time::fmt_instant(item.created_at),
             ":updated_at": time::fmt_instant(item.updated_at),
         },

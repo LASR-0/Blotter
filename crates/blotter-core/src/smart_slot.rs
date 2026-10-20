@@ -51,6 +51,17 @@ fn describe(item: &Item, tz: Tz, default_min: u32) -> String {
             due.with_timezone(&tz).format("%a %-d %b %H:%M")
         );
     }
+    if let Some(from) = item.not_before {
+        let _ = write!(line, " · not before {}", from.format("%a %-d %b"));
+    }
+    if let (Some(s), Some(e)) = (item.window_start, item.window_end) {
+        let _ = write!(
+            line,
+            " · usually {}–{}",
+            s.format("%H:%M"),
+            e.format("%H:%M")
+        );
+    }
     if let Some(place) = location(item) {
         let _ = write!(line, " · at {place}");
     }

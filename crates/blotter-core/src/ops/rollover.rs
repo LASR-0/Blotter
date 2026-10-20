@@ -28,6 +28,8 @@ pub enum RolloverMode {
 
 /// How far ahead re-slotting looks.
 const RESLOT_DAYS: i64 = 14;
+/// Furthest ahead a windowed task is re-planned (its window may run longer).
+const WINDOW_DAYS: i64 = 62;
 
 pub(super) fn defs() -> Vec<OpDef> {
     vec![OpDef::new(
@@ -101,24 +103,46 @@ fn rollover(ctx: &mut Ctx<'_>, a: RolloverArgs) -> Result<RolloverResult> {
             store::settings::get(ctx.conn, crate::settings::KEY_ROLLOVER_MODE)?.unwrap_or_default()
         }
     };
-    let tasks = left_behind(ctx)?;
+    // Tasks with a do-window are always re-planned inside it, whatever the
+    // mode; any that no longer fit (or whose window has closed) go to the Inbox.
+    let (windowed, tasks): (Vec<Item>, Vec<Item>) = left_behind(ctx)?
+        .into_iter()
+        .partition(|i| i.not_before.is_some() || i.window_start.is_some());
     let mut result = RolloverResult {
         mode,
         to_inbox: Vec::new(),
         reslotted: Vec::new(),
         not_reslotted: Vec::new(),
     };
-    let leftovers = match mode {
+    let mut leftovers = Vec::new();
+    if !windowed.is_empty() {
+        let until = windowed
+            .iter()
+            .filter_map(|i| i.due_at)
+            .max()
+            .unwrap_or(ctx.now)
+            .clamp(
+                ctx.now + Duration::days(RESLOT_DAYS),
+                ctx.now + Duration::days(WINDOW_DAYS),
+            );
+        let (placed, missed) = place(ctx, windowed, ctx.now, until, true)?;
+        result.reslotted = placed;
+        for (item, reason) in missed {
+            leftovers.push(item);
+            result.not_reslotted.push(reason);
+        }
+    }
+    leftovers.extend(match mode {
         RolloverMode::Inbox => tasks,
         RolloverMode::Reslot => {
             let (from, until) = (ctx.now, ctx.now + Duration::days(RESLOT_DAYS));
             let (placed, missed) = place(ctx, tasks, from, until, true)?;
-            result.reslotted = placed;
+            result.reslotted.extend(placed);
             let (items, reasons): (Vec<_>, Vec<_>) = missed.into_iter().unzip();
-            result.not_reslotted = reasons;
+            result.not_reslotted.extend(reasons);
             items
         }
-    };
+    });
     for item in leftovers {
         let item = to_inbox(ctx, item)?;
         result.to_inbox.push(item);
@@ -221,5 +245,50 @@ mod tests {
         .unwrap();
         let out = run(&mut p, "rollover", json!({}));
         assert_eq!(out["mode"], "reslot");
+    }
+
+    #[test]
+    fn a_windowed_task_is_replanned_inside_its_window_or_goes_to_the_inbox() {
+        let mut p = crate::planner::tests::planner();
+        run(
+            &mut p,
+            "create_item",
+            json!({ "title": "Book trip", "start": "2026-10-13T19:00", "duration_min": 30,
+                    "not_before": "2026-10-16", "due": "2026-10-25T17:00" }),
+        );
+        run(
+            &mut p,
+            "create_item",
+            json!({ "title": "Closed", "start": "2026-10-12T19:00", "duration_min": 30,
+                    "not_before": "2026-10-10", "due": "2026-10-13T17:00" }),
+        );
+        // Inbox mode, but the windowed task is re-planned: first thing on its window's first day.
+        let out = run(&mut p, "rollover", json!({}));
+        assert_eq!(out["mode"], "inbox");
+        assert_eq!(out["reslotted"][0]["item"]["title"], "Book trip");
+        assert_eq!(out["reslotted"][0]["start"], "2026-10-15T20:00:00Z");
+        assert_eq!(titles(&out["to_inbox"]), ["Closed"]);
+    }
+
+    #[test]
+    fn the_usual_time_of_day_is_tried_first() {
+        let mut p = crate::planner::tests::planner();
+        run(
+            &mut p,
+            "create_item",
+            json!({ "title": "Laundry", "duration_min": 60,
+                    "window_start": "18:00", "window_end": "20:00" }),
+        );
+        let out = run(&mut p, "auto_slot", json!({}));
+        // 18:00 Melbourne today, not 09:00 now.
+        assert_eq!(out["placed"][0]["start"], "2026-10-14T07:00:00Z");
+        assert!(
+            p.execute(
+                "create_item",
+                json!({ "title": "Bad", "window_start": "20:00", "window_end": "18:00" }),
+                &Actor::User,
+            )
+            .is_err()
+        );
     }
 }

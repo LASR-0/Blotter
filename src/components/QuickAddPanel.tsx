@@ -3,6 +3,7 @@ import {
   ArrowsClockwise,
   CalendarBlank,
   CalendarCheck,
+  CalendarDots,
   ChatText,
   Clock,
   Flag,
@@ -38,6 +39,7 @@ const CHIP_ICONS: Record<ChipKind, Icon> = {
   anchoring: PushPin,
   repeat: ArrowsClockwise,
   due: FlagCheckered,
+  window: CalendarDots,
   context: ChatText,
 };
 
