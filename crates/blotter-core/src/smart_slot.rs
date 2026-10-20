@@ -62,8 +62,9 @@ fn describe(item: &Item, tz: Tz, default_min: u32) -> String {
         .join(" ");
     let notes = notes.trim();
     if !notes.is_empty() {
-        let short: String = notes.chars().take(160).collect();
-        let _ = write!(line, " · notes: {short}");
+        // The user's own context (quick add's "// …"), so it gets room.
+        let short: String = notes.chars().take(300).collect();
+        let _ = write!(line, " · context: {short}");
     }
     line
 }
@@ -86,8 +87,10 @@ list_blockout_windows, list_calendar_events) so you know what's already there.\n
 How to place them:\n\
 - Fit the kind of task to the time. Personal, home, social and errand tasks suit weekends \
 and evenings; work tasks suit working days, around the work block-out if there is one. \
-Health and exercise suit mornings or early evenings. Use the tags, the title and the notes \
+Health and exercise suit mornings or early evenings. Use the tags, the title and the context \
 to tell.\n\
+- A task's context is the user's own note on it (when it can happen, what it needs, who it \
+involves). Follow it over these general rules.\n\
 - Leave breathing room: at least 15 minutes between items, more after long or demanding \
 ones. Don't stack a day solid; spread tasks across days instead of filling one.\n\
 - Allow travel time. When a task happens somewhere else (a location, or an errand like \
@@ -133,7 +136,7 @@ mod tests {
         let p = prompt(&[shop, report], Melbourne, today, 30);
 
         assert!(p.contains(
-            "- id-Weekend shopping \"Weekend shopping\" · 90 min · tags: shopping · at Chadstone · notes: Presents for Mia"
+            "- id-Weekend shopping \"Weekend shopping\" · 90 min · tags: shopping · at Chadstone · context: Presents for Mia"
         ));
         assert!(p.contains(
             "- id-Quarterly report \"Quarterly report\" · 30 min (guessed) · tags: work · priority 3 · due Tue 20 Oct 17:00"

@@ -13,6 +13,7 @@
 //   every monday[, wed and fri] | every 2 weeks | every other week
 //                               recurrence (RFC 5545 RRULE)
 //   due <date [time]>           deadline
+//   // anything to the end      context for Smart slot, kept in the notes
 //   <date> <time>               when (chrono: tue, tomorrow, 20/10, next friday, 3pm, 18:30, noon…)
 //
 // Fixed anchoring rule: @fixed / @flex always win. Otherwise an explicit
@@ -26,7 +27,7 @@ import { formatDuration, parseDuration } from './duration';
 import type { Anchoring, ItemKind } from './types';
 
 export type ChipKind =
-  'date' | 'time' | 'duration' | 'priority' | 'tag' | 'anchoring' | 'repeat' | 'due';
+  'date' | 'time' | 'duration' | 'priority' | 'tag' | 'anchoring' | 'repeat' | 'due' | 'context';
 
 export interface Chip {
   kind: ChipKind;
@@ -50,6 +51,8 @@ export interface QuickParse {
   /** YYYY-MM-DDTHH:MM (local) */
   due?: string;
   rrule?: string;
+  /** Context after `//`, for the notes. */
+  notes?: string;
   chips: Chip[];
 }
 
@@ -113,6 +116,18 @@ export function parseQuick(input: string, now: Date = new Date()): QuickParse {
   const chips: Chip[] = [];
   const out: QuickParse = { title: '', kind: 'task', anchoring: 'flexible', tags: [], chips };
   let anchoringSet: Anchoring | null = null;
+
+  // Context first: everything after "//" is free text, so nothing in it is read
+  // as a tag or a date. A "//" inside a word (https://…) doesn't count.
+  const context = /\s\/\/(.*)$/.exec(rest);
+  if (context) {
+    rest = rest.slice(0, context.index) + ' ';
+    const text = (context[1] as string).trim();
+    if (text) {
+      out.notes = text;
+      chips.push({ kind: 'context', label: 'Context', value: text, source: '//' });
+    }
+  }
 
   // Removes a token from the text only when `fn` accepts it, so an
   // unreadable "~soon" stays part of the title.
@@ -240,6 +255,7 @@ export function toCreateArgs(p: QuickParse): Record<string, unknown> {
   if (p.tags.length) args.tags = p.tags;
   if (p.due) args.due = p.due;
   if (p.rrule) args.rrule = p.rrule;
+  if (p.notes) args.notes = p.notes;
   return args;
 }
 
@@ -271,5 +287,6 @@ export function describeParse(p: QuickParse): string {
   if (repeat) parts.push(repeat.value);
   if (p.priority) parts.push(`!${p.priority}`);
   if (p.due) parts.push(`due ${format(parseISO(p.due), 'EEE d MMM')}`);
+  if (p.notes) parts.push(`// ${p.notes.length > 40 ? `${p.notes.slice(0, 39)}…` : p.notes}`);
   return parts.join(' · ');
 }

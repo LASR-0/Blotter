@@ -3,6 +3,7 @@ import {
   ArrowsClockwise,
   CalendarBlank,
   CalendarCheck,
+  ChatText,
   Clock,
   Flag,
   FlagCheckered,
@@ -37,6 +38,7 @@ const CHIP_ICONS: Record<ChipKind, Icon> = {
   anchoring: PushPin,
   repeat: ArrowsClockwise,
   due: FlagCheckered,
+  context: ChatText,
 };
 
 const DESTINATIONS = {
@@ -126,7 +128,7 @@ export function QuickAddPanel({
       <div className="flex min-h-[26px] flex-wrap gap-1.5 px-3.5 pb-3" aria-live="polite">
         {parsed.chips.length === 0 ? (
           <span className="text-sm text-text-muted">
-            Type a date, time, ~duration, #tag, !priority, @fixed, "due …" or "every …"
+            Type a date, time, ~duration, #tag, !priority, @fixed, "due …", "every …" or // context
           </span>
         ) : (
           parsed.chips.map((c, i) => {

@@ -483,7 +483,7 @@ function ItemForm({
             rows={2}
             value={draft.notes}
             onChange={(e) => set('notes', e.target.value)}
-            placeholder="Add notes…"
+            placeholder="Notes, or context for Smart slot (when it can happen, what it needs)…"
             aria-label="Notes"
             className="w-full resize-y rounded-md border border-border-strong bg-bg px-2.5 py-[7px] text-text outline-none focus:border-accent"
           />

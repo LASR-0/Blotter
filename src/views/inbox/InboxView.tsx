@@ -151,6 +151,7 @@ export function InboxView() {
             <span className="font-mono">@fixed</span>
             <span className="font-mono">every mon</span>
             <span className="font-mono">due fri</span>
+            <span className="font-mono">// context</span>
             <span className="flex-1" />
             <span className="flex items-center gap-1.5">
               <Kbd>↵</Kbd>add lines

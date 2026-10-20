@@ -126,3 +126,23 @@ describe('describeParse', () => {
     expect(describeParse(parseQuick('laundry ~1h !2', NOW))).toBe('Flexible task · 1h · !2');
   });
 });
+
+describe('context', () => {
+  it('keeps everything after // as notes, unparsed', () => {
+    const p = parseQuick('groceries ~1h #home // need the car, shops shut 9pm #not-a-tag', NOW);
+    expect(p.title).toBe('groceries');
+    expect(p.tags).toEqual(['home']);
+    expect(p.time).toBeUndefined();
+    expect(p.notes).toBe('need the car, shops shut 9pm #not-a-tag');
+    expect(toCreateArgs(p).notes).toBe(p.notes);
+    expect(describeParse(p)).toBe(
+      'Flexible task · 1h · // need the car, shops shut 9pm #not-a-tag',
+    );
+  });
+
+  it('leaves a link alone', () => {
+    const p = parseQuick('read https://example.com/post', NOW);
+    expect(p.notes).toBeUndefined();
+    expect(p.title).toBe('read https://example.com/post');
+  });
+});

@@ -126,13 +126,13 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 54 | 14b | `feat: tag management in Settings` | committed `ab38e15` |
 | 55 | 14b | `feat(ui): themed context menu` | committed `a836678` |
 | 56 | 14c | `feat(ui): drag items in the Month view and all-day lane` | committed `5b957f5` |
-| 57 | 14d | `feat: task context in quick add and Smart slot` | planned |
+| 57 | 14d | `feat: task context in quick add and Smart slot` | committed (hash in the next entry) |
 | 58 | 14d | `feat(core): holidays` | planned |
 | 59 | 14d | `feat(core): task windows with replanning` | planned |
 | 60 | 14d | `feat: weekly tasks` | planned |
 | 61 | 14e | `feat(ai): Codex CLI sessions` | planned |
 | 62 | 14e | `feat(ai): Consult me slot mode` | planned |
-| 63 | 14f | `feat(ui): new Blotter logo` | committed (hash in the next entry) |
+| 63 | 14f | `feat(ui): new Blotter logo` | committed `690777d` |
 | 64 | 14f | `chore(release): v1.1.0` | planned |
 
 ---
@@ -4105,7 +4105,7 @@ Notes:
     - Items inside the Month "+N" popover are buttons and don't drag (open the day in Week).
     - Already draggable before this: Week timed blocks, Diary cards, timeline, Inbox rail.
 
-### #63 — New Blotter logo            [status: committed — hash in the next entry]
+### #63 — New Blotter logo            [status: committed 690777d]
 Phase: 14f (Luke, 2026-10-20: "Logo A … make the swap"; done ahead of 14d)
 Message:
     feat(ui): new Blotter logo
@@ -4139,3 +4139,28 @@ Test steps:
 Notes:
     - --logo-cell and --logo-done no longer have anything to colour (the old grid's cells).
     - Colours are left to Luke in the theme engine; the presets still share one logo palette.
+
+### #57 — Task context in quick add and Smart slot            [status: committed — hash in the next entry]
+Phase: 14d (Luke: "// is fine … notes is the right call")
+Message:
+    feat: task context in quick add and Smart slot
+
+    Anything after "//" on a quick-add or brain-dump line is the task's
+    context, stored in its notes: "groceries ~1h #home // need the car,
+    shops shut 9pm". It is read last and left as written, so #words and
+    dates inside it aren't parsed; a "//" inside a word (a link) doesn't
+    count. The preview shows it as a Context chip and in the line's
+    summary.
+
+    Smart slot hands each task's notes to the AI as its context (up to
+    300 characters, was 160) and tells it to follow the user's context
+    over its general placing rules. The item dialog's notes field says it
+    doubles as Smart slot context.
+Files:
+    M  src/lib/quickParse.ts, src/lib/quickParse.test.ts   (2 tests)
+    M  src/components/QuickAddPanel.tsx, src/views/inbox/InboxView.tsx, src/app/ItemDialog.tsx
+    M  crates/blotter-core/src/smart_slot.rs
+    M  .claude/COMMITS.md
+Test steps:
+    - pnpm check → clean; Vitest 224
+    - cargo test -p blotter-core smart_slot → ok
