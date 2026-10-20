@@ -133,7 +133,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 61 | 14e | `feat(ai): Codex CLI sessions` | planned |
 | 62 | 14e | `feat(ai): Consult me slot mode` | planned |
 | 63 | 14f | `feat(ui): new Blotter logo` | committed `690777d` |
-| 63a | 14f | `fix(ui): no grey edge on the logo's spark and rings` | committed (hash in the next entry) |
+| 63a | 14f | `fix(ui): no grey edge on the logo's spark and rings` | committed `0e139df` |
+| 63b | 14f | `fix(ui): logo closer to its design, gradient, no taskbar tile` | committed (hash in the next entry) |
 | 64 | 14f | `chore(release): v1.1.0` | planned |
 
 ---
@@ -4218,7 +4219,7 @@ Notes:
       (edit the holiday to re-lift).
     - Expiry is checked every minute while the app runs, and at startup.
 
-### #63a — No grey edge on the logo's spark and rings            [status: committed — hash in the next entry]
+### #63a — No grey edge on the logo's spark and rings            [status: committed 0e139df]
 Phase: 14f (Luke: "remove the gray outlines off the star and the calendar binder")
 Message:
     fix(ui): no grey edge on the logo's spark and rings
@@ -4234,3 +4235,31 @@ Test steps:
 Notes:
     - --logo-outline is still set by the presets but nothing reads it now. The app icon
       and favicon never had the edge.
+
+### #63b — Logo closer to its design, gradient, no taskbar tile            [status: committed — hash in the next entry]
+Phase: 14f (Luke: "the middle square needs to be bigger, the star should cutout part of the B
+… add back the gradient but use the logo page and logo accent … on the task bar logo lets
+remove the black square background")
+Message:
+    fix(ui): logo closer to its design, gradient, no taskbar tile
+
+    Closer to LogoRedesign1: the window is larger (an even border all
+    round), its foot is the sweep's edge, and the spark is cut the other
+    way from the window, filled inside it and a notch where its longer
+    tail crosses into the B.
+
+    The page is a gradient from --logo-accent (top left) to --logo-page
+    (bottom right), with the sweep a light wash of --logo-page, so both
+    stay themable. The app, taskbar and tray icon drop the dark tile: the
+    mark alone, scaled to fill the square.
+Files:
+    M  src/components/BlotterMark.tsx
+    M  public/blotter.svg (keeps its tile: favicon), src-tauri/icons/app-icon.svg (no tile)
+    M  src-tauri/icons/32x32.png, 64x64.png, 128x128.png, 128x128@2x.png, icon.png, icon.ico, icon.icns
+    M  .claude/COMMITS.md
+Test steps:
+    - pnpm check → clean
+    - Rendered both SVGs through pnpm tauri icon and looked at them
+Notes:
+    - The icon files carry the Blotter Dark colours (#fe5858 → #fef6e1); the in-app mark
+      follows the theme's logo tokens.
