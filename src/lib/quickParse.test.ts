@@ -76,8 +76,9 @@ describe('parseQuick', () => {
     expect(p('review every 2 weeks').rrule).toBe('FREQ=WEEKLY;INTERVAL=2');
     expect(p('water plants every other week').rrule).toBe('FREQ=WEEKLY;INTERVAL=2');
     expect(p('rent every month').rrule).toBe('FREQ=MONTHLY');
-    // A recurring item needs a start, so it begins today.
-    expect(p('bins every monday').date).toBe('2026-10-14');
+    // A recurring item starts on the first day its rule names (Wed 14 Oct → Mon 19), or today.
+    expect(p('bins every monday').date).toBe('2026-10-19');
+    expect(p('rent every month').date).toBe('2026-10-14');
   });
 
   it('applies the fixed rule', () => {
@@ -160,5 +161,23 @@ describe('do-window', () => {
     expect(b.title).toBe('plan trip');
     expect(b.notBefore).toBe('2026-11-01');
     expect(b.due).toBe('2026-11-15T17:00');
+  });
+});
+
+describe('weekly tasks', () => {
+  it('reads "weekly sat 9-12" as every Saturday at 9, usually 9 to 12', () => {
+    const p = parseQuick('laundry weekly sat 9-12 ~1h', NOW);
+    expect(p.title).toBe('laundry');
+    expect(p.rrule).toBe('FREQ=WEEKLY;BYDAY=SA');
+    expect(p.date).toBe('2026-10-17');
+    expect(p.time).toBe('09:00');
+    expect(p.kind).toBe('task');
+    expect(p.anchoring).toBe('flexible');
+    expect(toCreateArgs(p)).toMatchObject({ window_start: '09:00', window_end: '12:00' });
+  });
+
+  it('gives "1-3pm" an afternoon start', () => {
+    const p = parseQuick('meal prep every sun 1-3pm', NOW);
+    expect([p.windowStart, p.windowEnd]).toEqual(['13:00', '15:00']);
   });
 });

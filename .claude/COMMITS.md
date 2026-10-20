@@ -129,14 +129,14 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 57 | 14d | `feat: task context in quick add and Smart slot` | committed `99707a6` |
 | 58 | 14d | `feat(core): holidays` | committed `cfc4052` |
 | 59 | 14d | `feat(core): task windows with replanning` | committed `0579005` |
-| 60 | 14d | `feat: weekly tasks` | planned |
+| 60 | 14d | `feat: weekly tasks` | committed (hash in the next entry) |
 | 61 | 14e | `feat(ai): Codex CLI sessions` | planned |
 | 62 | 14e | `feat(ai): Consult me slot mode` | planned |
 | 63 | 14f | `feat(ui): new Blotter logo` | committed `690777d` |
 | 63a | 14f | `fix(ui): no grey edge on the logo's spark and rings` | committed `0e139df` |
 | 63b | 14f | `fix(ui): logo closer to its design, gradient, no taskbar tile` | committed `7359512` |
 | 63c | 14f | `fix(ui): logo keeps a shaded underside below the gradient` | committed `521ee95` |
-| 63d | 14f | `feat(theme): a colour for the logo's shaded underside` | committed (hash in the next entry) |
+| 63d | 14f | `feat(theme): a colour for the logo's shaded underside` | committed `8aa6f9a` |
 | 64 | 14f | `chore(release): v1.1.0` | planned |
 
 ---
@@ -4330,7 +4330,7 @@ Notes:
       #fe5858 → #fef6e1, shade #b73f3f (the same logo tokens as Blotter Dark today). If the
       preset's logo tokens change, edit app-icon.svg and run pnpm tauri icon again.
 
-### #63d — A colour for the logo's shaded underside            [status: committed — hash in the next entry]
+### #63d — A colour for the logo's shaded underside            [status: committed 8aa6f9a]
 Phase: 14f (Luke: "make a colour value for the shaded under part of B")
 Message:
     feat(theme): a colour for the logo's shaded underside
@@ -4346,3 +4346,41 @@ Files:
     M  .claude/COMMITS.md
 Test steps:
     - pnpm check → clean; Vitest 227 (engine test extended)
+
+### #60 — Weekly tasks            [status: committed — hash in the next entry]
+Phase: 14d (Luke: groceries, meal prep, laundry: a home day and usual time; missed → the next
+suitable day and time)
+Message:
+    feat: weekly tasks
+
+    A weekly task is a repeating flexible task with a home day and a
+    usual time: "laundry weekly sat 9-12 ~1h" is every Saturday at 09:00,
+    usually 09:00–12:00, an hour long.
+
+    When an occurrence's day passes undone, the daily rollover moves that
+    occurrence (as an override) to the next free slot before the next
+    occurrence starts, trying its usual time of day first, so it still
+    gets done that week. One that can't fit stays on its day; a done one,
+    or one whose next occurrence has already come, is left alone. This
+    applies to every repeating flexible task, whatever the rollover
+    setting. Occurrences no longer fall into the ordinary rollover (which
+    would have sent them to the Inbox).
+
+    Quick add: "weekly sat" means "every sat" and "weekly" alone "every
+    week"; "9-12", "6pm-8pm" or "1-3pm" sets the usual time (and the start
+    time when none is given). A repeating line now starts on the first
+    day its rule names ("bins every monday" typed on a Wednesday starts
+    next Monday), not today.
+Files:
+    M  crates/blotter-core/src/ops/rollover.rs   (replan_repeats; 2 tests)
+    M  crates/blotter-core/src/ops/reads.rs      (day_range pub(crate))
+    M  src/lib/quickParse.ts, src/lib/quickParse.test.ts   (2 tests; the "every monday" start moved)
+    M  .claude/COMMITS.md
+Test steps:
+    - cargo test --workspace → 184 core + 47 app + 6 mcp; clippy -D warnings / fmt clean
+    - pnpm check → clean; Vitest 229
+    - Live (pending): "groceries weekly sat 9-12 ~1h", leave last Saturday's undone, run
+      rollover from the palette → it moves to the next free 9–12 slot before Saturday
+Notes:
+    - Uses the usual-time fields from #59; the item dialog's Window row edits them for a series.
+    - Looks back 7 days for missed occurrences.

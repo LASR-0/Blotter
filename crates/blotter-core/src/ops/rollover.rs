@@ -8,12 +8,15 @@ use serde::{Deserialize, Serialize};
 
 use super::input::start_of_day;
 use super::items::{ENTITY as ITEM_ENTITY, finalize};
-use super::reads::today;
+use super::occurrences;
+use super::reads::{day_range, today};
 use super::slots::{PlacedTask, UnplacedTask, place};
 use super::{Ctx, OpDef};
 use crate::error::Result;
-use crate::model::{Anchoring, Item, ItemKind};
+use crate::model::{Anchoring, Item, ItemKind, ItemStatus};
+use crate::recurrence::{self, Slot};
 use crate::store;
+use crate::store::items::ItemRange;
 
 /// Where rolled-over tasks go. Stored as the `rollover_mode` setting.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, JsonSchema)]
@@ -69,7 +72,11 @@ pub(crate) fn left_behind(ctx: &Ctx<'_>) -> Result<Vec<Item>> {
         store::items::list_overdue(ctx.conn, ctx.now, today_start, today)?
             .into_iter()
             .filter(|i| {
-                i.kind == ItemKind::Task && i.anchoring == Anchoring::Flexible && i.rrule.is_none()
+                i.kind == ItemKind::Task
+                    && i.anchoring == Anchoring::Flexible
+                    && i.rrule.is_none()
+                    // An occurrence of a repeating task is re-planned in its own week.
+                    && i.parent_id.is_none()
             })
             .filter(|i| match (i.end_at, i.start_date) {
                 (Some(end), _) => end <= today_start,
@@ -96,6 +103,92 @@ fn to_inbox(ctx: &mut Ctx<'_>, item: Item) -> Result<Item> {
     Ok(item)
 }
 
+/// How far back missed occurrences of repeating tasks are looked for.
+const REPEAT_LOOKBACK_DAYS: i64 = 7;
+
+/// Repeating flexible tasks (weekly groceries, laundry): an occurrence whose
+/// day has passed undone is moved to the next free slot before the next
+/// occurrence (its usual time of day first), so it still gets done that week.
+/// One that can't fit stays where it was; one whose next occurrence has
+/// already come is left alone.
+fn replan_repeats(ctx: &mut Ctx<'_>, result: &mut RolloverResult) -> Result<()> {
+    let tz = ctx.settings.tz;
+    let today = today(ctx);
+    let today_start = start_of_day(tz, today);
+    let range = day_range(
+        ctx,
+        today - Duration::days(REPEAT_LOOKBACK_DAYS),
+        today - Duration::days(1),
+    );
+    let series_list: Vec<Item> = store::items::list_series(ctx.conn, range)?
+        .into_iter()
+        .filter(|s| {
+            s.kind == ItemKind::Task
+                && s.anchoring == Anchoring::Flexible
+                && s.status == ItemStatus::Open
+        })
+        .collect();
+    for series in series_list {
+        let Ok(slots) = recurrence::occurrences(&series, tz, range) else {
+            continue;
+        };
+        let children = store::items::list_children(ctx.conn, &series.id)?;
+        for slot in slots {
+            let (slot_start, slot_end) = match slot {
+                Slot::Timed { start, end } => (start, end),
+                Slot::AllDay { date, end_date } => (
+                    start_of_day(tz, date),
+                    start_of_day(tz, end_date.unwrap_or(date) + Duration::days(1)),
+                ),
+            };
+            if slot_end > today_start {
+                continue;
+            }
+            let rid = slot.recurrence_id();
+            let existing = children
+                .iter()
+                .find(|c| c.recurrence_id.as_deref() == Some(rid.as_str()))
+                .cloned();
+            if let Some(o) = &existing {
+                // Done, cancelled, or already moved to today or later.
+                let moved_ahead = o.end_at.is_some_and(|e| e > today_start)
+                    || o.start_date.is_some_and(|d| d >= today);
+                if o.status != ItemStatus::Open || moved_ahead {
+                    continue;
+                }
+            }
+            // It has until the next occurrence starts.
+            let ahead = ItemRange {
+                start: slot_start + Duration::minutes(1),
+                end: slot_start + Duration::days(400),
+                start_date: slot_start.with_timezone(&tz).date_naive() + Duration::days(1),
+                end_date: today + Duration::days(400),
+            };
+            let next = recurrence::occurrences(&series, tz, ahead)?
+                .into_iter()
+                .map(|s| match s {
+                    Slot::Timed { start, .. } => start,
+                    Slot::AllDay { date, .. } => start_of_day(tz, date),
+                })
+                .find(|s| *s > slot_start);
+            let until = next.unwrap_or(ctx.now + Duration::days(7));
+            if until <= ctx.now {
+                continue;
+            }
+            let child = occurrences::override_for(ctx, &series, slot, existing)?;
+            let (placed, missed) = place(ctx, vec![child], ctx.now, until, true)?;
+            result.reslotted.extend(placed);
+            for (_, mut why) in missed {
+                why.reason = why
+                    .reason
+                    .replace("It goes back to the Inbox.", "It stays on its day.");
+                result.not_reslotted.push(why);
+            }
+        }
+    }
+    Ok(())
+}
+
 fn rollover(ctx: &mut Ctx<'_>, a: RolloverArgs) -> Result<RolloverResult> {
     let mode = match a.mode {
         Some(mode) => mode,
@@ -114,6 +207,7 @@ fn rollover(ctx: &mut Ctx<'_>, a: RolloverArgs) -> Result<RolloverResult> {
         reslotted: Vec::new(),
         not_reslotted: Vec::new(),
     };
+    replan_repeats(ctx, &mut result)?;
     let mut leftovers = Vec::new();
     if !windowed.is_empty() {
         let until = windowed
@@ -290,5 +384,50 @@ mod tests {
             )
             .is_err()
         );
+    }
+
+    #[test]
+    fn a_missed_weekly_task_moves_to_the_next_free_slot_that_week() {
+        let mut p = crate::planner::tests::planner();
+        // Saturdays 09:00, usually 09:00–12:00; Sat 10 Oct was missed.
+        let series = run(
+            &mut p,
+            "create_item",
+            json!({ "title": "Groceries", "start": "2026-10-10T09:00", "duration_min": 60,
+                    "rrule": "FREQ=WEEKLY;BYDAY=SA", "window_start": "09:00", "window_end": "12:00" }),
+        );
+        let out = run(&mut p, "rollover", json!({}));
+        assert_eq!(out["reslotted"].as_array().unwrap().len(), 1);
+        let moved = &out["reslotted"][0];
+        // Wed 14 Oct 09:00 Melbourne: now, inside its usual time, before next Saturday.
+        assert_eq!(moved["start"], "2026-10-13T22:00:00Z");
+        assert_eq!(moved["item"]["parent_id"], series["id"]);
+        assert!(out["to_inbox"].as_array().unwrap().is_empty());
+        // Running again moves nothing more.
+        let again = run(&mut p, "rollover", json!({}));
+        assert!(again["reslotted"].as_array().unwrap().is_empty());
+    }
+
+    #[test]
+    fn a_done_weekly_task_stays_put() {
+        let mut p = crate::planner::tests::planner();
+        run(
+            &mut p,
+            "create_item",
+            json!({ "title": "Laundry", "start": "2026-10-10T09:00", "duration_min": 60,
+                    "rrule": "FREQ=WEEKLY;BYDAY=SA" }),
+        );
+        let agenda = run(
+            &mut p,
+            "list_agenda",
+            json!({ "start": "2026-10-10", "end": "2026-10-10" }),
+        );
+        run(
+            &mut p,
+            "complete_item",
+            json!({ "id": agenda["items"][0]["id"] }),
+        );
+        let out = run(&mut p, "rollover", json!({}));
+        assert!(out["reslotted"].as_array().unwrap().is_empty());
     }
 }

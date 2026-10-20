@@ -179,7 +179,7 @@ pub struct DaySummary {
 }
 
 /// `[start of first day, start of the day after last)` in the user's zone.
-fn day_range(ctx: &Ctx<'_>, start: NaiveDate, end: NaiveDate) -> ItemRange {
+pub(crate) fn day_range(ctx: &Ctx<'_>, start: NaiveDate, end: NaiveDate) -> ItemRange {
     let tz = ctx.settings.tz;
     ItemRange {
         start: start_of_day(tz, start),

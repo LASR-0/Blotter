@@ -26,6 +26,7 @@
 import * as chrono from 'chrono-node';
 import { format, parseISO } from 'date-fns';
 import { formatDuration, parseDuration } from './duration';
+import { parseTime } from './format';
 import type { Anchoring, ItemKind } from './types';
 
 export type ChipKind =
@@ -62,6 +63,9 @@ export interface QuickParse {
   /** YYYY-MM-DDTHH:MM (local) */
   due?: string;
   rrule?: string;
+  /** Usual time of day (HH:MM), as in "9-12". */
+  windowStart?: string;
+  windowEnd?: string;
   /** Do-window start (after / from …), YYYY-MM-DD. */
   notBefore?: string;
   /** Context after `//`, for the notes. */
@@ -119,6 +123,8 @@ function parseRecurrence(phrase: string): { rrule: string; label: string } | nul
     : null;
 }
 
+/** RRULE weekday codes from Sunday, as Date.getDay() counts. */
+const RRULE_DAYS = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'];
 const fmtDay = (d: Date) => format(d, 'yyyy-MM-dd');
 const fmtTime = (d: Date) => format(d, 'HH:mm');
 const showDay = (d: Date) => format(d, 'EEE d MMM');
@@ -149,6 +155,31 @@ export function parseQuick(input: string, now: Date = new Date()): QuickParse {
     if (!m || !fn(m)) return;
     rest = rest.slice(0, m.index) + ' ' + rest.slice(m.index + m[0].length);
   };
+
+  // "weekly sat" is "every sat"; "weekly" alone, "every week".
+  rest = rest
+    .replace(new RegExp(`\\sweekly(\\s+${DAY_WORD})(?=\\s)`, 'i'), ' every$1')
+    .replace(/\sweekly(?=\s)/i, ' every week');
+
+  // A usual time of day, "9-12" or "6pm–8pm", before chrono reads it as a date.
+  take(
+    /\s(\d{1,2}(?::\d{2})?\s*(?:am|pm)?)\s*[-–]\s*(\d{1,2}(?::\d{2})?\s*(?:am|pm)?)(?=\s)/i,
+    (m) => {
+      let from = parseTime(m[1] as string);
+      const to = parseTime(m[2] as string);
+      if (!from || !to) return false;
+      // "1-3pm": the start takes the end's afternoon.
+      if (/pm/i.test(m[2] as string) && !/[ap]m/i.test(m[1] as string) && from < '12:00') {
+        const later = parseTime(`${m[1] as string}pm`);
+        if (later && later < to) from = later;
+      }
+      if (to <= from) return false;
+      out.windowStart = from;
+      out.windowEnd = to;
+      chips.push({ kind: 'window', label: 'Usually', value: `${from}–${to}`, source: m[0].trim() });
+      return true;
+    },
+  );
 
   // Recurrence first: its weekday names would otherwise be read as dates.
   take(
@@ -278,9 +309,21 @@ export function parseQuick(input: string, now: Date = new Date()): QuickParse {
     }
   }
 
-  // A recurring item needs a start; default to today.
+  // A usual time with a day but no time starts at the usual time.
+  if (out.windowStart && out.date && !out.time) out.time = out.windowStart;
+
+  // A recurring item needs a start: the first day its rule names (today if
+  // it matches), else today.
   if (out.rrule && !out.date) {
-    out.date = fmtDay(now);
+    const codes = /BYDAY=([A-Z,]+)/.exec(out.rrule)?.[1]?.split(',') ?? [];
+    const first = new Date(now);
+    for (let i = 0; i < 7 && codes.length; i++) {
+      if (codes.includes(RRULE_DAYS[first.getDay()] as string)) break;
+      first.setDate(first.getDate() + 1);
+    }
+    out.date = fmtDay(codes.length ? first : now);
+    // A usual time with no time given starts at the usual time.
+    if (out.windowStart && !out.time) out.time = out.windowStart;
   }
 
   out.title = rest
@@ -311,6 +354,10 @@ export function toCreateArgs(p: QuickParse): Record<string, unknown> {
   if (p.rrule) args.rrule = p.rrule;
   if (p.notes) args.notes = p.notes;
   if (p.notBefore) args.not_before = p.notBefore;
+  if (p.windowStart && p.windowEnd) {
+    args.window_start = p.windowStart;
+    args.window_end = p.windowEnd;
+  }
   return args;
 }
 
@@ -341,6 +388,7 @@ export function describeParse(p: QuickParse): string {
   const repeat = p.chips.find((c) => c.kind === 'repeat');
   if (repeat) parts.push(repeat.value);
   if (p.priority) parts.push(`!${p.priority}`);
+  if (p.windowStart) parts.push(`usually ${p.windowStart}–${p.windowEnd}`);
   if (p.notBefore) parts.push(`from ${format(parseISO(p.notBefore), 'EEE d MMM')}`);
   if (p.due) parts.push(`due ${format(parseISO(p.due), 'EEE d MMM')}`);
   if (p.notes) parts.push(`// ${p.notes.length > 40 ? `${p.notes.slice(0, 39)}…` : p.notes}`);
