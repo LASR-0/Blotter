@@ -131,12 +131,13 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 59 | 14d | `feat(core): task windows with replanning` | committed `0579005` |
 | 60 | 14d | `feat: weekly tasks` | committed `b2d6ad2` |
 | 61 | 14e | `feat(ai): Codex CLI sessions` | planned |
-| 62 | 14e | `feat(ai): Consult me slot mode` | committed (hash in the next entry) |
+| 62 | 14e | `feat(ai): Consult me slot mode` | committed `ad1e018` |
 | 63 | 14f | `feat(ui): new Blotter logo` | committed `690777d` |
 | 63a | 14f | `fix(ui): no grey edge on the logo's spark and rings` | committed `0e139df` |
 | 63b | 14f | `fix(ui): logo closer to its design, gradient, no taskbar tile` | committed `7359512` |
 | 63c | 14f | `fix(ui): logo keeps a shaded underside below the gradient` | committed `521ee95` |
 | 63d | 14f | `feat(theme): a colour for the logo's shaded underside` | committed `8aa6f9a` |
+| 63e | 14f | `feat(theme): the official logo colours in every preset and the icon` | committed (hash in the next entry) |
 | 64 | 14f | `chore(release): v1.1.0` | planned |
 
 ---
@@ -4385,7 +4386,7 @@ Notes:
     - Uses the usual-time fields from #59; the item dialog's Window row edits them for a series.
     - Looks back 7 days for missed occurrences.
 
-### #62 — Consult me slot mode            [status: committed — hash in the next entry]
+### #62 — Consult me slot mode            [status: committed ad1e018]
 Phase: 14e (Luke: "the AI will consult you on each task in your inbox, asking important
 contextual questions about each task to find the best slot period for them")
 Message:
@@ -4419,3 +4420,26 @@ Test steps:
 Notes:
     - Built on Claude Code's kept-alive session (#31a), so the conversation carries over
       between replies; API-key providers carry it through the thread's history.
+
+### #63e — The official logo colours in every preset and the icon            [status: committed — hash in the next entry]
+Phase: 14f (Luke: "the logo colour way in the blotter light copy is the official logo colour
+way i would like to use for all the default themes and for the task bar logo")
+Message:
+    feat(theme): the official logo colours in every preset and the icon
+
+    Luke's "Blotter Light copy" colourway becomes the official one: logo
+    accent #fe5858, page #ffbf52 (the gradient runs coral to gold), shade
+    #f05656 under the B, wordmark #ffbf52 on a #fe5858 extrusion. All four
+    presets use it, and the app, taskbar and tray icon and the favicon are
+    redrawn in it.
+Files:
+    M  src/theme/presets.ts            (--logo-page #ffbf52, --logo-shade #f05656 in all four)
+    M  public/blotter.svg, src-tauri/icons/app-icon.svg
+    M  src-tauri/icons/32x32.png, 64x64.png, 128x128.png, 128x128@2x.png, icon.png, icon.ico, icon.icns
+    M  .claude/COMMITS.md
+Test steps:
+    - pnpm check → clean; Vitest 229
+    - Rendered app-icon.svg through pnpm tauri icon and looked at it
+Notes:
+    - Read from the demo database's "Blotter Light copy" (copied, read-only). Saved user themes
+      keep their own logo colours.
