@@ -130,7 +130,7 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 58 | 14d | `feat(core): holidays` | committed `cfc4052` |
 | 59 | 14d | `feat(core): task windows with replanning` | committed `0579005` |
 | 60 | 14d | `feat: weekly tasks` | committed `b2d6ad2` |
-| 61 | 14e | `feat(ai): Codex CLI sessions` | planned |
+| 61 | 14e | `feat(ai): Codex CLI sessions` | committed (hash in the next entry) |
 | 62 | 14e | `feat(ai): Consult me slot mode` | committed `ad1e018` |
 | 63 | 14f | `feat(ui): new Blotter logo` | committed `690777d` |
 | 63a | 14f | `fix(ui): no grey edge on the logo's spark and rings` | committed `0e139df` |
@@ -139,7 +139,7 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 63d | 14f | `feat(theme): a colour for the logo's shaded underside` | committed `8aa6f9a` |
 | 63e | 14f | `feat(theme): the official logo colours in every preset and the icon` | committed `4ac476c` |
 | 63f | 14f | `fix(ui): logo spark moved down instead of stretched` | committed `36ad210` |
-| 63g | 14f | `fix(ui): logo spark centred and larger, cutting into the B` | committed (hash in the next entry) |
+| 63g | 14f | `fix(ui): logo spark centred and larger, cutting into the B` | committed `6ec8b01` |
 | 64 | 14f | `chore(release): v1.1.0` | planned |
 
 ---
@@ -4464,7 +4464,7 @@ Test steps:
     - pnpm check → clean; Vitest 229
     - Rendered app-icon.svg through pnpm tauri icon and looked at it
 
-### #63g — Logo spark centred and larger, cutting into the B            [status: committed — hash in the next entry]
+### #63g — Logo spark centred and larger, cutting into the B            [status: committed 6ec8b01]
 Phase: 14f (Luke: "the spark is moved too far down … somewhat centred, make it larger to touch
 the bottom of the B and there should be a cutout on the bottom")
 Message:
@@ -4480,3 +4480,57 @@ Files:
 Test steps:
     - pnpm check → clean; Vitest 229
     - Rendered app-icon.svg through pnpm tauri icon and looked at it
+
+### #61 — Codex CLI sessions            [status: committed — hash in the next entry]
+Phase: 14e
+Message:
+    feat(ai): Codex CLI sessions
+
+    A third AI route beside Claude Code and the API-key providers: the
+    user's installed, signed-in OpenAI Codex CLI, on their ChatGPT plan,
+    driven headless with Blotter's MCP server as its only tools. Chat,
+    Smart slot, Consult me and the morning briefing all run through it.
+
+    - Each message is one `codex exec --json` run in its own folder under
+      the app data; later messages resume the thread's Codex thread
+      (`codex exec resume <id>`), so the conversation carries on. A Codex
+      thread that has gone is replaced by a fresh one, once.
+    - Locked down like the Claude Code route: Codex's shell, exec, apps,
+      plugins, browser, computer use, sub-agents, image tools and web
+      search are switched off, it runs read-only, and the user's Codex
+      config and rules aren't loaded (only its sign-in). Blotter's
+      instructions go in as developer instructions; the planner snapshot
+      travels with each message.
+    - Changes are logged and proposed as ai:codex/<model> ("default" when
+      Codex picks the model).
+    - Finding it: the path set in Settings, then PATH, then npm's global
+      package (on Windows npm only puts a codex.cmd shim on PATH; Blotter
+      runs the bundled codex.exe directly). Flatpak goes through
+      flatpak-spawn like Claude Code.
+    - Settings → AI providers has a Codex card: install and sign-in status
+      (codex login status), Use for chat, model (blank for Codex's
+      default) and program path. The chat header and proposal cards say
+      "Codex".
+Files:
+    A  src-tauri/src/ai/codex.rs               (driver; 3 tests + 1 ignored live test)
+    M  src-tauri/src/ai/chat.rs                (Route::Codex, settings, codex_status, run_codex)
+    M  src-tauri/src/ai/claude_code.rs, src-tauri/src/ai/mod.rs, src-tauri/src/lib.rs
+    M  crates/blotter-core/src/settings.rs     (codex_model, codex_path; per device)
+    A  src/views/settings/CodexCard.tsx
+    M  src/views/settings/AiProvidersPage.tsx, src/lib/aiSettings.ts, src/chat/ChatPanel.tsx,
+       src/chat/proposals.ts, src/chat/proposals.test.ts
+    M  .claude/COMMITS.md
+Test steps:
+    - cargo test --workspace → 185 core + 50 app (+3) + 6 mcp; clippy -D warnings / fmt clean
+    - pnpm check → clean; Vitest 229
+    - Live, Codex CLI 0.163.0 signed in with ChatGPT, on a scratch copy of the demo data:
+        · by hand: list_inbox + create_item through MCP; resume remembered the thread;
+          developer_instructions honoured on a new thread
+        · BLOTTER_LIVE_CODEX=<scratch> cargo test -p blotter live_codex -- --ignored → Codex
+          called list_inbox through Blotter's arguments and answered (8 s)
+    - Pending (Luke's app was running): Settings → AI providers → Codex → Use for chat; send a
+      message, a follow-up, and run Smart slot and Consult me
+Notes:
+    - Codex sends each message whole, so a reply appears a message at a time rather than as
+      it's typed. Each turn starts a new process (a few seconds); no prewarm.
+    - First-run setup still offers Claude Code or an API key; Codex is chosen in Settings.

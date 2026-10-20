@@ -44,12 +44,17 @@ pub const KEY_BRIEFING_TIME: &str = "briefing_time";
 pub const KEY_LAST_BRIEFING: &str = "last_briefing_date";
 /// `"propose"` (default, D8) or `"auto"`: whether AI and MCP changes wait for approval.
 pub const KEY_AI_MODE: &str = "ai_mode";
-/// Which AI the chat uses: `"claude_code"` (default, D29) or `"api"` (the default provider).
+/// Which AI the chat uses: `"claude_code"` (default, D29), `"codex"` or `"api"` (the default
+/// provider).
 pub const KEY_AI_ROUTE: &str = "ai_route";
 /// The model Claude Code runs, as an alias (`sonnet`, `opus`, …) or full name.
 pub const KEY_CLAUDE_CODE_MODEL: &str = "claude_code_model";
 /// Where the `claude` program is, when it isn't found on its own.
 pub const KEY_CLAUDE_CODE_PATH: &str = "claude_code_path";
+/// The model Codex runs; empty for Codex's own default.
+pub const KEY_CODEX_MODEL: &str = "codex_model";
+/// Where the `codex` program is, when it isn't found on its own.
+pub const KEY_CODEX_PATH: &str = "codex_path";
 pub const KEY_WEEK_START: &str = "week_start";
 pub const KEY_CLOCK: &str = "clock";
 pub const KEY_CLOSE_TO_TRAY: &str = "close_to_tray";
@@ -83,7 +88,7 @@ impl Default for ClockStyle {
 
 /// Settings that describe this install rather than the planner: they stay
 /// put through a restore or import, and aren't exported.
-pub const DEVICE_KEYS: [&str; 10] = [
+pub const DEVICE_KEYS: [&str; 12] = [
     KEY_SETUP_DONE,
     KEY_LAST_BRIEFING,
     KEY_AI_MODE,
@@ -93,6 +98,8 @@ pub const DEVICE_KEYS: [&str; 10] = [
     KEY_AI_ROUTE,
     KEY_CLAUDE_CODE_MODEL,
     KEY_CLAUDE_CODE_PATH,
+    KEY_CODEX_MODEL,
+    KEY_CODEX_PATH,
     "theme",
 ];
 pub const DEFAULT_SNAPSHOT_KEEP: u32 = 20;

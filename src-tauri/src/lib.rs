@@ -215,6 +215,7 @@ pub fn run() {
             ai::chat::get_ai_settings,
             ai::chat::set_ai_settings,
             ai::chat::claude_code_status,
+            ai::chat::codex_status,
             ai::chat::chat_threads,
             ai::chat::chat_messages,
             ai::chat::chat_delete_thread,

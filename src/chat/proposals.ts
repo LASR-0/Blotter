@@ -111,6 +111,6 @@ export function actorLabel(actor: string): string {
   if (actor === 'mcp') return 'an MCP client';
   const m = /^ai:([^/]+)\/(.+)$/.exec(actor);
   if (!m) return actor;
-  const provider = m[1] === 'claude-code' ? 'Claude Code' : m[1]!;
+  const provider = m[1] === 'claude-code' ? 'Claude Code' : m[1] === 'codex' ? 'Codex' : m[1]!;
   return `${provider} · ${m[2]}`;
 }

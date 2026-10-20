@@ -12,6 +12,7 @@ pub mod agent;
 pub mod anthropic;
 pub mod chat;
 pub mod claude_code;
+pub mod codex;
 pub mod commands;
 pub mod keychain;
 pub mod openai;

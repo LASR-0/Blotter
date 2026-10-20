@@ -119,6 +119,7 @@ describe('describe', () => {
 describe('actorLabel', () => {
   it('names who proposed it', () => {
     expect(actorLabel('ai:claude-code/sonnet')).toBe('Claude Code · sonnet');
+    expect(actorLabel('ai:codex/default')).toBe('Codex · default');
     expect(actorLabel('ai:anthropic/claude-sonnet-5-5')).toBe('anthropic · claude-sonnet-5-5');
     expect(actorLabel('mcp')).toBe('an MCP client');
   });

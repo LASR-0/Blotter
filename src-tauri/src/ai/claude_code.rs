@@ -110,7 +110,7 @@ fn is_session_var(name: &str) -> bool {
             && name != "CLAUDE_CODE_USE_VERTEX")
 }
 
-fn command(exe: &Path) -> Command {
+pub(super) fn command(exe: &Path) -> Command {
     let mut cmd = if crate::flatpak::app_id().is_some() {
         // The host's program, ended with Blotter (`--watch-bus`). Needs the
         // user's `--talk-name=org.freedesktop.Flatpak` override.

@@ -64,6 +64,7 @@ function useProviderLabel(): string {
   });
   if (!ai.data) return '…';
   if (ai.data.route === 'claude_code') return `Claude Code · ${ai.data.claude_code_model}`;
+  if (ai.data.route === 'codex') return `Codex · ${ai.data.codex_model || 'default'}`;
   const p = providers.data?.find((x) => x.is_default);
   return p ? `${p.name} · ${p.model || 'no model'}` : 'No provider set up';
 }

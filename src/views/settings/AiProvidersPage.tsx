@@ -21,6 +21,7 @@ import { isOpError } from '@/lib/api';
 import { cn } from '@/lib/cn';
 import { AI_SETTINGS_KEY, type AiSettings } from '@/lib/aiSettings';
 import { ClaudeCodeCard } from './ClaudeCodeCard';
+import { CodexCard } from './CodexCard';
 import { McpSection } from './McpSection';
 
 type Kind = 'anthropic' | 'openai' | 'openai_compatible';
@@ -351,6 +352,7 @@ export function AiProvidersPage() {
         </div>
       )}
       {ai.data && <ClaudeCodeCard settings={ai.data} />}
+      {ai.data && <CodexCard settings={ai.data} />}
       <h2 className="m-0 mt-2 text-md font-semibold">API-key providers</h2>
       {error && <p className="m-0 text-sm text-danger">{error}</p>}
       {list.map((p) => (

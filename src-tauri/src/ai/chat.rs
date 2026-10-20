@@ -1,6 +1,6 @@
 //! The AI chat (roadmap §4.6): threads persisted in the database, one turn
 //! at a time per thread, streamed to the UI as `chat:event`s. A turn runs
-//! through Claude Code (the default, D29) or the default API provider.
+//! through Claude Code (the default, D29), Codex, or the default API provider.
 //!
 //! The chat panel arrives with #31; these commands are its backend.
 
@@ -10,7 +10,9 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use blotter_core::proposals::{self, Decision, Mode, Proposal};
-use blotter_core::settings::{KEY_AI_ROUTE, KEY_CLAUDE_CODE_MODEL, KEY_CLAUDE_CODE_PATH};
+use blotter_core::settings::{
+    KEY_AI_ROUTE, KEY_CLAUDE_CODE_MODEL, KEY_CLAUDE_CODE_PATH, KEY_CODEX_MODEL, KEY_CODEX_PATH,
+};
 use blotter_core::store::chat::{self, ChatMessage, ChatRole, Thread};
 use blotter_core::store::{self, providers};
 use blotter_core::{Actor, Planner};
@@ -27,6 +29,7 @@ use crate::shell::MAIN_WINDOW;
 
 use super::agent::{self, Step};
 use super::claude_code::{self, Event, Session};
+use super::codex;
 use super::commands::ai_err;
 use super::{Block, ChatRequest, Message, Role, keychain};
 use crate::AppState;
@@ -45,6 +48,8 @@ pub enum Route {
     /// The user's signed-in Claude Code, on their subscription (D29).
     #[default]
     ClaudeCode,
+    /// The user's signed-in OpenAI Codex CLI, on their ChatGPT plan.
+    Codex,
     /// The default API-key provider (experimental).
     Api,
 }
@@ -118,6 +123,10 @@ pub struct AiSettings {
     pub claude_code_model: String,
     /// Empty: find `claude` automatically.
     pub claude_code_path: String,
+    /// Empty: Codex's own default model.
+    pub codex_model: String,
+    /// Empty: find `codex` automatically.
+    pub codex_path: String,
 }
 
 fn read_settings(planner: &Planner) -> Result<AiSettings, CommandError> {
@@ -129,6 +138,8 @@ fn read_settings(planner: &Planner) -> Result<AiSettings, CommandError> {
             .filter(|m| !m.trim().is_empty())
             .unwrap_or_else(|| claude_code::DEFAULT_MODEL.to_owned()),
         claude_code_path: store::settings::get(conn, KEY_CLAUDE_CODE_PATH)?.unwrap_or_default(),
+        codex_model: store::settings::get(conn, KEY_CODEX_MODEL)?.unwrap_or_default(),
+        codex_path: store::settings::get(conn, KEY_CODEX_PATH)?.unwrap_or_default(),
     })
 }
 
@@ -144,6 +155,8 @@ pub struct AiSettingsInput {
     pub mode: Option<Mode>,
     pub claude_code_model: Option<String>,
     pub claude_code_path: Option<String>,
+    pub codex_model: Option<String>,
+    pub codex_path: Option<String>,
 }
 
 #[tauri::command]
@@ -166,6 +179,12 @@ pub fn set_ai_settings(
     if let Some(path) = input.claude_code_path {
         store::settings::set(conn, KEY_CLAUDE_CODE_PATH, &path.trim(), now)?;
     }
+    if let Some(model) = input.codex_model {
+        store::settings::set(conn, KEY_CODEX_MODEL, &model.trim(), now)?;
+    }
+    if let Some(path) = input.codex_path {
+        store::settings::set(conn, KEY_CODEX_PATH, &path.trim(), now)?;
+    }
     read_settings(&planner)
 }
 
@@ -179,6 +198,16 @@ pub async fn claude_code_status(
         read_settings(&planner)?.claude_code_path
     };
     Ok(claude_code::status(Some(&path)).await)
+}
+
+/// Whether Codex is installed and signed in.
+#[tauri::command]
+pub async fn codex_status(state: State<'_, AppState>) -> Result<codex::Status, CommandError> {
+    let path = {
+        let planner = state.planner.lock().map_err(|_| lock_err())?;
+        read_settings(&planner)?.codex_path
+    };
+    Ok(codex::status(Some(&path)).await)
 }
 
 // ---- Threads --------------------------------------------------------------
@@ -262,7 +291,7 @@ fn prepare(
                 CommandError::internal("Add an AI provider in Settings → AI providers first.")
             })?,
         ),
-        Route::ClaudeCode => None,
+        Route::ClaudeCode | Route::Codex => None,
     };
     let now = Utc::now();
     let thread = match &thread_id {
@@ -403,6 +432,7 @@ pub fn start_turn(
             .unwrap_or(i64::MAX);
         let result = match prepared.settings.route {
             Route::ClaudeCode => run_claude_code(&task_app, prepared).await,
+            Route::Codex => run_codex(&task_app, prepared).await,
             Route::Api => run_api(&task_app, prepared).await,
         };
         with_planner(&task_app, |p| {
@@ -623,6 +653,10 @@ fn turn_actor(p: &Prepared) -> Actor {
                 .and_then(|v| v.as_str().map(str::to_owned))
                 .unwrap_or_default(),
             model: provider.model.clone(),
+        },
+        None if p.settings.route == Route::Codex => Actor::Ai {
+            provider: "codex".to_owned(),
+            model: codex::model_label(&p.settings.codex_model).to_owned(),
         },
         None => Actor::Ai {
             provider: "claude-code".to_owned(),
@@ -958,14 +992,23 @@ async fn run_claude_code(app: &AppHandle, p: Prepared) -> Result<Option<String>,
         let mut pool = sessions.0.lock().await;
         pool.tidy();
         let own = pool.by_thread.remove(&p.thread.id);
-        let spare = if p.thread.external_session.is_none() {
+        let spare = if p
+            .thread
+            .external_session
+            .as_deref()
+            .is_none_or(is_codex_session)
+        {
             pool.spare.take()
         } else {
             None
         };
         own.or(spare).filter(|s| s.model == launch.model)
     };
-    let mut resume = p.thread.external_session.clone();
+    let mut resume = p
+        .thread
+        .external_session
+        .clone()
+        .filter(|s| !is_codex_session(s));
     let mut process = match kept.and_then(|mut s| s.is_alive().then_some(s)) {
         Some(s) => s,
         None => launch.start(resume.as_deref())?,
@@ -1079,6 +1122,145 @@ async fn run_claude_code(app: &AppHandle, p: Prepared) -> Result<Option<String>,
             "Blotter's tools didn't start for Claude Code, so it couldn't see your planner."
                 .to_owned()
         }));
+    }
+}
+
+// ---- Codex ------------------------------------------------------------------
+
+/// A thread's Codex thread id is stored with this prefix, so the Claude Code
+/// route (which shares the field) never tries to resume it, and vice versa.
+const CODEX_SESSION: &str = "codex:";
+
+fn is_codex_session(s: &str) -> bool {
+    s.starts_with(CODEX_SESSION)
+}
+
+/// Whether a failed resume means the Codex thread is gone (deleted or expired).
+fn codex_thread_gone(message: &str) -> bool {
+    let m = message.to_lowercase();
+    m.contains("no session") || m.contains("not found") || m.contains("no rollout")
+}
+
+/// One Codex turn (see [`codex`]): a new `codex exec`, resuming the thread's
+/// Codex thread when it has one.
+async fn run_codex(app: &AppHandle, p: Prepared) -> Result<Option<String>, String> {
+    let exe = codex::find(Some(&p.settings.codex_path)).ok_or_else(|| {
+        "Codex isn't installed, or Blotter can't find it. Set it up in Settings → AI providers."
+            .to_owned()
+    })?;
+    let blotter = crate::flatpak::self_command()
+        .map_err(|e| format!("Couldn't find Blotter's own program: {e}"))?;
+    let work = p.data_dir.join("codex");
+    let instructions = context::instructions();
+    let message = with_snapshot(&p.snapshot, &p.text);
+    let mut resume = p
+        .thread
+        .external_session
+        .as_deref()
+        .and_then(|s| s.strip_prefix(CODEX_SESSION))
+        .map(str::to_owned);
+
+    loop {
+        let mut blocks: Vec<Block> = Vec::new();
+        let mut names: HashMap<String, String> = HashMap::new();
+        let mut said: Vec<String> = Vec::new();
+        let mut session = None;
+        let mut failure = None;
+        let thread_id = p.thread.id.clone();
+        let config = codex::TurnConfig {
+            instructions: &instructions,
+            model: &p.settings.codex_model,
+            resume: resume.as_deref(),
+            blotter: &blotter,
+            data_dir: &p.data_dir,
+        };
+        let ran = codex::run_turn(&exe, &work, &config, &message, |event| match event {
+            Event::Init { session_id, .. } => session = Some(session_id),
+            Event::Text(text) => {
+                // Codex sends whole messages: keep them apart, as the saved reply has them.
+                let shown = if said.is_empty() {
+                    text.clone()
+                } else {
+                    format!("\n\n{text}")
+                };
+                emit(app, &thread_id, ChatEvent::Text { text: shown });
+                said.push(text);
+            }
+            Event::ToolStart { id, name, input } => {
+                names.insert(id.clone(), name.clone());
+                emit(
+                    app,
+                    &thread_id,
+                    ChatEvent::ToolStart {
+                        id: id.clone(),
+                        name: name.clone(),
+                        input: input.clone(),
+                    },
+                );
+                blocks.push(Block::ToolUse {
+                    id,
+                    name,
+                    input,
+                    invalid: None,
+                });
+            }
+            Event::ToolResult { id, is_error, text } => {
+                let name = names.get(&id).cloned().unwrap_or_default();
+                emit(
+                    app,
+                    &thread_id,
+                    ChatEvent::ToolResult {
+                        id: id.clone(),
+                        name,
+                        is_error,
+                        preview: preview(&text),
+                    },
+                );
+                blocks.push(Block::ToolResult {
+                    tool_use_id: id,
+                    content: text,
+                    is_error,
+                });
+            }
+            Event::Done { text, is_error, .. } => {
+                if is_error {
+                    failure = Some(text);
+                }
+            }
+        })
+        .await;
+
+        // The Codex thread is gone: start a fresh one, once.
+        let lost = resume.is_some()
+            && said.is_empty()
+            && (ran.as_ref().err().is_some_and(|m| codex_thread_gone(m))
+                || failure.as_deref().is_some_and(codex_thread_gone));
+        if lost {
+            resume = None;
+            continue;
+        }
+        ran?;
+        if let Some(msg) = failure {
+            return Err(msg);
+        }
+        let final_text = said.join("\n\n");
+        blocks.push(Block::Text {
+            text: final_text.clone(),
+        });
+        let blocks = serde_json::to_value(&blocks).ok();
+        save(
+            app,
+            &p.thread.id,
+            ChatRole::Assistant,
+            &final_text,
+            blocks.as_ref(),
+            None,
+        );
+        let stored = session.or(resume).map(|s| format!("{CODEX_SESSION}{s}"));
+        with_planner(app, |planner| {
+            chat::set_external_session(planner.db().conn(), &p.thread.id, stored.as_deref())
+        });
+        return Ok(None);
     }
 }
 
