@@ -32,6 +32,13 @@
     <category>Calendar</category>
   </categories>
   <releases>
+    <release version="1.1.0" date="2026-10-20">
+      <description>
+        <p>Holidays, task windows, weekly tasks, task context, tag management, a Consult me
+          planning mode, Codex CLI support, drag and drop in every calendar view, a themed
+          right-click menu and a new logo.</p>
+      </description>
+    </release>
     <release version="1.0.0" date="2026-10-17"/>
   </releases>
 </component>

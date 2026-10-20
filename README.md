@@ -7,7 +7,9 @@ A keyboard-first daily planner with an AI that pencils things in for you.
 The name comes from the desk blotter (the paper calendar pad on a desk) and from _blotting out_ time, which is what block-out windows do.
 
 - **Diary, Week, Month and Year** views, all usable from the keyboard alone.
-- An **Inbox** to brain-dump tasks into, then auto-slot them with the built-in scheduler or the AI.
+- An **Inbox** to brain-dump tasks into, then place them with the built-in auto-slot, the AI's **Smart slot**, or **Consult me**, where the AI asks you about each task before placing it.
+- **Task windows** ("book the trip between 1 and 15 Nov") and **weekly tasks** (groceries some time each week, usually Saturday morning) that re-plan themselves when a slot is missed.
+- **Holidays** that lift your block-outs for their days and keep work tasks off them.
 - **Block-out windows** (work 08:30–17:00 on weekdays, say) that flexible tasks never land in. Fixed appointments can still go there.
 - An **AI chat** that reads and changes your planner. By default it _proposes_ changes for you to accept; every change is logged and undoable, with snapshots to roll back to.
 - **Reminders** with snooze, which keep firing from the tray while the window is closed.
@@ -61,9 +63,10 @@ Snapshots go in a `snapshots` folder next to it (Settings → Backups). Set `BLO
 
 ## AI
 
-Settings → AI providers offers two routes:
+Settings → AI providers offers three routes:
 
 - **Claude Code** (recommended). Blotter drives your installed, signed-in [`claude`](https://docs.claude.com/en/docs/claude-code) program headless, with Blotter's MCP server as its tools, so it runs on your existing Claude subscription. Install Claude Code and sign in first. Blotter finds it on your `PATH` or in the usual install folders, or you can set the path.
+- **Codex**. The same for OpenAI's [Codex CLI](https://developers.openai.com/codex/cli): install it (`npm i -g @openai/codex`) and sign in with `codex login`, and it runs on your ChatGPT plan. Codex's own shell, file, web and app tools are switched off; it gets Blotter's tools only.
 - **API keys**: Anthropic, OpenAI, or any OpenAI-compatible endpoint (Ollama, LM Studio, GitHub Models, …). Keys are kept in the system keychain (Windows Credential Manager, or the Secret Service on Linux). These are marked _Experimental_ until they've been tried against the real services.
 
 The chat header switches between **Propose**, the default, where changes wait as pencilled-in proposals you accept or reject, and **Auto**, where they apply at once (still logged, undoable and snapshotted). The switch covers MCP clients too. Block-outs and planning hours are enforced by the planner whatever the AI asks for.
@@ -135,7 +138,7 @@ Press `?` in the app for the full list, and `Ctrl+K` for the command palette, wh
 | ----------------------------- | --------------------------------------------------------------------- |
 | `Ctrl+K`                      | Command palette                                                       |
 | `?`                           | Keyboard shortcuts                                                    |
-| `n`                           | Quick add, e.g. `dentist tue 3pm ~45m #health`                        |
+| `n`                           | Quick add, e.g. `dentist tue 3pm ~45m #health // bring the referral`  |
 | `Ctrl+Shift+Space`            | Quick capture, system-wide (Windows, X11)                             |
 | `g d` `g w` `g m` `g y` `g h` | Diary, Week, Month, Year, History                                     |
 | `i`                           | Inbox                                                                 |

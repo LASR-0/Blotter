@@ -130,7 +130,7 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 58 | 14d | `feat(core): holidays` | committed `cfc4052` |
 | 59 | 14d | `feat(core): task windows with replanning` | committed `0579005` |
 | 60 | 14d | `feat: weekly tasks` | committed `b2d6ad2` |
-| 61 | 14e | `feat(ai): Codex CLI sessions` | committed (hash in the next entry) |
+| 61 | 14e | `feat(ai): Codex CLI sessions` | committed `26ecac0` |
 | 62 | 14e | `feat(ai): Consult me slot mode` | committed `ad1e018` |
 | 63 | 14f | `feat(ui): new Blotter logo` | committed `690777d` |
 | 63a | 14f | `fix(ui): no grey edge on the logo's spark and rings` | committed `0e139df` |
@@ -140,7 +140,7 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 63e | 14f | `feat(theme): the official logo colours in every preset and the icon` | committed `4ac476c` |
 | 63f | 14f | `fix(ui): logo spark moved down instead of stretched` | committed `36ad210` |
 | 63g | 14f | `fix(ui): logo spark centred and larger, cutting into the B` | committed `6ec8b01` |
-| 64 | 14f | `chore(release): v1.1.0` | planned |
+| 64 | 14f | `chore(release): v1.1.0` | committed (hash in the next entry) |
 
 ---
 
@@ -4481,7 +4481,7 @@ Test steps:
     - pnpm check → clean; Vitest 229
     - Rendered app-icon.svg through pnpm tauri icon and looked at it
 
-### #61 — Codex CLI sessions            [status: committed — hash in the next entry]
+### #61 — Codex CLI sessions            [status: committed 26ecac0]
 Phase: 14e
 Message:
     feat(ai): Codex CLI sessions
@@ -4534,3 +4534,32 @@ Notes:
     - Codex sends each message whole, so a reply appears a message at a time rather than as
       it's typed. Each turn starts a new process (a few seconds); no prewarm.
     - First-run setup still offers Claude Code or an API key; Codex is chosen in Settings.
+
+### #64 — v1.1.0            [status: committed — hash in the next entry, untagged]
+Phase: 14f
+Message:
+    chore(release): v1.1.0
+
+    Version 1.1.0 in Cargo.toml (all three crates), package.json,
+    tauri.conf.json, the AUR PKGBUILD and .SRCINFO, and the AppStream
+    metainfo (with a 1.1.0 release note). The README covers Smart slot and
+    Consult me, task windows, weekly tasks, holidays, the Codex route and
+    the // context syntax.
+Files:
+    M  Cargo.toml, Cargo.lock, package.json, src-tauri/tauri.conf.json   (1.1.0)
+    M  packaging/aur/PKGBUILD, packaging/aur/.SRCINFO, packaging/linux/io.github.lasr0.Blotter.metainfo.xml
+    M  README.md
+    M  .claude/COMMITS.md, .claude/roadmap.md   (§12 progress and decisions)
+Test steps:
+    - pnpm check → clean; Vitest 229
+    - cargo test --workspace → 185 core + 50 app + 6 mcp; clippy -D warnings clean
+    - pnpm tauri build → Blotter_1.1.0_x64-setup.exe (7.2 MB), Blotter_1.1.0_x64_en-US.msi (10.0 MB)
+    - target/release/blotter.exe mcp over raw stdio → serverInfo blotter 1.1.0, 36 tools
+      (set_tag, rename_tag, delete_tag, the holiday ops among them)
+Notes:
+    - Not tagged: Luke pushes, then tags v1.1.0 (git tag -a v1.1.0 -m "Blotter 1.1.0" &&
+      git push origin v1.1.0) to run release.yml for the Linux bundles and the draft release.
+    - AUR: sha256sums stays SKIP until the tag exists; then updpkgsums and
+      makepkg --printsrcinfo > .SRCINFO.
+    - Live checks still pending for most of 14a–14e (each entry lists its own); Codex was
+      checked live (#61).

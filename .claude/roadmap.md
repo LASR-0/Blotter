@@ -678,6 +678,8 @@ The Claude Design prompt (`design-prompt.md`, which also sets the visual directi
 
 ## 12. v1.1.0 (Luke, 2026-10-20)
 
+**Progress (2026-10-20):** **Phase 14 is complete in code** (#46–#64, with logo follow-ups #63a–#63g). Codex was tried live in the app on a scratch copy of the demo data (chat, a resumed follow-up that changed an item, and Smart slot); the other items pass their tests but most still await a look in the running app (each ledger entry lists its live check). Version 1.1.0; Luke tags `v1.1.0` and pushes to run the release workflow, then runs `updpkgsums` for the AUR.
+
 Phase 14. Same protocol as v1 (§7): one ledger entry per increment in `COMMITS.md`, committed locally, Luke pushes. Items are grouped so the quick fixes land first and the scheduling-model changes, which share a data-model change, land together.
 
 ### 14a — Fixes and small features
@@ -710,11 +712,12 @@ Phase 14. Same protocol as v1 (§7): one ledger entry per increment in `COMMITS.
 - **New logo** from Luke's two concepts (`.claude/LogoRedesign1.png`, `LogoRedesign2.png`), traced to vectors and tried in every preset's logo colours (study: https://claude.ai/artifact/FJ37WR7jJ1hwoQntHT9vFE). After Luke picks: `public/blotter.svg`, `BlotterMark`, regenerated desktop icons, setup screens.
 - **v1.1.0** release commit.
 
-### Open questions (Luke)
-1. Logo: concept A (calendar-B with spark) or B (grid with spark); flat theme colours or the references' gradient?
-2. Context syntax: `//` as proposed, or something else?
-3. Holidays: lift work block-outs on those days by default (leave), or keep them (just no personal tasks)?
-4. Task window ended undone: back to the Inbox (proposed), or keep rolling forward day by day?
+### Decisions (Luke, 2026-10-20)
+1. Logo: concept A, traced closer to the reference: larger window, a centred spark whose lower point cuts into the B, a gradient from logo accent to logo page above a solid shaded underside (`--logo-shade`). The official colourway (from Luke's "Blotter Light copy") is in every preset and the icon: accent #fe5858, page #ffbf52, shade #f05656, wordmark #ffbf52 on #fe5858. The app/taskbar icon has no tile.
+2. Context syntax: `//`, stored in the notes.
+3. Holidays: a kind of block-out with its own table; making one lifts the block-outs it collides with; it is removed once its last day has passed; every task may go on a holiday except `#work` ones; `#holiday` tasks are placed first.
+4. A task window that closes undone: back to the Inbox, overdue.
+5. Codex: the user's ChatGPT plan through the Codex CLI (0.163.0 tested), signed in with `codex login`.
 
 ### Moved to post-v1.1 (§10)
 - Home-server sync across devices (already §10).

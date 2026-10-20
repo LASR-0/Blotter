@@ -4,7 +4,7 @@
 # pkgver, run `updpkgsums` for the real checksum, then
 # `makepkg --printsrcinfo > .SRCINFO`.
 pkgname=blotter
-pkgver=1.0.0
+pkgver=1.1.0
 pkgrel=1
 pkgdesc="Keyboard-first daily planner with an AI that pencils things in for you"
 arch=('x86_64' 'aarch64')
