@@ -18,7 +18,7 @@ optdepends=('claude-code: the Claude Code AI route (signed in with your subscrip
             'xdg-desktop-portal-gtk: file pickers on desktops without their own portal')
 options=('!lto')
 source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
-sha256sums=('SKIP')
+sha256sums=('6da073c93c1c7363464f784c95e35f6a3075e656ea79d4f27ce1814b3d094e5c')
 
 prepare() {
   cd "Blotter-$pkgver"

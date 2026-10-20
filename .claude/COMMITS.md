@@ -140,7 +140,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 63e | 14f | `feat(theme): the official logo colours in every preset and the icon` | committed `4ac476c` |
 | 63f | 14f | `fix(ui): logo spark moved down instead of stretched` | committed `36ad210` |
 | 63g | 14f | `fix(ui): logo spark centred and larger, cutting into the B` | committed `6ec8b01` |
-| 64 | 14f | `chore(release): v1.1.0` | committed (hash in the next entry) |
+| 64 | 14f | `chore(release): v1.1.0` | committed `a1ff0a1` |
+| 64a | 14f | `build: AUR checksum for v1.1.0` | committed (hash in the next entry) |
 
 ---
 
@@ -4563,3 +4564,22 @@ Notes:
       makepkg --printsrcinfo > .SRCINFO.
     - Live checks still pending for most of 14a–14e (each entry lists its own); Codex was
       checked live (#61).
+
+### #64a — AUR checksum for v1.1.0            [status: committed — hash in the next entry]
+Phase: 14f (after Luke tagged and pushed v1.1.0)
+Message:
+    build: AUR checksum for v1.1.0
+
+    The sha256 of GitHub's v1.1.0 source tarball, in the PKGBUILD and
+    .SRCINFO in place of SKIP. Worked out on Windows (no updpkgsums):
+    downloaded the tag tarball and hashed it; it unpacks to Blotter-1.1.0
+    with version 1.1.0.
+Files:
+    M  packaging/aur/PKGBUILD, packaging/aur/.SRCINFO
+    M  .claude/COMMITS.md
+Test steps:
+    - Invoke-WebRequest the tag tarball → 2,359,274 bytes, SHA-256 6da073c9…094e5c;
+      tar lists Blotter-1.1.0/, its Cargo.toml says 1.1.0
+Notes:
+    - .SRCINFO edited by hand to match (only the checksum line changes); on Arch,
+      makepkg --printsrcinfo gives the same.
