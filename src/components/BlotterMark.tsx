@@ -22,9 +22,9 @@ const MARK_BODY =
 /** The window: its foot is the sweep's edge, rising to the right. */
 const MARK_WINDOW =
   'M378 388H648C663 388 674 399 674 414V600L370 756C360 761 352 755 352 744V414C352 399 363 388 378 388Z';
-/** The spark, its lower point long enough to cut through the window's foot. */
+/** The spark, set low in the window so its lower point cuts through the foot into the page. */
 const MARK_SPARK =
-  'M512 420C526 520 526 524 614 540C532 556 540 610 512 712C484 610 492 556 410 540C498 524 498 520 512 420Z';
+  'M505 525C519 611 519 611 590 625C519 639 519 639 505 725C491 639 491 639 420 625C491 611 491 611 505 525Z';
 /** The sweep: the page below the window's foot line, shaded. */
 const MARK_SWEEP = 'M246 819L806 532V840H230Z';
 const SHAPE = `${MARK_BODY} ${MARK_WINDOW} ${MARK_SPARK}`;

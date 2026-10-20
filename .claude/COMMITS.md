@@ -137,7 +137,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 63b | 14f | `fix(ui): logo closer to its design, gradient, no taskbar tile` | committed `7359512` |
 | 63c | 14f | `fix(ui): logo keeps a shaded underside below the gradient` | committed `521ee95` |
 | 63d | 14f | `feat(theme): a colour for the logo's shaded underside` | committed `8aa6f9a` |
-| 63e | 14f | `feat(theme): the official logo colours in every preset and the icon` | committed (hash in the next entry) |
+| 63e | 14f | `feat(theme): the official logo colours in every preset and the icon` | committed `4ac476c` |
+| 63f | 14f | `fix(ui): logo spark moved down instead of stretched` | committed (hash in the next entry) |
 | 64 | 14f | `chore(release): v1.1.0` | planned |
 
 ---
@@ -4421,7 +4422,7 @@ Notes:
     - Built on Claude Code's kept-alive session (#31a), so the conversation carries over
       between replies; API-key providers carry it through the thread's history.
 
-### #63e — The official logo colours in every preset and the icon            [status: committed — hash in the next entry]
+### #63e — The official logo colours in every preset and the icon            [status: committed 4ac476c]
 Phase: 14f (Luke: "the logo colour way in the blotter light copy is the official logo colour
 way i would like to use for all the default themes and for the task bar logo")
 Message:
@@ -4443,3 +4444,21 @@ Test steps:
 Notes:
     - Read from the demo database's "Blotter Light copy" (copied, read-only). Saved user themes
       keep their own logo colours.
+
+### #63f — Logo spark moved down instead of stretched            [status: committed — hash in the next entry]
+Phase: 14f (Luke: "fix the star in the logo so it isn't stretched down and instead it's moved
+down and cuts out part of the B")
+Message:
+    fix(ui): logo spark moved down instead of stretched
+
+    The spark is a symmetric four-point star again (its lower point had
+    been stretched to reach the window's foot). It now sits low in the
+    window, a little left of centre where the foot is lower, so only its
+    lower point crosses the foot and cuts a notch into the B.
+Files:
+    M  src/components/BlotterMark.tsx, public/blotter.svg, src-tauri/icons/app-icon.svg
+    M  src-tauri/icons/32x32.png, 64x64.png, 128x128.png, 128x128@2x.png, icon.png, icon.ico, icon.icns
+    M  .claude/COMMITS.md
+Test steps:
+    - pnpm check → clean; Vitest 229
+    - Rendered app-icon.svg through pnpm tauri icon and looked at it
