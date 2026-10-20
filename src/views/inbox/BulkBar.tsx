@@ -4,6 +4,7 @@ import {
   CalendarPlus,
   Flag,
   MagicWand,
+  ChatsCircle,
   Sparkle,
   Timer,
   Trash,
@@ -12,7 +13,7 @@ import {
 } from '@phosphor-icons/react';
 import { deleteSelection, updateSelection } from '@/actions/bulkActions';
 import { runAutoSlot } from '@/app/autoSlot';
-import { runSmartSlot } from '@/app/smartSlot';
+import { runConsultMe, runSmartSlot } from '@/app/smartSlot';
 import { useSelection, type BulkEditor } from '@/app/selection';
 import { Button } from '@/components/ui/button';
 import { DatePicker } from '@/components/ui/date-picker';
@@ -223,6 +224,14 @@ export function BulkBar() {
       >
         <Sparkle />
         Smart slot
+      </Button>
+      <Button
+        size="sm"
+        title="The AI asks you about each selected task, then places it"
+        onClick={() => void runConsultMe([...useSelection.getState().ids])}
+      >
+        <ChatsCircle />
+        Consult me
       </Button>
       <Editor editor="schedule" icon={CalendarPlus} label="Schedule…" keyHint="d">
         <ScheduleForm />

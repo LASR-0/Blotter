@@ -227,6 +227,7 @@ pub fn run() {
             ai::chat::chat_batch_changes,
             ai::chat::chat_briefing,
             ai::chat::chat_smart_slot,
+            ai::chat::chat_consult_slot,
             chat_window::open_chat_window,
             chat_window::set_chat_on_top,
             chat_window::dock_chat,

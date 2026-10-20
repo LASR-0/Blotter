@@ -123,6 +123,50 @@ why (e.g. \"Sat morning, with the other errands\").",
     p
 }
 
+/// How a Consult me thread is titled, e.g. "Consult me · Fri 16 Oct".
+pub fn consult_title(today: NaiveDate) -> String {
+    format!("Consult me · {}", today.format("%a %-d %b"))
+}
+
+/// Consult me: the AI goes through `tasks` one at a time, asking the user
+/// what it needs to know to place each well, records the answers on the
+/// task, then places it. A conversation, so it ends its turn to wait.
+pub fn consult_prompt(tasks: &[Item], tz: Tz, today: NaiveDate, default_min: u32) -> String {
+    let mut p = String::from(
+        "Consult me on these tasks: go through them one at a time and ask me what you need to \
+know to find each one the best slot, then place it.\n\nTasks:\n",
+    );
+    for t in tasks {
+        p.push_str(&describe(t, tz, default_min));
+        p.push('\n');
+    }
+    let _ = write!(
+        p,
+        "\nToday is {}. First read the calendar for the next two weeks (list_agenda, \
+list_blockout_windows, list_calendar_events, list_holidays) so your questions fit what's \
+already there.\n\n\
+For each task, in order:\n\
+1. Ask me two or three short questions, only ones whose answers would change where it goes \
+and that the task doesn't already answer: how long it really takes, when it must be done by, \
+whether it happens somewhere else (and how far), what time of day suits it, whether it \
+depends on someone or something, days it can't be. Number them, offer a sensible guess for \
+each so I can just say \"yes\", and then stop and wait for my reply. Don't ask about more \
+than one task at a time.\n\
+2. When I answer, write what you learned onto the task with update_item: duration_min, due, \
+not_before, window_start and window_end where they apply, and a short summary of my answers \
+in its notes (keep anything already there), so Smart slot can use it later.\n\
+3. Place it: find_free_slots, then schedule_item, with the same sense as Smart slot \
+(breathing room, travel, work on work days, personal time on evenings and weekends, holidays \
+for #holiday tasks and never for #work). Tell me in one line when you put it and why, then \
+go on to the next task's questions.\n\n\
+If I say \"skip\", leave that task in the Inbox and move on. If I say \"just place the \
+rest\", place the remaining tasks without asking. When all are done, finish with a short \
+list of where each one went. Start with the first task's questions now.",
+        today.format("%A %-d %B %Y")
+    );
+    p
+}
+
 #[cfg(test)]
 mod tests {
     use chrono::{TimeZone, Utc};
@@ -166,5 +210,22 @@ mod tests {
             assert!(p.contains(rule), "{rule}");
         }
         assert_eq!(title(today), "Smart slot · Fri 16 Oct");
+    }
+
+    #[test]
+    fn consult_asks_one_task_at_a_time() {
+        let p = consult_prompt(
+            &[task("Book trip")],
+            Melbourne,
+            NaiveDate::from_ymd_opt(2026, 10, 16).unwrap(),
+            30,
+        );
+        assert!(p.contains("\"Book trip\""));
+        assert!(p.contains("stop and wait for my reply"));
+        assert!(p.contains("Friday 16 October 2026"));
+        assert_eq!(
+            consult_title(NaiveDate::from_ymd_opt(2026, 10, 16).unwrap()),
+            "Consult me · Fri 16 Oct"
+        );
     }
 }

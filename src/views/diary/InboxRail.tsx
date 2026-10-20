@@ -5,11 +5,12 @@ import {
   DotsSixVertical,
   MagicWand,
   Plus,
+  ChatsCircle,
   Sparkle,
   Tray,
 } from '@phosphor-icons/react';
 import { runAutoSlot } from '@/app/autoSlot';
-import { runSmartSlot } from '@/app/smartSlot';
+import { runConsultMe, runSmartSlot } from '@/app/smartSlot';
 import { useNav } from '@/app/nav';
 import { startPointerDrag, useDrag } from '@/app/drag';
 import { useDraft } from '@/app/drafts';
@@ -95,6 +96,18 @@ export function InboxRail() {
               className="grid size-6 cursor-pointer place-items-center rounded-sm text-accent-text hover:bg-hover"
             >
               <Sparkle />
+            </button>
+          </Tooltip>
+        )}
+        {items.length > 0 && (
+          <Tooltip label="Consult me (AI asks, then places)">
+            <button
+              type="button"
+              onClick={() => void runConsultMe()}
+              aria-label="Consult me on the Inbox"
+              className="grid size-6 cursor-pointer place-items-center rounded-sm text-accent-text hover:bg-hover"
+            >
+              <ChatsCircle />
             </button>
           </Tooltip>
         )}

@@ -129,9 +129,9 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 57 | 14d | `feat: task context in quick add and Smart slot` | committed `99707a6` |
 | 58 | 14d | `feat(core): holidays` | committed `cfc4052` |
 | 59 | 14d | `feat(core): task windows with replanning` | committed `0579005` |
-| 60 | 14d | `feat: weekly tasks` | committed (hash in the next entry) |
+| 60 | 14d | `feat: weekly tasks` | committed `b2d6ad2` |
 | 61 | 14e | `feat(ai): Codex CLI sessions` | planned |
-| 62 | 14e | `feat(ai): Consult me slot mode` | planned |
+| 62 | 14e | `feat(ai): Consult me slot mode` | committed (hash in the next entry) |
 | 63 | 14f | `feat(ui): new Blotter logo` | committed `690777d` |
 | 63a | 14f | `fix(ui): no grey edge on the logo's spark and rings` | committed `0e139df` |
 | 63b | 14f | `fix(ui): logo closer to its design, gradient, no taskbar tile` | committed `7359512` |
@@ -4347,7 +4347,7 @@ Files:
 Test steps:
     - pnpm check → clean; Vitest 227 (engine test extended)
 
-### #60 — Weekly tasks            [status: committed — hash in the next entry]
+### #60 — Weekly tasks            [status: committed b2d6ad2]
 Phase: 14d (Luke: groceries, meal prep, laundry: a home day and usual time; missed → the next
 suitable day and time)
 Message:
@@ -4384,3 +4384,38 @@ Test steps:
 Notes:
     - Uses the usual-time fields from #59; the item dialog's Window row edits them for a series.
     - Looks back 7 days for missed occurrences.
+
+### #62 — Consult me slot mode            [status: committed — hash in the next entry]
+Phase: 14e (Luke: "the AI will consult you on each task in your inbox, asking important
+contextual questions about each task to find the best slot period for them")
+Message:
+    feat(ai): Consult me slot mode
+
+    A third way to plan the Inbox, beside Auto-slot and Smart slot. The AI
+    goes through the tasks one at a time in a new chat thread: it reads
+    the calendar, asks two or three numbered questions that would change
+    where the task goes (how long, by when, where and how far, what time
+    suits, what it depends on, days it can't be), each with a guess you
+    can just say yes to, and waits. With your answer it writes what it
+    learned onto the task (duration, due, not before, usual time, and a
+    summary in the notes as Smart slot context), places it, says where and
+    why, and asks about the next. "skip" leaves a task in the Inbox; "just
+    place the rest" stops the questions. Propose mode applies as usual.
+
+    Where: "Consult me" in the Inbox's bulk bar (for the selected tasks),
+    a button in the Diary's Inbox rail, and "Consult me on the Inbox" in
+    the palette.
+Files:
+    M  crates/blotter-core/src/smart_slot.rs     (consult_prompt, consult_title; 1 test)
+    M  src-tauri/src/ai/chat.rs, src-tauri/src/lib.rs   (chat_consult_slot)
+    M  src/app/smartSlot.ts, src/actions/actions.ts, src/views/inbox/BulkBar.tsx,
+       src/views/diary/InboxRail.tsx
+    M  .claude/COMMITS.md
+Test steps:
+    - cargo test --workspace → 185 core + 47 app + 6 mcp; clippy -D warnings / fmt clean
+    - pnpm check → clean; Vitest 229
+    - Live (pending, needs an AI turn): Consult me on two Inbox tasks with Claude Code →
+      questions for the first only; answer → notes/fields updated and a proposal to place it
+Notes:
+    - Built on Claude Code's kept-alive session (#31a), so the conversation carries over
+      between replies; API-key providers carry it through the thread's history.

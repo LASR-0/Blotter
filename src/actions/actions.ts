@@ -32,6 +32,7 @@ import {
   Power,
   Prohibit,
   SidebarSimple,
+  ChatsCircle,
   Sparkle,
   SquaresFour,
   Sun,
@@ -43,7 +44,7 @@ import {
 import { deleteFocused, openFocused, toggleFocused } from '@/actions/itemActions';
 import { useChat } from '@/chat/chatStore';
 import { runAutoSlot } from '@/app/autoSlot';
-import { runSmartSlot } from '@/app/smartSlot';
+import { runConsultMe, runSmartSlot } from '@/app/smartSlot';
 import { rolloverNow } from '@/app/rollover';
 import { redoLast, undoLast } from '@/app/undo';
 import { useFocus } from '@/app/focus';
@@ -315,6 +316,15 @@ export function buildActions(): Action[] {
       hint: 'AI',
       keywords: ['ai', 'schedule', 'slot', 'plan', 'inbox', 'smart', 'travel', 'buffer'],
       run: () => void runSmartSlot(),
+    },
+    {
+      id: 'inbox.consult',
+      label: 'Consult me on the Inbox',
+      group: 'Actions',
+      icon: ChatsCircle,
+      hint: 'AI',
+      keywords: ['ai', 'schedule', 'slot', 'plan', 'inbox', 'ask', 'questions', 'consult'],
+      run: () => void runConsultMe(),
     },
     {
       id: 'item.toggle',

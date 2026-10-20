@@ -494,6 +494,22 @@ pub fn chat_briefing(app: AppHandle) -> Result<String, CommandError> {
 /// new thread; Propose mode means nothing moves until the user accepts.
 #[tauri::command]
 pub fn chat_smart_slot(app: AppHandle, ids: Option<Vec<String>>) -> Result<String, CommandError> {
+    slot_turn(app, ids, false)
+}
+
+/// Consult me: like Smart slot, but the AI asks the user about each task in
+/// turn (how long, by when, where, what time suits) before placing it, and
+/// writes the answers onto the task. A conversation in a new thread.
+#[tauri::command]
+pub fn chat_consult_slot(app: AppHandle, ids: Option<Vec<String>>) -> Result<String, CommandError> {
+    slot_turn(app, ids, true)
+}
+
+fn slot_turn(
+    app: AppHandle,
+    ids: Option<Vec<String>>,
+    consult: bool,
+) -> Result<String, CommandError> {
     let (prompt, title) = with_planner(&app, |p| {
         let settings = p.settings()?;
         let conn = p.db().conn();
@@ -510,19 +526,22 @@ pub fn chat_smart_slot(app: AppHandle, ids: Option<Vec<String>>) -> Result<Strin
             .collect();
         if tasks.is_empty() {
             return Err(blotter_core::CoreError::invalid(
-                "there are no open tasks to smart slot",
+                "there are no open tasks to plan",
             ));
         }
         let today = p.now().with_timezone(&settings.tz).date_naive();
-        Ok((
-            smart_slot::prompt(
-                &tasks,
-                settings.tz,
-                today,
-                settings.default_task_duration_min,
-            ),
-            smart_slot::title(today),
-        ))
+        let (tz, minutes) = (settings.tz, settings.default_task_duration_min);
+        Ok(if consult {
+            (
+                smart_slot::consult_prompt(&tasks, tz, today, minutes),
+                smart_slot::consult_title(today),
+            )
+        } else {
+            (
+                smart_slot::prompt(&tasks, tz, today, minutes),
+                smart_slot::title(today),
+            )
+        })
     })
     .ok_or_else(lock_err)??;
     start_turn(&app, None, prompt, Some(title), false)
