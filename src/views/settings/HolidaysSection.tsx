@@ -127,7 +127,9 @@ export function HolidaysSection({ blockouts }: { blockouts: readonly Blockout[] 
       <PublicHolidaysCard holidays={publicOnes} lifted={lifted} />
       {editing === 'new' && <HolidayForm onDone={() => setEditing(null)} />}
       {list.length === 0 && editing !== 'new' && holidays.isSuccess && (
-        <p className="m-0 text-sm text-text-muted">No holidays coming up.</p>
+        <p className="m-0 text-sm text-text-muted">
+          {publicOnes.length ? 'None of your own coming up.' : 'No holidays coming up.'}
+        </p>
       )}
       {list.length > 0 && (
         <ul className="m-0 flex list-none flex-col overflow-hidden rounded-lg border border-border p-0">

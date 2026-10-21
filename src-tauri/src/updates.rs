@@ -76,14 +76,23 @@ fn lock_err() -> CommandError {
     CommandError::internal("update state is unavailable after an earlier crash")
 }
 
+/// A failed check, in words: the plugin's own say "release JSON".
+fn check_err(e: tauri_plugin_updater::Error) -> CommandError {
+    let text = e.to_string();
+    CommandError::internal(if text.contains("release JSON") {
+        "Couldn't check for updates: GitHub has no update information for the latest release \
+         (or Blotter couldn't reach it)."
+            .to_owned()
+    } else {
+        format!("Couldn't check for updates: {text}")
+    })
+}
+
 async fn check(app: &AppHandle) -> Result<Option<UpdateInfo>, CommandError> {
     let updater = app
         .updater()
         .map_err(|e| CommandError::internal(format!("updates are unavailable: {e}")))?;
-    let found = updater
-        .check()
-        .await
-        .map_err(|e| CommandError::internal(format!("couldn't check for updates: {e}")))?;
+    let found = updater.check().await.map_err(check_err)?;
     let info = found.map(|u| {
         let how = managed_by();
         UpdateInfo {
@@ -138,11 +147,7 @@ pub async fn install_update(app: AppHandle) -> Result<(), CommandError> {
     let updater = app
         .updater()
         .map_err(|e| CommandError::internal(format!("updates are unavailable: {e}")))?;
-    let Some(update) = updater
-        .check()
-        .await
-        .map_err(|e| CommandError::internal(format!("couldn't check for updates: {e}")))?
-    else {
+    let Some(update) = updater.check().await.map_err(check_err)? else {
         return Err(CommandError::internal("Blotter is already up to date."));
     };
     update

@@ -147,7 +147,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 67 | 15b | `feat(core): tags whose tasks can share time` | committed `cabc654` |
 | 68 | 15c | `fix(core): holidays leave Sleep-type block-outs in place` | committed `57ade5b` |
 | 69 | 15c | `feat: public holiday import` | committed `f63b0a4` |
-| 70 | 15d | `feat(app): in-app updates` | committed (hash in the next entry) |
+| 70 | 15d | `feat(app): in-app updates` | committed `46c48ed` |
+| 70a | 15d | `fix(ui): plain update errors and the holiday list's empty line` | committed (hash in the next entry) |
 | 71 | 15d | `chore(release): v1.2.0` | planned |
 
 ---
@@ -4740,7 +4741,7 @@ Notes:
     - Region names show as codes (VIC, NSW): nothing offline names subdivisions.
     - The yearly fetch runs as the system, so Ctrl+Z skips it (D24).
 
-### #70 — In-app updates            [status: committed — hash in the next entry]
+### #70 — In-app updates            [status: committed 46c48ed]
 Phase: 15d
 Message:
     feat(app): in-app updates
@@ -4788,3 +4789,38 @@ Notes:
       updates signed with a new one: keep a backup.
     - 1.1.0 has no updater, so 1.2.0 itself is installed by hand; 1.2.1 is the first update
       it can take.
+
+### #70a — Plain update errors and the holiday list's empty line            [status: committed — hash in the next entry]
+Phase: 15d
+Message:
+    fix(ui): plain update errors and the holiday list's empty line
+
+    Found in the live checks of #66–#70:
+
+    - A check that finds no latest.json (before the first release that has
+      one, or offline) said "Could not fetch a valid release JSON from the
+      remote"; it now says GitHub has no update information for the latest
+      release, or Blotter couldn't reach it.
+    - With public holidays imported, the Holidays section still said "No
+      holidays coming up" under them; it now says none of your own are.
+Files:
+    M  src-tauri/src/updates.rs, src/views/settings/HolidaysSection.tsx
+    M  .claude/COMMITS.md
+Test steps:
+    - clippy -D warnings clean; pnpm check → clean; Vitest 231
+    - Live, on a scratch copy of the demo data (Australia/Brisbane), through the DevTools
+      protocol — the pending checks of #66–#70:
+        · #66 + in the Inbox rail (open and collapsed) opens New item with no date; Week's
+          top-bar + opens it on Wed 21, and on Thu 22 after moving the cursor; Month likewise
+        · #67 Settings → Tags shows Simultaneous per tag; a new #laundry tag switched on;
+          auto-slot put Laundry 10:00 over Cleaning (10:00–12:00) and Tidy email 13:00 after
+          the Vet event (12:00–13:00); no conflicts; Week shows them side by side
+        · #68/#69 Holidays guessed Australia / QLD; Import → 13 holidays, Work lifted on 11,
+          Sleep on none; switching to VIC replaced them (16, Melbourne Cup); Remove cleared all
+          and their lifts; Ctrl+Z brought all back; setup step 4/6 guessed QLD and Continue
+          imported it
+        · #70 the updater plugin starts; Check now shows the (now plain) error, since no
+          release has latest.json yet; the setting's switch reads on
+Notes:
+    - Setup's holiday step guesses from the time zone even when public holidays were already
+      imported for another region (only matters for "Run setup again").
