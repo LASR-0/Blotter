@@ -62,6 +62,8 @@ export interface Holiday {
   color: string | null;
   created_at: string;
   updated_at: string;
+  /** `public:<country or region>` for an imported public holiday. */
+  source: string | null;
 }
 
 export interface Blockout {

@@ -10,7 +10,7 @@ mod subscription;
 
 pub use blockout::{Blockout, BlockoutException, Weekdays};
 pub use change::{Actor, Change};
-pub use holiday::Holiday;
+pub use holiday::{Holiday, PUBLIC_SOURCE};
 pub use item::{Anchoring, Item, ItemKind, ItemStatus, Source};
 pub use reminder::Reminder;
 pub use subscription::{Subscription, SubscriptionEvent};

@@ -7,6 +7,7 @@ import { DatePicker } from '@/components/ui/date-picker';
 import { isOpError, runOp } from '@/lib/api';
 import { useOp } from '@/lib/queries';
 import type { Blockout, Holiday } from '@/lib/types';
+import { PublicHolidaysCard } from './PublicHolidays';
 
 const FIELD =
   'h-[30px] rounded-md border border-border-strong bg-bg px-2.5 text-base text-text outline-none focus:border-accent';
@@ -102,7 +103,9 @@ export function HolidaysSection({ blockouts }: { blockouts: readonly Blockout[] 
   const [error, setError] = useState<string | null>(null);
   const lifted = (id: string) =>
     blockouts.reduce((n, b) => n + b.exceptions.filter((x) => x.holiday_id === id).length, 0);
-  const list = holidays.data ?? [];
+  const all = holidays.data ?? [];
+  const list = all.filter((h) => !h.source);
+  const publicOnes = all.filter((h) => h.source);
 
   return (
     <section className="flex flex-col gap-2.5 pt-2">
@@ -121,6 +124,7 @@ export function HolidaysSection({ blockouts }: { blockouts: readonly Blockout[] 
         <span className="font-mono">#holiday</span> get first pick. A holiday disappears from here
         once its last day has passed.
       </p>
+      <PublicHolidaysCard holidays={publicOnes} lifted={lifted} />
       {editing === 'new' && <HolidayForm onDone={() => setEditing(null)} />}
       {list.length === 0 && editing !== 'new' && holidays.isSuccess && (
         <p className="m-0 text-sm text-text-muted">No holidays coming up.</p>

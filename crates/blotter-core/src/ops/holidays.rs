@@ -8,11 +8,15 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+use chrono::Datelike;
+
 use super::blockouts::EXCEPTION_ENTITY;
 use super::input::{DateInput, NoArgs, patch};
 use super::{Ctx, OpDef};
 use crate::error::{CoreError, Result};
 use crate::model::{BlockoutException, Holiday};
+use crate::public_holidays::{Config, PublicHoliday};
+use crate::settings::KEY_PUBLIC_HOLIDAYS;
 use crate::store;
 
 pub(crate) const ENTITY: &str = "holiday";
@@ -55,7 +59,66 @@ pub(super) fn defs() -> Vec<OpDef> {
             true,
             prune_holidays,
         ),
+        OpDef::new(
+            "get_public_holidays",
+            "Where the user's imported public holidays come from (country, region, whether \
+             each next year's are fetched automatically, the last year imported), or null if \
+             none were imported. Imported ones are holidays with `source` set.",
+            false,
+            get_public_holidays,
+        ),
+        OpDef::new(
+            "import_public_holidays",
+            "Replace the imported public holidays in `years` with `holidays` (from Settings → \
+             Holidays, which fetches them for the user's country and region; don't make them \
+             up). Each becomes a one-day holiday, from today on. Holidays the user made are \
+             never touched.",
+            true,
+            import_public_holidays,
+        ),
+        OpDef::new(
+            "set_public_holiday_updates",
+            "Turn the automatic fetch of each next year's public holidays on or off.",
+            true,
+            set_public_holiday_updates,
+        ),
+        OpDef::new(
+            "forget_public_holidays",
+            "Remove every imported public holiday and stop fetching them.",
+            true,
+            forget_public_holidays,
+        ),
     ]
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ImportPublicHolidaysArgs {
+    /// ISO 3166-1 alpha-2, e.g. `AU`.
+    #[schemars(regex(pattern = r"^[A-Z]{2}$"))]
+    pub country: String,
+    /// ISO 3166-2 within the country, e.g. `AU-VIC`; null for national ones only.
+    pub region: Option<String>,
+    /// The years being replaced; every holiday's date is in one of them.
+    #[schemars(length(min = 1, max = 3))]
+    pub years: Vec<i32>,
+    #[schemars(length(max = 200))]
+    pub holidays: Vec<PublicHoliday>,
+    /// Defaults to what it was, or on.
+    pub keep_updated: Option<bool>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct PublicHolidayUpdatesArgs {
+    pub keep_updated: bool,
+}
+
+#[derive(Debug, Serialize)]
+pub struct PublicImport {
+    pub added: usize,
+    pub removed: usize,
+    pub config: Config,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -178,6 +241,7 @@ fn create_holiday(ctx: &mut Ctx<'_>, a: CreateHolidayArgs) -> Result<HolidayDeta
         color: a.color,
         created_at: ctx.now,
         updated_at: ctx.now,
+        source: None,
     };
     validate(&mut h)?;
     store::holidays::upsert(ctx.conn, &h)?;
@@ -230,6 +294,125 @@ fn prune_holidays(ctx: &mut Ctx<'_>, _: NoArgs) -> Result<Pruned> {
     for h in store::holidays::ended_before(ctx.conn, today)? {
         remove(ctx, &h)?;
         removed.push(h.label);
+    }
+    Ok(Pruned { removed })
+}
+
+fn config(ctx: &Ctx<'_>) -> Result<Option<Config>> {
+    store::settings::get(ctx.conn, KEY_PUBLIC_HOLIDAYS)
+}
+
+fn get_public_holidays(ctx: &mut Ctx<'_>, _: NoArgs) -> Result<Option<Config>> {
+    config(ctx)
+}
+
+fn import_public_holidays(ctx: &mut Ctx<'_>, a: ImportPublicHolidaysArgs) -> Result<PublicImport> {
+    let country = a.country.trim().to_uppercase();
+    if country.len() != 2 || !country.chars().all(|c| c.is_ascii_uppercase()) {
+        return Err(CoreError::invalid(format!(
+            "'{country}' isn't a two-letter country code"
+        )));
+    }
+    let region = a
+        .region
+        .map(|r| r.trim().to_uppercase())
+        .filter(|r| !r.is_empty());
+    if let Some(r) = &region
+        && !r.starts_with(&format!("{country}-"))
+    {
+        return Err(CoreError::invalid(format!(
+            "region '{r}' isn't in {country}"
+        )));
+    }
+    let Some(&last) = a.years.iter().max() else {
+        return Err(CoreError::invalid("give at least one year"));
+    };
+    if let Some(h) = a
+        .holidays
+        .iter()
+        .find(|h| !a.years.contains(&h.date.year()))
+    {
+        return Err(CoreError::invalid(format!(
+            "{} ({}) isn't in the years given",
+            h.name, h.date
+        )));
+    }
+
+    let before = config(ctx)?;
+    let config = Config {
+        through_year: match &before {
+            Some(b) if b.country == country && b.region == region => b.through_year.max(last),
+            _ => last,
+        },
+        keep_updated: a
+            .keep_updated
+            .unwrap_or_else(|| before.as_ref().is_none_or(|b| b.keep_updated)),
+        country,
+        region,
+    };
+
+    // Out with what an earlier import brought in for those years (any
+    // region, so changing region replaces them), then in with the new.
+    let mut removed = 0;
+    for h in store::holidays::list(ctx.conn)? {
+        if h.is_public() && a.years.contains(&h.start_date.year()) {
+            remove(ctx, &h)?;
+            removed += 1;
+        }
+    }
+    let today = ctx.now.with_timezone(&ctx.settings.tz).date_naive();
+    let source = config.source();
+    let mut added = 0;
+    for p in a.holidays.into_iter().filter(|p| p.date >= today) {
+        let mut h = Holiday {
+            id: ctx.new_id(),
+            label: p.name,
+            start_date: p.date,
+            end_date: p.date,
+            color: None,
+            created_at: ctx.now,
+            updated_at: ctx.now,
+            source: Some(source.clone()),
+        };
+        validate(&mut h)?;
+        store::holidays::upsert(ctx.conn, &h)?;
+        ctx.record(ENTITY, &h.id, None, Some(&h))?;
+        lift(ctx, &h)?;
+        added += 1;
+    }
+    super::settings::write(ctx, KEY_PUBLIC_HOLIDAYS, &config)?;
+    Ok(PublicImport {
+        added,
+        removed,
+        config,
+    })
+}
+
+fn set_public_holiday_updates(ctx: &mut Ctx<'_>, a: PublicHolidayUpdatesArgs) -> Result<Config> {
+    let mut config =
+        config(ctx)?.ok_or_else(|| CoreError::invalid("no public holidays have been imported"))?;
+    config.keep_updated = a.keep_updated;
+    super::settings::write(ctx, KEY_PUBLIC_HOLIDAYS, &config)?;
+    Ok(config)
+}
+
+fn forget_public_holidays(ctx: &mut Ctx<'_>, _: NoArgs) -> Result<Pruned> {
+    let mut removed = Vec::new();
+    for h in store::holidays::list(ctx.conn)? {
+        if h.is_public() {
+            remove(ctx, &h)?;
+            removed.push(h.label);
+        }
+    }
+    let before: Option<serde_json::Value> = store::settings::get(ctx.conn, KEY_PUBLIC_HOLIDAYS)?;
+    if before.is_some() {
+        store::settings::delete(ctx.conn, KEY_PUBLIC_HOLIDAYS)?;
+        ctx.record(
+            "setting",
+            KEY_PUBLIC_HOLIDAYS,
+            before.as_ref(),
+            None::<&serde_json::Value>,
+        )?;
     }
     Ok(Pruned { removed })
 }
@@ -300,6 +483,107 @@ mod tests {
                 .len(),
             1
         );
+    }
+
+    fn import(p: &mut crate::Planner, region: &str, holidays: Value) -> Value {
+        run(
+            p,
+            "import_public_holidays",
+            json!({ "country": "AU", "region": region, "years": [2026, 2027], "holidays": holidays }),
+        )
+    }
+
+    #[test]
+    fn public_holidays_import_from_today_and_replace_their_own() {
+        let mut p = with_work();
+        run(
+            &mut p,
+            "create_holiday",
+            json!({ "label": "Coast", "start_date": "2026-12-28", "end_date": "2026-12-30" }),
+        );
+        let out = import(
+            &mut p,
+            "AU-VIC",
+            json!([
+                { "date": "2026-03-09", "name": "Labour Day" },
+                { "date": "2026-11-03", "name": "Melbourne Cup" },
+                { "date": "2027-01-01", "name": "New Year's Day" }
+            ]),
+        );
+        assert_eq!(out["added"], 2, "the past one is skipped");
+        assert_eq!(out["config"]["through_year"], 2027);
+        assert_eq!(out["config"]["keep_updated"], true);
+        let holidays = run(&mut p, "list_holidays", json!({}));
+        let cup = &holidays.as_array().unwrap()[0];
+        assert_eq!(cup["label"], "Melbourne Cup");
+        assert_eq!(cup["source"], "public:AU-VIC");
+        assert!(
+            lifted_dates(&mut p).contains(&"2026-11-03".to_owned()),
+            "Tuesday's Work"
+        );
+
+        // Moving to NSW swaps them; the user's own holiday stays.
+        let out = import(
+            &mut p,
+            "AU-NSW",
+            json!([{ "date": "2027-01-01", "name": "New Year's Day" }]),
+        );
+        assert_eq!(
+            (out["removed"].clone(), out["added"].clone()),
+            (json!(2), json!(1))
+        );
+        let labels: Vec<Value> = run(&mut p, "list_holidays", json!({}))
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|h| h["label"].clone())
+            .collect();
+        assert_eq!(labels, [json!("Coast"), json!("New Year's Day")]);
+        assert_eq!(
+            run(&mut p, "get_public_holidays", json!({}))["region"],
+            "AU-NSW"
+        );
+
+        // Off, then forgotten: only the user's holiday is left.
+        run(
+            &mut p,
+            "set_public_holiday_updates",
+            json!({ "keep_updated": false }),
+        );
+        assert_eq!(
+            run(&mut p, "get_public_holidays", json!({}))["keep_updated"],
+            false
+        );
+        run(&mut p, "forget_public_holidays", json!({}));
+        assert!(run(&mut p, "get_public_holidays", json!({})).is_null());
+        assert_eq!(
+            run(&mut p, "list_holidays", json!({}))
+                .as_array()
+                .unwrap()
+                .len(),
+            1
+        );
+        run(&mut p, "undo", json!({}));
+        assert_eq!(
+            run(&mut p, "get_public_holidays", json!({}))["region"],
+            "AU-NSW"
+        );
+    }
+
+    #[test]
+    fn public_holiday_import_checks_its_input() {
+        let mut p = with_work();
+        for args in [
+            json!({ "country": "Australia", "years": [2026], "holidays": [] }),
+            json!({ "country": "AU", "region": "NZ-AUK", "years": [2026], "holidays": [] }),
+            json!({ "country": "AU", "years": [2026],
+                    "holidays": [{ "date": "2027-01-01", "name": "New Year's Day" }] }),
+        ] {
+            assert!(
+                p.execute("import_public_holidays", args, &Actor::User)
+                    .is_err()
+            );
+        }
     }
 
     #[test]

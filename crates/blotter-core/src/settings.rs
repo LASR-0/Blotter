@@ -38,6 +38,8 @@ pub const KEY_SNAPSHOT_KEEP: &str = "snapshot_keep";
 pub const KEY_SNAPSHOT_DIR: &str = "snapshot_dir";
 /// Whether the AI briefs the user each morning (default off, D28).
 pub const KEY_BRIEFING_ENABLED: &str = "briefing_enabled";
+/// Where imported public holidays come from (`public_holidays::Config`).
+pub const KEY_PUBLIC_HOLIDAYS: &str = "public_holidays";
 /// Local `HH:MM` the morning briefing runs at (default 07:30, D28).
 pub const KEY_BRIEFING_TIME: &str = "briefing_time";
 /// The local date of the last automatic briefing (internal).

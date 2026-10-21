@@ -12,6 +12,8 @@ import { parseTime } from '@/lib/format';
 import { DEFAULT_PLANNING, type WeekStart } from '@/lib/prefs';
 import { PRESETS } from '@/theme/presets';
 import { useTheme } from '@/theme/theme';
+import { usePublicHolidayChoice } from '@/lib/publicHolidays';
+import { PublicHolidayFields } from '@/views/settings/PublicHolidays';
 import { useOverlay } from './overlay';
 
 const STEPS: readonly [string, string][] = [
@@ -20,6 +22,10 @@ const STEPS: readonly [string, string][] = [
   [
     'Block out your work hours',
     'Flexible tasks will never be scheduled inside a block-out. Add more later.',
+  ],
+  [
+    'Public holidays',
+    'Imported for where you are, from date.nager.at. Work block-outs are lifted on them and work tasks stay off.',
   ],
   [
     'Connect an AI',
@@ -106,7 +112,7 @@ function ProviderCard({
 }
 
 /**
- * First-run setup (roadmap §5.10, design: First Run): five short steps,
+ * First-run setup (roadmap §5.10, design: First Run): six short steps,
  * each skippable, all by keyboard. Enter continues, Esc skips the step.
  * Shown once, on a fresh database; "Run setup again" in the palette brings
  * it back.
@@ -137,6 +143,7 @@ function SetupDialog() {
   const [providerId, setProviderId] = useState<string | null>(null);
   const [tested, setTested] = useState<string | null>(null);
   const [autostart, setAutostart] = useState(true);
+  const holidayChoice = usePublicHolidayChoice();
 
   useEffect(() => {
     invoke<ClaudeStatus>('claude_code_status')
@@ -226,14 +233,15 @@ function SetupDialog() {
             icon: 'briefcase',
           });
         }
-        if (step === 3) {
+        if (step === 3 && holidayChoice.ready) await holidayChoice.run();
+        if (step === 4) {
           if (provider === 'claude_code') {
             await invoke('set_ai_settings', { input: { route: 'claude_code' } });
           } else if (provider && secret.trim() && !tested) {
             await saveProvider(provider);
           }
         }
-        if (step === 4) await invoke('set_autostart', { enabled: autostart });
+        if (step === 5) await invoke('set_autostart', { enabled: autostart });
       }
       if (step < STEPS.length - 1) {
         setStep(step + 1);
@@ -407,6 +415,19 @@ function SetupDialog() {
         <PushPin weight="fill" />
         Fixed appointments, like a telehealth consult, can still go here.
       </span>
+    </div>,
+
+    <div key="holidays" className="flex flex-col gap-3">
+      <Labelled label="Where you are (guessed from your time zone)">
+        <span className="flex flex-wrap items-center gap-1.5">
+          <PublicHolidayFields choice={holidayChoice} />
+        </span>
+      </Labelled>
+      {holidayChoice.loadError && (
+        <p className="m-0 text-sm text-text-muted">
+          {holidayChoice.loadError} Skip this step and import them later in Settings → Block-outs.
+        </p>
+      )}
     </div>,
 
     <div key="ai" className="flex flex-col gap-3">

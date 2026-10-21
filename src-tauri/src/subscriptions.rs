@@ -58,6 +58,11 @@ fn describe(err: &reqwest::Error) -> String {
 
 /// Fetches `url` (an http(s) URL) and returns the body as text.
 pub(crate) async fn fetch_body(url: &str) -> Result<String, String> {
+    fetch_text(url, "text/calendar, */*;q=0.5").await
+}
+
+/// Fetches `url`, asking for `accept`, and returns the body as text.
+pub(crate) async fn fetch_text(url: &str, accept: &str) -> Result<String, String> {
     let client = reqwest::Client::builder()
         .connect_timeout(CONNECT_TIMEOUT)
         .timeout(REQUEST_TIMEOUT)
@@ -66,7 +71,7 @@ pub(crate) async fn fetch_body(url: &str) -> Result<String, String> {
         .map_err(|e| e.to_string())?;
     let resp = client
         .get(url)
-        .header(reqwest::header::ACCEPT, "text/calendar, */*;q=0.5")
+        .header(reqwest::header::ACCEPT, accept)
         .send()
         .await
         .map_err(|e| describe(&e))?;

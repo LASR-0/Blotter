@@ -17,6 +17,7 @@ pub mod model;
 pub mod ops;
 mod planner;
 pub mod proposals;
+pub mod public_holidays;
 pub mod recurrence;
 pub mod settings;
 pub mod slots;

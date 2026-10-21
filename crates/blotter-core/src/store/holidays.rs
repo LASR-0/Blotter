@@ -5,7 +5,7 @@ use crate::error::{CoreError, Result};
 use crate::model::{BlockoutException, Holiday};
 use crate::time;
 
-const COLUMNS: &str = "id, label, start_date, end_date, color, created_at, updated_at";
+const COLUMNS: &str = "id, label, start_date, end_date, color, created_at, updated_at, source";
 
 fn read(row: &Row<'_>) -> Result<Holiday> {
     Ok(Holiday {
@@ -16,6 +16,7 @@ fn read(row: &Row<'_>) -> Result<Holiday> {
         color: row.get("color")?,
         created_at: time::parse_instant("created_at", &row.get::<_, String>("created_at")?)?,
         updated_at: time::parse_instant("updated_at", &row.get::<_, String>("updated_at")?)?,
+        source: row.get("source")?,
     })
 }
 
@@ -33,11 +34,11 @@ pub fn upsert(conn: &Connection, h: &Holiday) -> Result<()> {
     conn.execute(
         &format!(
             "INSERT INTO holidays ({COLUMNS}) VALUES (:id, :label, :start_date, :end_date, \
-             :color, :created_at, :updated_at) \
+             :color, :created_at, :updated_at, :source) \
              ON CONFLICT (id) DO UPDATE SET label = excluded.label, \
              start_date = excluded.start_date, end_date = excluded.end_date, \
              color = excluded.color, created_at = excluded.created_at, \
-             updated_at = excluded.updated_at"
+             updated_at = excluded.updated_at, source = excluded.source"
         ),
         named_params! {
             ":id": h.id,
@@ -47,6 +48,7 @@ pub fn upsert(conn: &Connection, h: &Holiday) -> Result<()> {
             ":color": h.color,
             ":created_at": time::fmt_instant(h.created_at),
             ":updated_at": time::fmt_instant(h.updated_at),
+            ":source": h.source,
         },
     )?;
     Ok(())

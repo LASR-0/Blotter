@@ -15,6 +15,21 @@ pub struct Holiday {
     pub color: Option<String>,
     pub created_at: Instant,
     pub updated_at: Instant,
+    /// `public:<country or region>` for an imported public holiday; null
+    /// for one the user or the AI made.
+    #[serde(default)]
+    pub source: Option<String>,
+}
+
+/// The `source` prefix of imported public holidays.
+pub const PUBLIC_SOURCE: &str = "public:";
+
+impl Holiday {
+    pub fn is_public(&self) -> bool {
+        self.source
+            .as_deref()
+            .is_some_and(|s| s.starts_with(PUBLIC_SOURCE))
+    }
 }
 
 impl Holiday {

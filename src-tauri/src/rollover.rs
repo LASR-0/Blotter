@@ -32,6 +32,7 @@ pub fn start(app: AppHandle) {
             loop {
                 check(&app);
                 prune_holidays(&app);
+                crate::public_holidays::update_if_due(&app);
                 crate::backups::daily(&app);
                 crate::ai::chat::briefing_if_due(&app);
                 thread::sleep(CHECK_EVERY);

@@ -13,6 +13,7 @@ mod first_run;
 mod flatpak;
 mod ics;
 mod keybindings;
+mod public_holidays;
 mod reminders;
 mod rollover;
 mod shell;
@@ -148,6 +149,7 @@ pub fn run() {
             rollover::start(app.handle().clone());
             reminders::start(app.handle().clone());
             app.manage(subscriptions::Fetching::default());
+            app.manage(public_holidays::Tried::default());
             subscriptions::start(app.handle().clone());
             // The main window starts hidden (tauri.conf.json) so `--hidden`
             // launches never flash it.
@@ -201,6 +203,10 @@ pub fn run() {
             ics::export_ics,
             ics::pick_ics_import,
             ics::apply_ics_import,
+            public_holidays::public_holiday_guess,
+            public_holidays::public_holiday_countries,
+            public_holidays::public_holiday_regions,
+            public_holidays::import_public_holidays,
             subscriptions::list_subscriptions,
             subscriptions::add_subscription,
             subscriptions::update_subscription,

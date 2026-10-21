@@ -145,8 +145,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 65 | 15 | `docs: v1.2.0 plan` | committed `74ae4f7` |
 | 66 | 15a | `feat(ui): new item button in the Inbox rail and top bar` | committed `0c828ab` |
 | 67 | 15b | `feat(core): tags whose tasks can share time` | committed `cabc654` |
-| 68 | 15c | `fix(core): holidays leave Sleep-type block-outs in place` | committed (hash in the next entry) |
-| 69 | 15c | `feat: public holiday import` | planned |
+| 68 | 15c | `fix(core): holidays leave Sleep-type block-outs in place` | committed `57ade5b` |
+| 69 | 15c | `feat: public holiday import` | committed (hash in the next entry) |
 | 70 | 15d | `feat(app): in-app updates` | planned (needs Luke's updater key) |
 | 71 | 15d | `chore(release): v1.2.0` | planned |
 
@@ -4664,7 +4664,7 @@ Notes:
     - Dragging was never refused for overlaps, so drag needs no change; it only shows (or
       no longer shows) the conflict.
 
-### #68 — Holidays leave Sleep-type block-outs in place            [status: committed — hash in the next entry]
+### #68 — Holidays leave Sleep-type block-outs in place            [status: committed 57ade5b]
 Phase: 15c
 Message:
     fix(core): holidays leave Sleep-type block-outs in place
@@ -4685,3 +4685,57 @@ Test steps:
 Notes:
     - Turning permits_fixed off on a block-out later doesn't undo lifts a holiday already
       made on it; editing the holiday's dates redoes them.
+
+### #69 — Public holiday import            [status: committed — hash in the next entry]
+Phase: 15c
+Message:
+    feat: public holiday import
+
+    Public holidays for where the user is, from Nager.Date (free, no key),
+    in a new first-run step and in Settings → Block-outs → Holidays.
+
+    - The country, and the state or province where the zone tells it
+      (Australia/Melbourne → AU-VIC; Australian and Canadian zones), are
+      guessed from the time zone and confirmed in two selects; the region
+      list comes from the API.
+    - Import brings in this year's and next year's public holidays (not
+      bank or school days), from today on, as one-day holidays: work
+      block-outs are lifted, #work tasks stay off them, the holiday tag shows
+      in every view. Re-importing (or changing region) replaces what an
+      earlier import brought in for those years; the user's own holidays
+      are never touched. One undoable batch.
+    - "Fetch each next year's automatically" (on by default): the minute
+      check fetches next year's once the current year is the last one in,
+      at most one try a day.
+    - Settings shows them in their own card (place, the next one, the rest
+      folded), with Change… and Remove.
+
+    Core: public_holidays (zone → country table generated from tzdata's
+    zone.tab and backward, region guess, filtering the API's answer),
+    migration 0011 (holidays.source), ops get_public_holidays,
+    import_public_holidays, set_public_holiday_updates and
+    forget_public_holidays. App: the fetch commands and the yearly update;
+    subscriptions' fetch takes an Accept header (fetch_text).
+Files:
+    A  crates/blotter-core/migrations/0011_holiday_source.sql
+    A  crates/blotter-core/src/public_holidays/mod.rs, crates/blotter-core/src/public_holidays/zones.rs
+    M  crates/blotter-core/src/lib.rs, db.rs, settings.rs, model/holiday.rs, model/mod.rs
+    M  crates/blotter-core/src/ops/holidays.rs, ops/settings.rs, store/holidays.rs
+    A  src-tauri/src/public_holidays.rs
+    M  src-tauri/src/lib.rs, src-tauri/src/rollover.rs, src-tauri/src/subscriptions.rs
+    A  src/lib/publicHolidays.ts, src/lib/publicHolidays.test.ts, src/views/settings/PublicHolidays.tsx
+    M  src/app/FirstRun.tsx, src/lib/types.ts, src/views/settings/HolidaysSection.tsx
+    M  .claude/COMMITS.md
+Test steps:
+    - cargo test --workspace → 195 core (6 new) + 50 app + 6 mcp; clippy -D warnings clean
+    - cargo test -p blotter live_nager -- --ignored → AU-VIC 2027 has Melbourne Cup and Anzac
+      Day; AU lists AU-VIC; 50+ countries (passed here, 2 s)
+    - pnpm check → clean; Vitest 231
+    - Pending (Luke's installed Blotter was running): setup's Public holidays step guesses
+      Australia / VIC and imports on Continue; Settings → Holidays card shows VIC, Australia,
+      the next one (Melbourne Cup), Change… to NSW swaps them, Remove clears them, Ctrl+Z
+Notes:
+    - zones.rs is generated (553 zones) from tzdata 2025's zone.tab plus chrono-tz's
+      backward file by a throwaway script; regenerate the same way if a zone goes missing.
+    - Region names show as codes (VIC, NSW): nothing offline names subdivisions.
+    - The yearly fetch runs as the system, so Ctrl+Z skips it (D24).

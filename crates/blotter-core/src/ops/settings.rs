@@ -156,7 +156,7 @@ fn get_settings(ctx: &mut Ctx<'_>, _: GetSettingsArgs) -> Result<Settings> {
 }
 
 /// Writes one key and logs the change; unchanged values are skipped.
-fn write<T: Serialize>(ctx: &mut Ctx<'_>, key: &str, value: &T) -> Result<()> {
+pub(crate) fn write<T: Serialize>(ctx: &mut Ctx<'_>, key: &str, value: &T) -> Result<()> {
     let before: Option<Value> = store::settings::get(ctx.conn, key)?;
     let after = serde_json::to_value(value)?;
     if before.as_ref() == Some(&after) {
