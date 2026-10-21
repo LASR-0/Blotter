@@ -142,6 +142,13 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 63g | 14f | `fix(ui): logo spark centred and larger, cutting into the B` | committed `6ec8b01` |
 | 64 | 14f | `chore(release): v1.1.0` | committed `a1ff0a1` |
 | 64a | 14f | `build: AUR checksum for v1.1.0` | committed (hash in the next entry) |
+| 65 | 15 | `docs: v1.2.0 plan` | committed (hash in the next entry) |
+| 66 | 15a | `feat(ui): new item button in the Inbox rail and top bar` | planned |
+| 67 | 15b | `feat(core): tags whose tasks can share time` | planned |
+| 68 | 15c | `fix(core): holidays leave Sleep-type block-outs in place` | planned |
+| 69 | 15c | `feat: public holiday import` | planned |
+| 70 | 15d | `feat(app): in-app updates` | planned (needs Luke's updater key) |
+| 71 | 15d | `chore(release): v1.2.0` | planned |
 
 ---
 
@@ -4583,3 +4590,17 @@ Test steps:
 Notes:
     - .SRCINFO edited by hand to match (only the checksum line changes); on Arch,
       makepkg --printsrcinfo gives the same.
+
+### #65 — v1.2.0 plan            [status: committed — hash in the next entry]
+Phase: 15
+Message:
+    docs: v1.2.0 plan
+
+    Roadmap §13: a new item button (15a), tags whose tasks can share
+    time (15b), public holiday import with holidays no longer lifting
+    Sleep-type block-outs (15c), and in-app updates (15d, D31). Reverse
+    block-outs were dropped: planning hours already do that.
+Files:
+    M  .claude/roadmap.md, .claude/COMMITS.md
+Test steps:
+    - none (docs only)

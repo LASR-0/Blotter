@@ -673,6 +673,7 @@ The Claude Design prompt (`design-prompt.md`, which also sets the visual directi
 | D28 | Daily briefing off by default; 07:30 when turned on | Confirmed |
 | D29 | AI runs through two routes. **Claude Code** (the user's installed, signed-in `claude` CLI, driven headless with Blotter's MCP server) is the tested, primary route and uses the user's existing subscription. **API-key providers** (Anthropic, OpenAI, OpenAI-compatible/Ollama) are built and unit-tested against recorded responses but labelled "Experimental — untested" until checked with a real key. The MCP server moves from Phase 12 into Phase 8 (#29a), since the Claude Code route needs it. Check Anthropic's terms on driving Claude Code from another app before publishing that route | Confirmed |
 | D30 | Live tests of the Claude Code route run on Luke's subscription. MCP and AI writes stay on before #32, applying directly with a snapshot before the first change of each session or turn, plus undo. Snapshot policy is the implementer's call (the test data isn't precious) | Confirmed |
+| D31 | The Tauri updater ships in v1.2.0 (§13): its minisign key needs no OS code signing; package-manager installs (.deb, Flatpak, AUR) only get a notice. Supersedes the updater half of D17 | Confirmed |
 
 ---
 
@@ -722,3 +723,35 @@ Phase 14. Same protocol as v1 (§7): one ledger entry per increment in `COMMITS.
 ### Moved to post-v1.1 (§10)
 - Home-server sync across devices (already §10).
 - Sending a meeting proposal by email from Blotter.
+
+---
+
+## 13. v1.2.0 (Luke, 2026-10-21)
+
+Phase 15. Same protocol as v1 (§7). Smallest first; the updater is last because it changes the release workflow and needs a signing key only Luke can make.
+
+### 15a — New item button
+- A **+** button in the Diary's Inbox rail, both open and collapsed, that opens the full item dialog (the `item.new` action) so every field and kind is in reach.
+- The same button in the top bar for the Week and Month views (which have no rail), prefilled with the focused day.
+
+### 15b — Tags that share time
+- A tag setting, **"Tasks with this tag can be done simultaneously"** (Settings → Tags), e.g. laundry or shopping during a home task like cleaning.
+- A task carrying such a tag may be slotted over other *tasks*, doesn't make its own time busy for other tasks, and isn't flagged as a conflict. It still stays out of block-outs and off events and other fixed items, so laundry never lands on the dentist.
+- Every slotter honours it (auto-slot, rollover, drag, Smart slot's guidance), and the views lay overlapping cards side by side as they already do.
+
+### 15c — Public holidays
+- **Holidays stop lifting Sleep-type block-outs.** A holiday (made by hand or imported) lifts only the block-outs that permit fixed items; ones that warn about fixed items (Sleep) stay in place.
+- **Import public holidays** from Nager.Date (free, no key, around 100 countries with subdivisions such as AU-VIC), fetched in Rust. The country, and the region where the zone tells it (Australia/Melbourne → AU-VIC), are guessed from the OS time zone and confirmed in a picker.
+- Offered as a new first-run step and in Settings → Block-outs → Holidays. Imported days are ordinary holidays (lift block-outs, keep `#work` tasks off, the holiday tag in every view). A "keep up to date" option fetches next year's before this year's run out, since past holidays are pruned.
+
+### 15d — In-app updates
+- The Tauri updater. Its signing is a free minisign key pair, separate from OS code signing, so it doesn't need the signing infrastructure D17 was waiting on (D31).
+- **Windows (NSIS) and AppImage:** "Blotter 1.2.1 is out" with **Restart to update** (download, install, relaunch).
+- **.deb, Flatpak, AUR:** the package manager owns updates, so they get the notice and a link to the release notes only.
+- A "Check for updates" setting (on by default) and a palette action. `release.yml` builds the updater artifacts and `latest.json`; it is only visible once Luke publishes the draft release.
+- **Luke:** `pnpm tauri signer generate`, then the private key and its password as the `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` repo secrets; the public key goes in `tauri.conf.json`.
+
+### Decisions (Luke, 2026-10-21)
+1. Reverse block-outs ("only slot in this window") are dropped: planning hours already do this.
+2. Holidays don't lift block-outs that warn about fixed items (Sleep), for hand-made and imported holidays alike.
+3. Tasks that share time overlap other tasks, never events or block-outs.
