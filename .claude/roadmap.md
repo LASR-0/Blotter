@@ -629,7 +629,7 @@ The Claude Design prompt (`design-prompt.md`, which also sets the visual directi
 ---
 
 ## 10. Post-v1 (parked)
-- **Self-hosted sync:** run a Blotter server on a home server and connect each device to it from settings. The operation layer and change log are designed with this in mind: ULIDs, actor and timestamps on every change, and no reliance on local auto-increment ids.
+- ~~**Self-hosted sync:** run a Blotter server on a home server and connect each device to it from settings.~~ **Moved into v1.2.1 (§14), with the server as its own project, Blotter Sync.**
 - Two-way CalDAV sync (iCloud, Fastmail, Nextcloud) and the Google Calendar API.
 - Auto-update via the Tauri updater, plus code signing.
 - Splitting a task across multiple slots.
@@ -674,6 +674,7 @@ The Claude Design prompt (`design-prompt.md`, which also sets the visual directi
 | D29 | AI runs through two routes. **Claude Code** (the user's installed, signed-in `claude` CLI, driven headless with Blotter's MCP server) is the tested, primary route and uses the user's existing subscription. **API-key providers** (Anthropic, OpenAI, OpenAI-compatible/Ollama) are built and unit-tested against recorded responses but labelled "Experimental — untested" until checked with a real key. The MCP server moves from Phase 12 into Phase 8 (#29a), since the Claude Code route needs it. Check Anthropic's terms on driving Claude Code from another app before publishing that route | Confirmed |
 | D30 | Live tests of the Claude Code route run on Luke's subscription. MCP and AI writes stay on before #32, applying directly with a snapshot before the first change of each session or turn, plus undo. Snapshot policy is the implementer's call (the test data isn't precious) | Confirmed |
 | D31 | The Tauri updater ships in v1.2.0 (§13): its minisign key needs no OS code signing; package-manager installs (.deb, Flatpak, AUR) only get a notice. Supersedes the updater half of D17 | Confirmed |
+| D32 | Self-hosted sync (§14) through **Blotter Sync**, a headless Blotter server in its own repo (`LASR-0/Blotter-sync`, `../Blotter-sync` on Luke's machine) with its own version and roadmap. Blotter 1.2.1 makes the app and core sync-ready; Blotter Sync 1.0.0 is the first server. Data is no longer only per device once a user pairs a server; Local only stays the default. Amends D4 | Confirmed (Luke, 2026-10-22) |
 
 ---
 
@@ -757,3 +758,186 @@ Phase 15. Same protocol as v1 (§7). Smallest first; the updater is last because
 1. Reverse block-outs ("only slot in this window") are dropped: planning hours already do this.
 2. Holidays don't lift block-outs that warn about fixed items (Sleep), for hand-made and imported holidays alike.
 3. Tasks that share time overlap other tasks, never events or block-outs.
+
+---
+
+## 14. v1.2.1 — Sync with Blotter Sync (Luke, 2026-10-22)
+
+**Progress (2026-10-22):** planned (#72). Nothing built yet.
+
+Phase 16. Blotter 1.2.1 makes every desktop able to sync through **Blotter Sync**, a headless Blotter that runs on a home server (Docker, or natively on Linux and Windows). The server is its own project in its own repo, `LASR-0/Blotter-sync` (`../Blotter-sync` on this machine), with its own version (1.0.0 first), roadmap (`.claude/server-roadmap.md` there) and ledger. **This section is the source of truth for everything in this repo:** the sync model, the core groundwork and the app's side. The server roadmap covers the server itself (its API behaviour, pairing and tokens, storage, headless duties, deployment, the Home Assistant add-on). Same protocol as v1 (§7), in this ledger (#72 onward).
+
+1.2.1 is also the first release that installed copies of 1.2.0 update to by themselves (§13), so it must be solid in Local only mode: nothing changes for users who never open Settings → Sync.
+
+### 14.1 Goals
+- **One planner across devices.** Every Blotter desktop (Windows, Linux) connected to the same server sees the same items, reminders, tags, block-outs, holidays, subscriptions, custom themes and keybindings, within seconds when online.
+- **Offline-first stays true.** A device never needs the server. Edits made offline are kept and pushed when the server is reachable again.
+- **Edits merge per field group.** Retitling a task on one device and rescheduling it on another, while both are offline, keeps both edits.
+- **Two modes:** **Local only** (today's behaviour, the default) and **Home server** (pair once, then an ordered list of addresses tried in turn).
+- **The server owns the automatic duties** (rollover, subscription refresh, holiday pruning and public-holiday upkeep) once a device is paired; daily local backups continue.
+- Out of scope: phones, tablets, web UI, end-to-end encryption (the server must read the planner to run rollover), AI on the server, multiple users per server.
+
+### 14.2 Compatibility with Blotter Sync
+The two repos release separately, so compatibility is explicit:
+- `blotter-core::sync` defines two constants: the **sync protocol** version (wire types and endpoint behaviour) and the **sync schema** version (synced tables and columns, pinned by a registry test so a migration that changes a synced table can't land without bumping it; Proposed, D-S15 in the server roadmap). Every request carries both; the server refuses a mismatch with a typed error that names both sides, and the app says which side to update.
+- The server depends on `blotter-core` from this repo as a git dependency pinned to a Blotter release tag. So a Blotter release that changes either version needs a matching Blotter Sync release; one that doesn't (UI, device-local tables) keeps working with the same server.
+- `blotter-core` stays free of tokio, axum and reqwest: networking lives in `src-tauri` and in the server.
+- **The compatibility table** lives in both READMEs, identical, and here. Release order: Blotter tags first, then Blotter Sync pins that tag and tags its own release.
+
+| Blotter | Blotter Sync | Sync protocol | Sync schema |
+|---|---|---|---|
+| 1.2.1 and later 1.2.x | 1.0.x | 1 | 1 |
+
+Blotter 1.2.0 and earlier have no sync.
+
+### 14.3 What already supports this (verified in 1.2.0)
+- `blotter-core` has **no Tauri dependency**; the server embeds it: same schema, migrations, operations, validation and slot engine.
+- **Every id is a ULID** (`id.rs` was written "for post-v1 sync"), so devices create rows offline without collisions.
+- **User, AI and MCP edits go through the operation layer**, in one transaction with change-log rows carrying the actor and a timestamp (`ops/mod.rs`, `Ctx::record`).
+- **Undo already refuses** when an entity changed after the batch it would reverse (`ops/undo.rs`), so remote edits are protected once undo is scoped per device.
+- The network-free halves of subscriptions (`subscriptions::due`, `record_fetch`) and public holidays (`public_holidays::select`) are already in the core; the scheduling around them is in `src-tauri`.
+- `BLOTTER_DATA_DIR` lets two app instances run side by side for live tests (check the single-instance plugin doesn't block a second instance with a different data dir).
+
+### 14.4 What breaks once data syncs (and where this plan fixes it)
+| # | Problem today | Fix |
+|---|---|---|
+| H1 | The change log is an undo log: local rowid order, no device id, whole-entity snapshots. | A separate capture layer and outbox with per-field-group HLCs (16a). The change log stays local. |
+| H2 | **Several writes bypass the operation layer**: `store::settings::set` from commands, first run, AI route settings and reminders; keybindings; themes; subscriptions; `alerts::mark_fired`; snapshot restore and JSON import (`export::replace_all`). The MCP server also writes from another process. | Capture at the database layer with SQLite triggers (D-S7), so every write path and every process is caught. |
+| H3 | Rollover runs on every device; two devices would both move tasks, and `reslot` isn't deterministic across replicas. | In Home server mode only the server runs rollover. |
+| H4 | Undo reverses the newest batch globally, so Ctrl+Z on one device could undo another device's edit. | Undo/redo consider only batches made on this device (16a; amends D24). |
+| H5 | Snapshot restore and JSON import replace the whole database. | In Home server mode both become server actions that bump the epoch; devices re-bootstrap (16b). |
+| H6 | Reminder state (`fired_at`, `snoozed_until`) is per device but in a shared table. | `fired_at` stays device-local; snooze syncs (D-S9). |
+| H7 | Per-field merging can produce rows that break CHECK constraints (one device moves `start_at` later, another moves `end_at` earlier). | Coupled columns merge as field groups (§14.5, D-S8), and merged rows are validated. |
+| H8 | `blockout_exceptions` has `UNIQUE (blockout_id, date)`; two devices lifting the same day make two rows with different ULIDs. | Deterministic resolution of natural-unique collisions (§14.5). |
+| H9 | Natural-key tables (tags by name, settings by key, keybindings by action) would clash when a second device joins with its own copy. | First-join choice with explicit rules for natural keys (§14.7). |
+| H10 | First run creates default block-outs and settings, so a second device that runs setup and then joins would duplicate them. | First run offers "Connect to a home server", which pairs and bootstraps instead (16b). |
+| H11 | Devices on different versions would apply rows the other can't read. | Protocol and sync-schema gating at every request (§14.2). |
+| H12 | Two devices both doing public-holiday upkeep import the same holidays twice. | The server owns upkeep; merge dedupes `public:*` holidays (§14.7). |
+
+### 14.5 Sync model
+**Shape (D-S3):** state-based sync with last-writer-wins per field group, ordered by HLC.
+- Devices **push** captured changes (row id, field groups with their values and HLCs, tombstones) and **pull** everything after their cursor (the last server seq applied).
+- The **server is a replica with authority over order.** It merges pushes with the same core merge function devices use, assigns each accepted change a seq, and broadcasts a notice. Devices merge pulled changes with the same function, so every replica converges.
+- Replaying *operations* on other replicas is ruled out: operations read the clock and current state (slotting would land differently). CRDT libraries are more machinery than a single-user planner needs.
+
+**Clocks:**
+- One HLC per device (wall-clock ms + counter + device id), persisted, advanced on every local write and on every remote change received (`max(local, remote) + 1`). Ties break by device id.
+- Every replica keeps, per row and field group, the HLC that last set it (a clocks table beside the data). A tombstone is a clock entry on the whole row.
+
+**Field groups (D-S8):** columns related by a CHECK constraint, a foreign-key pair or an invariant an operation enforces form one group and merge together. The implementer derives the full list from the migrations and the ops and pins it in the sync registry, with a test that fails when a migration adds a column the registry doesn't classify. Expected groups:
+
+| Table | Groups (others are groups of one) |
+|---|---|
+| `items` | **timing** {all_day, start_at, end_at, start_date, end_date, tz, duration_min}; **status** {status, completed_at}; **kind** {kind, anchoring}; **window** {not_before, due_at, window_start, window_end}; **series** {parent_id, recurrence_id, rrule}; `ics_uid` |
+| `reminders` | **trigger** {offset_min, at}; `snoozed_until`; `fired_at` excluded (device-local, D-S9) |
+| `blockouts` | **hours** {start_time, end_time, tz}; **active** {active_from, active_until}; `weekdays`; `permits_fixed`; … |
+| `holidays` | **range** {start_date, end_date}; `source` |
+
+Known, accepted limit: `items.tags` is one JSON column, so two devices changing the same item's tags offline keep the newer list, not both.
+
+**Deletes, cascades and unique keys (D-S10):**
+- **Delete wins** over concurrent edits to the same row. History on the editing device says the item was deleted on the other device. Undoing the delete on the device that made it restores the row as a new write, which then wins.
+- **Cascades follow the parent.** A row whose parent is tombstoned is tombstoned when merged, matching the schema's `ON DELETE CASCADE`.
+- **Natural-unique collisions** (two `blockout_exceptions` rows for the same block-out and date) keep the row with the earlier HLC and tombstone the other. Every UNIQUE constraint on a synced table gets a test.
+
+**What syncs:**
+| Table | Class | Notes |
+|---|---|---|
+| `items`, `reminders`, `tags`, `blockouts`, `blockout_exceptions`, `holidays`, `themes`, `keybindings` | **Synced** (LWW) | `reminders.fired_at` excluded. Keybindings are in-app overrides only; the OS-level quick-capture shortcut isn't stored there (O1). |
+| `ics_subscriptions` | **Synced** definition (name, url, refresh, colour, as_blockout, enabled); **server-owned** status (last_fetch_at, last_ok_at, last_status, last_error) | |
+| `ics_events` | **Server-owned**, server → device only, never edited on a device | The cache stays refetchable. |
+| `settings` | **Per key** (below) | |
+| `changes` | Device-local | Remote changes are recorded locally with their origin device, so History can show them. |
+| `proposals`, `proposal_ops`, `chat_threads`, `chat_messages`, `providers`, `snapshots` | Device-local | Keys stay in each OS keychain. |
+
+Settings (every key in `settings.rs` is classified; a test fails on an unclassified key):
+- **Synced:** `planning_hours`, `week_start`, `timezone`, `rollover_mode`, `rollover_time`, `slot_buffer_min`, `default_task_duration_min`, `default_event_duration_min`, `default_event_reminder_min`, `snooze_options_min`, `public_holidays`, `ai_mode`.
+- **Device-local:** `theme` (the selected theme, O1), `ai_route`, `claude_code_*`, `codex_*`, `briefing_enabled`, `briefing_time`, `last_briefing_date`, `close_to_tray`, `notifications_enabled`, `catch_up_enabled`, `catch_up_hours`, `snapshot_dir`, `snapshot_keep`, `update_check_enabled`, `setup_done`, `last_reminder_check`.
+- **Server-owned:** `last_rollover_date`.
+
+**Wire types** live in `blotter-core::sync` (serde types for hello, pair, bootstrap, push, pull, the change notice and every typed error, plus the merge function), so the app and the server can't drift. The endpoint list and their server-side behaviour are in the server roadmap (§5.2 there); changing a wire type bumps the sync protocol.
+
+### 14.6 App: modes, sync engine and security
+- **Local only:** today's behaviour and the default.
+- **Home server:** paired once; an **ordered list of addresses** (e.g. LAN, then Tailscale, then a Caddy domain). The engine tries them in order, keeps the first that answers, and rechecks earlier ones periodically so a laptop returning home moves back to the LAN. Tailscale addresses (100.64.0.0/10, `*.ts.net`) are recognised: when only those fail, the app asks "Is Tailscale connected on this device?".
+- **Sync engine** (in `src-tauri`): push the outbox, pull from the cursor, apply each batch of remote changes in one transaction, emit the existing `CHANGED_EVENT` so views refresh. Triggered by a local write (debounced), an SSE notice, reconnection and a periodic fallback poll. Backoff with jitter when unreachable; never blocks the UI; one status, not a toast per attempt. Applying remote changes never re-captures them into the outbox (a connection-scoped flag the triggers check, D-S7).
+- **Token:** from pairing, stored in the OS keychain (`keychain.rs`), never in SQLite.
+- **Plain HTTP rule (D-S6):** `http://` only to loopback, private LAN ranges (10/8, 172.16/12, 192.168/16, IPv6 ULA and link-local) and Tailscale's range; anything else must be `https://` with a certificate the OS trusts. No "ignore certificate errors" switch. Hostnames are judged by what they resolve to.
+
+### 14.7 Joining and leaving
+- **Empty server:** this device seeds it (pushes its whole planner).
+- **Server has a planner:** the app asks:
+  - **Use the server's planner** (recommended for a new device): local data is snapshotted, then replaced by a bootstrap.
+  - **Merge:** ULID rows are unioned. Natural-key rows (tags, settings, keybindings, themes by id) take the server's values. Public holidays from the same `public:*` source and date are deduped.
+- **First run** gains a choice at the start: set up this device, or **Connect to a home server** (pair, bootstrap, skip the setup steps that create data).
+- **Disconnect** keeps the local copy, stops syncing, revokes this device's token on the server and clears the keychain entry.
+
+### 14.8 Duties handed to the server
+In Home server mode the app skips rollover, holiday pruning, public-holiday upkeep and subscription refreshes and shows the server's results instead. Local daily backups continue. Reminders and briefings stay on the device (every device notifies, D-S9). When the epoch changes, the app snapshots locally, re-bootstraps and tells the user; outbox changes that couldn't be pushed are kept in that snapshot. Known limit: a device that can't reach the server sees no rollover until it reconnects.
+
+### 14.9 UI
+- **Settings → Sync:** mode, Pair (address + code), the address list (add, reorder, remove, test), this device's name, the live route and last sync ("Synced via Tailscale · 2 min ago"), the server's version, Disconnect.
+- **Status indicator** in the shell (sidebar or top bar, following the design language): synced, syncing, offline (with unsent count), needs attention (version mismatch with which side to update, revoked, re-bootstrap).
+- **History** labels changes from other devices with the device name; Undo never offers them.
+- **Snapshots** in Home server mode lists the server's snapshots; restore and JSON import go to the server. Local restore is disabled there, with a line explaining why.
+- Every new screen has empty, loading and error states and full keyboard use (§6).
+
+### 14.10 Quality bar (on top of §6)
+- **Convergence tests in the core:** N in-memory replicas and an in-memory server, random interleavings of operations, offline periods, reordered and duplicated deliveries, then sync → every replica byte-identical in synced tables. Property-based (proptest), seeded so failures replay.
+- **Constraint tests:** every field group and UNIQUE resolution has a test that would otherwise produce an invalid row.
+- **Registry tests:** fail when a migration adds a table, column or setting the registry doesn't classify, or changes a synced one without bumping the sync schema.
+- **Local only is unchanged:** every existing test passes as it is.
+- **Live check before release:** two app instances with different `BLOTTER_DATA_DIR`s against a Blotter Sync build (natively on Windows; the Docker image in WSL).
+
+### 16a — Sync groundwork in the core (no visible change)
+**Intent:** everything a replica needs to take part in sync, with no networking: device identity, HLC, the sync registry, change capture, the merge function and wire types, device-scoped undo, and the network-free duty code the server reuses.
+
+**AC:**
+- A migration adds device identity, the HLC state, per-row/per-group clocks and the outbox. Existing databases upgrade without losing data; existing rows get clocks stamped at migration time.
+- Every write path in H2, including a write from a second connection (the MCP server), lands in the outbox with correct groups and HLCs. Writes to device-local tables and columns never do.
+- The merge function applies remote changes with LWW per group, tombstones, cascades and unique-collision rules; convergence and constraint tests pass (§14.10).
+- Undo and redo only touch batches made on this device; remote changes appear in History with their origin and are never undoable.
+- Subscription refresh and public-holiday upkeep can be driven by a caller that does its own HTTP (the app now, the server later), with the decisions about what is due in the core.
+- In Local only mode the app behaves exactly as 1.2.0.
+
+**Leads:**
+- Triggers vs a store-layer hook: triggers catch the MCP process and every direct `store::` call; confirm the cost on the demo data is negligible.
+- HLC persistence must survive a crash between writing data and writing the clock (same transaction).
+- `changes` needs a device column (or origin) for H4; check `newest_undoable` / `newest_redoable` and History's queries.
+- The server takes this crate as a git dependency: keep its public API for sync deliberate (`blotter-core::sync`), since Blotter Sync builds against tagged releases.
+
+### 16b — Sync in the app
+**Needs:** Blotter Sync far enough along to pair, push and pull against (its ledger #03–#06), for live checks.
+
+**Intent:** the app pairs with a server, syncs in the background, hands its automatic duties to the server and shows where things stand.
+
+**AC:**
+- Pair from Settings → Sync and from first run's "Connect to a home server"; the token is in the OS keychain.
+- Address failover: with LAN, Tailscale and Caddy listed, the app syncs via whichever answers first and returns to LAN when it's back.
+- The plain HTTP rule refuses public `http://` addresses with a clear message.
+- Two instances edit offline, reconnect, and both show both edits (different groups) or the newer one (same group).
+- In Home server mode the app doesn't run rollover, holiday pruning, public-holiday upkeep or subscription refreshes.
+- Joining a server with a planner offers Use the server's / Merge, and both behave as §14.7.
+- The status indicator shows each state, including a version mismatch naming the side to update; History shows device names; Snapshots uses the server's.
+- Disconnect leaves a working Local only planner.
+
+**Leads:**
+- The single-instance plugin with two `BLOTTER_DATA_DIR`s on Windows and Linux, for the live tests.
+- Flatpak: network access to LAN and tailnet addresses from the sandbox (`--share=network`) and the keychain portal storing the token.
+- Reqwest SSE: a long-lived streaming GET with reconnect; the existing `ai/sse.rs` parser may be reusable.
+
+### 16c — Release
+- The README gains "Sync across devices", linking to Blotter Sync, with the compatibility table (§14.2).
+- AppStream release note; version 1.2.1 everywhere; live checks recorded in the release entry.
+- Blotter tags `v1.2.1` before Blotter Sync tags 1.0.0 (it pins this tag).
+
+### After 1.2.1
+- **Blotter Sync 1.1.0:** the Home Assistant add-on (server roadmap, Phase 3). No app change expected.
+
+### Decisions (Luke, 2026-10-21 and 2026-10-22)
+1. Sync is desktop-only (Windows and Linux).
+2. The server is a headless Blotter, not just a relay, and is its own project and repo, Blotter Sync, versioned on its own (1.0.0 first, the HA add-on 1.1.0).
+3. Conflicts resolve per field group (D-S3, D-S8); capture is by SQLite triggers (D-S7); every device fires reminders and snooze syncs (D-S9); delete wins, cascades follow the parent, natural-unique collisions keep the earlier row (D-S10).
+4. Custom themes and keybindings sync; the selected theme stays per device (O1).
+5. Docker is the server's primary deployment, with native Linux and Windows binaries too. The app has two sync modes, Local only and Home server, with an ordered address list.
+6. A compatibility table in both repos says which versions work together.

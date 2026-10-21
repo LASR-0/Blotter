@@ -149,7 +149,21 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 69 | 15c | `feat: public holiday import` | committed `f63b0a4` |
 | 70 | 15d | `feat(app): in-app updates` | committed `46c48ed` |
 | 70a | 15d | `fix(ui): plain update errors and the holiday list's empty line` | committed `2d94a55` |
-| 71 | 15d | `chore(release): v1.2.0` | committed (hash in the next entry, untagged) |
+| 71 | 15d | `chore(release): v1.2.0` | committed `4cb1d74` (untagged) |
+| 72 | 16 | `docs: v1.2.1 sync plan` | committed (hash in the next entry) |
+| 73 | 16a | `feat(core): device identity and hybrid logical clock` | planned |
+| 74 | 16a | `feat(core): sync registry for tables, columns and settings` | planned |
+| 75 | 16a | `feat(core): capture synced writes into an outbox` | planned |
+| 76 | 16a | `feat(core): wire types and merging remote changes per field group` | planned |
+| 77 | 16a | `test(core): multi-replica convergence tests` | planned |
+| 78 | 16a | `feat(core): undo and redo scoped to this device` | planned |
+| 79 | 16a | `refactor(core): subscription and holiday upkeep a caller can drive` | planned |
+| 80 | 16b | `feat(app): sync engine with push, pull and address failover` | planned |
+| 81 | 16b | `feat(app): pairing and Settings → Sync` | planned |
+| 82 | 16b | `feat(app): connect to a home server from first run, and joining` | planned |
+| 83 | 16b | `feat(app): hand automatic duties to the server` | planned |
+| 84 | 16b | `feat(ui): sync status, device names in History, server snapshots` | planned |
+| 85 | 16c | `chore(release): v1.2.1` | planned |
 
 ---
 
@@ -4853,3 +4867,28 @@ Notes:
       draft; check the Updater manifest job's log shows all five platform entries.
     - Publish the draft after the smoke checks; latest.json only resolves once it's published.
     - AUR: updpkgsums and makepkg --printsrcinfo > .SRCINFO once the tag exists.
+
+### #72 — v1.2.1 sync plan            [status: committed — hash in the next entry]
+Phase: 16
+Message:
+    docs: v1.2.1 sync plan
+
+    Blotter 1.2.1 makes every desktop able to sync through Blotter Sync, a
+    headless Blotter server in its own repo (LASR-0/Blotter-sync) with its
+    own version, roadmap and ledger. Roadmap §14 is the app-side brief:
+    compatibility with the server (sync protocol and schema versions, a
+    table in both READMEs), the sync model, field groups, what syncs, the
+    sync engine, joining, duties handed to the server, UI and phases
+    16a-16c. §10 and D32 point to it. Planned commits #73-#85.
+
+    #71 (v1.2.0) is 4cb1d74.
+Files:
+    M  .claude/roadmap.md, .claude/COMMITS.md
+Test steps:
+    - none (docs only)
+Notes:
+    - Confirmed by Luke 2026-10-22: D-S7 to D-S10, O1 (custom themes and keybindings
+      sync; the selected theme stays per device), separate repos, versions.
+    - Proposed in the server roadmap: D-S15 (gate on a sync schema version) and D-S16
+      (the names Blotter Sync / blotter-sync).
+    - Per-entry file lists are filled in as each entry moves to ready, as before.
