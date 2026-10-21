@@ -32,6 +32,14 @@
     <category>Calendar</category>
   </categories>
   <releases>
+    <release version="1.2.0" date="2026-10-21">
+      <description>
+        <p>Public holidays for your country and state, imported and kept up to date; holidays
+          no longer lift Sleep-type block-outs; tags whose tasks can be done during other tasks;
+          a new item button in the Inbox rail and the calendar views; and in-app updates for the
+          Windows installers and the AppImage.</p>
+      </description>
+    </release>
     <release version="1.1.0" date="2026-10-20">
       <description>
         <p>Holidays, task windows, weekly tasks, task context, tag management, a Consult me

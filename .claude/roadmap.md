@@ -728,6 +728,8 @@ Phase 14. Same protocol as v1 (§7): one ledger entry per increment in `COMMITS.
 
 ## 13. v1.2.0 (Luke, 2026-10-21)
 
+**Progress (2026-10-21):** **Phase 15 is complete** (#65–#71, with #70a). Each item was checked live on a scratch copy of the demo data (see #70a). Version 1.2.0; Luke added the updater signing secrets, tags `v1.2.0` and pushes, publishes the draft once the smoke checks pass, then sets the AUR checksum. 1.2.1 will be the first release installed copies can update to by themselves.
+
 Phase 15. Same protocol as v1 (§7). Smallest first; the updater is last because it changes the release workflow and needs a signing key only Luke can make.
 
 ### 15a — New item button

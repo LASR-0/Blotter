@@ -15,7 +15,8 @@ The name comes from the desk blotter (the paper calendar pad on a desk) and from
 - **Diary, Week, Month and Year** views, all usable from the keyboard alone.
 - An **Inbox** to brain-dump tasks into, then place them with the built-in auto-slot, the AI's **Smart slot**, or **Consult me**, where the AI asks you about each task before placing it.
 - **Task windows** ("book the trip between 1 and 15 Nov") and **weekly tasks** (groceries some time each week, usually Saturday morning) that re-plan themselves when a slot is missed.
-- **Holidays** that lift your block-outs for their days and keep work tasks off them.
+- **Holidays** that lift your work block-outs for their days and keep work tasks off them, plus your country's (and state's) **public holidays**, imported and kept up to date for you.
+- **Simultaneous tags**: tasks tagged with one (laundry, say) can be slotted over other tasks, like cleaning, but never over appointments.
 - **Block-out windows** (work 08:30–17:00 on weekdays, say) that flexible tasks never land in. Fixed appointments can still go there.
 - An **AI chat** that reads and changes your planner. By default it _proposes_ changes for you to accept; every change is logged and undoable, with snapshots to roll back to.
 - **Reminders** with snooze, which keep firing from the tray while the window is closed.
@@ -38,7 +39,9 @@ Download from the [latest release](https://github.com/LASR-0/Blotter/releases/la
 | Debian, Ubuntu | `Blotter_x.y.z_amd64.deb`      | `sudo apt install ./Blotter_x.y.z_amd64.deb`                       |
 | Arch           | AUR `blotter`                  | Builds from source; see `packaging/aur`.                           |
 
-Releases aren't code-signed, so Windows SmartScreen may warn the first time ("More info" → "Run anyway"). There's no auto-update in v1: install a new release over the old one, and your data stays put.
+Releases aren't code-signed, so Windows SmartScreen may warn the first time ("More info" → "Run anyway").
+
+**Updates:** from 1.2.0, Blotter checks for a new release once a day (Settings → General → Check for updates, or **Check for updates** in the command palette). The Windows installers and the AppImage update themselves: **Restart to update** in the notice. The .deb, Flatpak and AUR packages show the notice and you update them as usual. Updates are signed with Blotter's own updater key, and your data stays put. Coming from 1.1.0 or earlier, install 1.2.0 over the old version once by hand.
 
 On Linux, file pickers use the desktop portal (`xdg-desktop-portal` plus a backend such as `-gtk`, `-kde` or `-hyprland`), and the tray needs a StatusNotifier host (KDE, GNOME with the AppIndicator extension, Waybar's tray, …).
 
@@ -58,7 +61,7 @@ The Flatpak asks only for what Blotter needs: network (AI providers, ICS subscri
 
 ## First run
 
-A short setup walks through a theme, your week and planning hours, your work hours as a first block-out, connecting an AI, and launch at login, each one skippable. Everything can be changed later in Settings, and **Run setup again** in the command palette (`Ctrl+K`) brings it back.
+A short setup walks through a theme, your week and planning hours, your work hours as a first block-out, your public holidays (country and state guessed from your time zone, fetched from [Nager.Date](https://date.nager.at)), connecting an AI, and launch at login, each one skippable. Everything can be changed later in Settings, and **Run setup again** in the command palette (`Ctrl+K`) brings it back.
 
 Your data is a single SQLite database:
 

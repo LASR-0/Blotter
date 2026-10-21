@@ -1,6 +1,6 @@
 pkgbase = blotter
 	pkgdesc = Keyboard-first daily planner with an AI that pencils things in for you
-	pkgver = 1.1.0
+	pkgver = 1.2.0
 	pkgrel = 1
 	url = https://github.com/LASR-0/Blotter
 	arch = x86_64
@@ -18,7 +18,7 @@ pkgbase = blotter
 	optdepends = gnome-keyring: a Secret Service keychain for AI provider API keys
 	optdepends = xdg-desktop-portal-gtk: file pickers on desktops without their own portal
 	options = !lto
-	source = blotter-1.1.0.tar.gz::https://github.com/LASR-0/Blotter/archive/refs/tags/v1.1.0.tar.gz
-	sha256sums = 6da073c93c1c7363464f784c95e35f6a3075e656ea79d4f27ce1814b3d094e5c
+	source = blotter-1.2.0.tar.gz::https://github.com/LASR-0/Blotter/archive/refs/tags/v1.2.0.tar.gz
+	sha256sums = SKIP
 
 pkgname = blotter

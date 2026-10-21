@@ -148,8 +148,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 68 | 15c | `fix(core): holidays leave Sleep-type block-outs in place` | committed `57ade5b` |
 | 69 | 15c | `feat: public holiday import` | committed `f63b0a4` |
 | 70 | 15d | `feat(app): in-app updates` | committed `46c48ed` |
-| 70a | 15d | `fix(ui): plain update errors and the holiday list's empty line` | committed (hash in the next entry) |
-| 71 | 15d | `chore(release): v1.2.0` | planned |
+| 70a | 15d | `fix(ui): plain update errors and the holiday list's empty line` | committed `2d94a55` |
+| 71 | 15d | `chore(release): v1.2.0` | committed (hash in the next entry, untagged) |
 
 ---
 
@@ -4790,7 +4790,7 @@ Notes:
     - 1.1.0 has no updater, so 1.2.0 itself is installed by hand; 1.2.1 is the first update
       it can take.
 
-### #70a — Plain update errors and the holiday list's empty line            [status: committed — hash in the next entry]
+### #70a — Plain update errors and the holiday list's empty line            [status: committed 2d94a55]
 Phase: 15d
 Message:
     fix(ui): plain update errors and the holiday list's empty line
@@ -4824,3 +4824,32 @@ Test steps:
 Notes:
     - Setup's holiday step guesses from the time zone even when public holidays were already
       imported for another region (only matters for "Run setup again").
+
+### #71 — v1.2.0            [status: committed — hash in the next entry, untagged]
+Phase: 15d
+Message:
+    chore(release): v1.2.0
+
+    Version 1.2.0 in Cargo.toml (all three crates), package.json,
+    tauri.conf.json, the AUR PKGBUILD and .SRCINFO (checksum back to SKIP
+    until the tag exists), and the AppStream metainfo with a 1.2.0 release
+    note. The README covers public holidays, simultaneous tags, the setup
+    step and in-app updates (from 1.2.0; 1.1.0 users install 1.2.0 by hand
+    once). Roadmap §13 progress.
+Files:
+    M  Cargo.toml, Cargo.lock, package.json, src-tauri/tauri.conf.json   (1.2.0)
+    M  packaging/aur/PKGBUILD, packaging/aur/.SRCINFO, packaging/linux/io.github.lasr0.Blotter.metainfo.xml
+    M  README.md
+    M  .claude/COMMITS.md, .claude/roadmap.md   (§13 progress)
+Test steps:
+    - pnpm check → clean; Vitest 231
+    - cargo test --workspace → 195 core + 51 app + 6 mcp
+    - pnpm tauri build --bundles nsis,msi (no signing key) → Blotter_1.2.0_x64-setup.exe
+      (7.6 MB), Blotter_1.2.0_x64_en-US.msi (10.7 MB); the bundler stamps each exe with its
+      bundle type, which the updater reads
+Notes:
+    - Luke: push, then git tag -a v1.2.0 -m "Blotter 1.2.0" && git push origin v1.2.0. The
+      release workflow signs the NSIS, MSI and AppImage bundles and adds latest.json to the
+      draft; check the Updater manifest job's log shows all five platform entries.
+    - Publish the draft after the smoke checks; latest.json only resolves once it's published.
+    - AUR: updpkgsums and makepkg --printsrcinfo > .SRCINFO once the tag exists.
