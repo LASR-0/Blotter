@@ -150,7 +150,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 70 | 15d | `feat(app): in-app updates` | committed `46c48ed` |
 | 70a | 15d | `fix(ui): plain update errors and the holiday list's empty line` | committed `2d94a55` |
 | 71 | 15d | `chore(release): v1.2.0` | committed `4cb1d74` (untagged) |
-| 72 | 16 | `docs: v1.2.1 sync plan` | committed (hash in the next entry) |
+| 72 | 16 | `docs: v1.2.1 sync plan` | committed `7cb6137` |
+| 72a | 16 | `docs: sync schema gate confirmed, Blotter-Sync repo name` | committed (hash in the next entry) |
 | 73 | 16a | `feat(core): device identity and hybrid logical clock` | planned |
 | 74 | 16a | `feat(core): sync registry for tables, columns and settings` | planned |
 | 75 | 16a | `feat(core): capture synced writes into an outbox` | planned |
@@ -4892,3 +4893,16 @@ Notes:
     - Proposed in the server roadmap: D-S15 (gate on a sync schema version) and D-S16
       (the names Blotter Sync / blotter-sync).
     - Per-entry file lists are filled in as each entry moves to ready, as before.
+
+### #72a — Sync schema gate confirmed, Blotter-Sync repo name            [status: committed — hash in the next entry]
+Phase: 16
+Message:
+    docs: sync schema gate confirmed, Blotter-Sync repo name
+
+    Luke confirmed gating by a sync schema version (D-S15 in the server
+    roadmap) and the name blotter-sync (D-S16). The server repo is
+    LASR-0/Blotter-Sync. #72 is 7cb6137.
+Files:
+    M  .claude/roadmap.md, .claude/COMMITS.md
+Test steps:
+    - none (docs only)
