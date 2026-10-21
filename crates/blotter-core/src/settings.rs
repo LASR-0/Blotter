@@ -60,6 +60,8 @@ pub const KEY_CODEX_PATH: &str = "codex_path";
 pub const KEY_WEEK_START: &str = "week_start";
 pub const KEY_CLOCK: &str = "clock";
 pub const KEY_CLOSE_TO_TRAY: &str = "close_to_tray";
+/// Whether Blotter looks for a new release once a day (default on).
+pub const KEY_UPDATE_CHECK: &str = "update_check_enabled";
 /// Set once the first-run setup is finished or skipped (per device).
 pub const KEY_SETUP_DONE: &str = "setup_done";
 

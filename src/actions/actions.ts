@@ -11,6 +11,7 @@ import {
   ChatCircleText,
   ArrowUp,
   CheckSquare,
+  CloudArrowDown,
   NotePencil as EditIcon,
   Trash,
   ArrowsDownUp,
@@ -51,6 +52,7 @@ import { useFocus } from '@/app/focus';
 import { useNav } from '@/app/nav';
 import { useSelection, type BulkEditor } from '@/app/selection';
 import { useOverlay } from '@/app/overlay';
+import { checkForUpdates } from '@/app/updates';
 import { PRESETS } from '@/theme/presets';
 import { useTheme } from '@/theme/theme';
 
@@ -453,6 +455,14 @@ export function buildActions(): Action[] {
       icon: Keyboard,
       keywords: ['shortcuts', 'keys', 'rebind', 'settings'],
       run: () => useNav.getState().openSettings('keybindings'),
+    },
+    {
+      id: 'app.update',
+      label: 'Check for updates',
+      group: 'Actions',
+      icon: CloudArrowDown,
+      keywords: ['update', 'upgrade', 'new version', 'release'],
+      run: () => void checkForUpdates(),
     },
     {
       id: 'setup.run',

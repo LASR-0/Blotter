@@ -75,6 +75,8 @@ pub struct Settings {
     pub clock: ClockStyle,
     /// Closing the main window hides it to the tray (true) or quits.
     pub close_to_tray: bool,
+    /// Blotter looks for a new release once a day.
+    pub update_check_enabled: bool,
 }
 
 #[derive(Debug, Default, Deserialize, JsonSchema)]
@@ -121,6 +123,8 @@ pub struct UpdateSettingsArgs {
     pub clock: Option<ClockStyle>,
     /// Closing the main window hides it to the tray (true) or quits Blotter.
     pub close_to_tray: Option<bool>,
+    /// Look for a new release of Blotter once a day.
+    pub update_check_enabled: Option<bool>,
 }
 
 fn read(conn: &Connection, planner: &PlannerSettings) -> Result<Settings> {
@@ -148,6 +152,7 @@ fn read(conn: &Connection, planner: &PlannerSettings) -> Result<Settings> {
         week_start: store::settings::get(conn, keys::KEY_WEEK_START)?.unwrap_or_default(),
         clock: store::settings::get(conn, keys::KEY_CLOCK)?.unwrap_or_default(),
         close_to_tray: store::settings::get(conn, keys::KEY_CLOSE_TO_TRAY)?.unwrap_or(true),
+        update_check_enabled: store::settings::get(conn, keys::KEY_UPDATE_CHECK)?.unwrap_or(true),
     })
 }
 
@@ -241,6 +246,9 @@ fn update_settings(ctx: &mut Ctx<'_>, a: UpdateSettingsArgs) -> Result<Settings>
     }
     if let Some(on) = a.close_to_tray {
         write(ctx, keys::KEY_CLOSE_TO_TRAY, &on)?;
+    }
+    if let Some(on) = a.update_check_enabled {
+        write(ctx, keys::KEY_UPDATE_CHECK, &on)?;
     }
     // Re-read so a changed default reminder shows; the zone is unchanged.
     let planner = PlannerSettings::load(ctx.conn, ctx.settings.tz)?;

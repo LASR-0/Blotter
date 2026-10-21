@@ -33,6 +33,7 @@ pub fn start(app: AppHandle) {
                 check(&app);
                 prune_holidays(&app);
                 crate::public_holidays::update_if_due(&app);
+                crate::updates::check_if_due(&app);
                 crate::backups::daily(&app);
                 crate::ai::chat::briefing_if_due(&app);
                 thread::sleep(CHECK_EVERY);

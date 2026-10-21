@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import { checkForUpdates } from '@/app/updates';
 import { ErrorPanel } from '@/components/EmptyState';
+import { Button } from '@/components/ui/button';
 import { Segmented } from '@/components/ui/segmented';
 import { Select } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
@@ -30,6 +32,7 @@ interface Settings {
   slot_buffer_min: number;
   rollover_mode: 'inbox' | 'reslot';
   close_to_tray: boolean;
+  update_check_enabled: boolean;
 }
 
 const DAYS = [
@@ -312,6 +315,21 @@ export function GeneralPage() {
           checked={s.close_to_tray}
           onCheckedChange={(on) => save({ close_to_tray: on })}
         />
+      </SettingRow>
+      <SettingRow
+        label="Check for updates"
+        description="Once a day, Blotter looks for a new release and says when one is out. Installer and AppImage copies update in place; package-manager installs get a note."
+      >
+        <span className="flex items-center gap-3">
+          <Button size="sm" onClick={() => void checkForUpdates()}>
+            Check now
+          </Button>
+          <Switch
+            aria-label="Check for updates"
+            checked={s.update_check_enabled}
+            onCheckedChange={(on) => save({ update_check_enabled: on })}
+          />
+        </span>
       </SettingRow>
     </div>
   );

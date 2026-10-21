@@ -60,5 +60,14 @@
         "bundleMediaFramework": false
       }
     }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDlGNzNCRTM4QzNDRkNBODAKUldTQXlzL0RPTDV6bjloenlkMGJkT29LUjRPVkQwcDFlNnNXZjczWFZaSFR3RlJJTWMxMzkza1UK",
+      "endpoints": ["https://github.com/LASR-0/Blotter/releases/latest/download/latest.json"],
+      "windows": {
+        "installMode": "passive"
+      }
+    }
   }
 }

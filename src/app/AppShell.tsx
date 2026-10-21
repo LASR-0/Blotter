@@ -41,6 +41,7 @@ import { TopBar } from './TopBar';
 import { ChatPanel } from '@/chat/ChatPanel';
 import { SlidePanel } from '@/components/ui/slide-panel';
 import { useChat, useChatEvents } from '@/chat/chatStore';
+import { useUpdateNotices } from './updates';
 
 /** Tracks whether the window is below the sidebar auto-collapse width. */
 function useNarrowWindow() {
@@ -108,6 +109,7 @@ export function AppShell() {
   const chatOpen = useChat((s) => s.open);
   const chat = useSlidePresence(chatOpen);
   useChatEvents();
+  useUpdateNotices();
   useChatOpeners();
 
   useEffect(() => syncPrefs(), []);

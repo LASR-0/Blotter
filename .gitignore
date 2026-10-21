@@ -23,3 +23,8 @@ packaging/flatpak/blotter.deb
 packaging/flatpak/shared-modules/
 packaging/flatpak/build-dir/
 packaging/flatpak/.flatpak-builder/
+
+# Updater signing keys never belong in the repo (a literal "~" folder is a
+# shell that didn't expand ~ when generating them)
+*.key
+/~/

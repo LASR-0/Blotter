@@ -146,8 +146,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 66 | 15a | `feat(ui): new item button in the Inbox rail and top bar` | committed `0c828ab` |
 | 67 | 15b | `feat(core): tags whose tasks can share time` | committed `cabc654` |
 | 68 | 15c | `fix(core): holidays leave Sleep-type block-outs in place` | committed `57ade5b` |
-| 69 | 15c | `feat: public holiday import` | committed (hash in the next entry) |
-| 70 | 15d | `feat(app): in-app updates` | planned (needs Luke's updater key) |
+| 69 | 15c | `feat: public holiday import` | committed `f63b0a4` |
+| 70 | 15d | `feat(app): in-app updates` | committed (hash in the next entry) |
 | 71 | 15d | `chore(release): v1.2.0` | planned |
 
 ---
@@ -4686,7 +4686,7 @@ Notes:
     - Turning permits_fixed off on a block-out later doesn't undo lifts a holiday already
       made on it; editing the holiday's dates redoes them.
 
-### #69 — Public holiday import            [status: committed — hash in the next entry]
+### #69 — Public holiday import            [status: committed f63b0a4]
 Phase: 15c
 Message:
     feat: public holiday import
@@ -4735,7 +4735,56 @@ Test steps:
       Australia / VIC and imports on Continue; Settings → Holidays card shows VIC, Australia,
       the next one (Melbourne Cup), Change… to NSW swaps them, Remove clears them, Ctrl+Z
 Notes:
-    - zones.rs is generated (553 zones) from tzdata 2025's zone.tab plus chrono-tz's
+    - zones.rs is generated (553 zones) from tzdata's current zone.tab plus chrono-tz's
       backward file by a throwaway script; regenerate the same way if a zone goes missing.
     - Region names show as codes (VIC, NSW): nothing offline names subdivisions.
     - The yearly fetch runs as the system, so Ctrl+Z skips it (D24).
+
+### #70 — In-app updates            [status: committed — hash in the next entry]
+Phase: 15d
+Message:
+    feat(app): in-app updates
+
+    The Tauri updater (D31), signed with Blotter's own minisign key rather
+    than an OS code signature.
+
+    - A minute after start and then once a day (Settings → General → Check
+      for updates, on by default), Blotter reads the latest release's
+      latest.json. A newer version shows a notice: "Restart to update" for
+      installs Blotter owns (NSIS, MSI, AppImage: download, install,
+      relaunch), or the release notes and how to update for ones a package
+      manager owns (.deb, Flatpak, AUR and other source builds). "Check now"
+      and the palette's Check for updates look straight away.
+    - release.yml signs the NSIS, MSI and AppImage bundles with the
+      TAURI_SIGNING_PRIVATE_KEY secrets (through tauri.release.conf.json, so
+      local builds need no key), and a new job writes latest.json
+      (scripts/updater-manifest.mjs) into the draft release. Installed
+      copies only see an update once the draft is published.
+    - .gitignore keeps *.key files and a stray literal "~" folder out.
+
+    App: tauri-plugin-updater 2.12.0 and tauri-plugin-opener 2.5.5 (for the
+    release notes link), updates.rs (check_for_update, available_update,
+    install_update, open_release_notes). Core: update_check_enabled setting.
+Files:
+    A  src-tauri/src/updates.rs, src-tauri/tauri.release.conf.json, scripts/updater-manifest.mjs
+    A  src/app/updates.ts
+    M  src-tauri/Cargo.toml, Cargo.lock, src-tauri/src/lib.rs, src-tauri/src/rollover.rs
+    M  src-tauri/tauri.conf.json   (plugins.updater: public key, endpoint, passive Windows install)
+    M  crates/blotter-core/src/settings.rs, crates/blotter-core/src/ops/settings.rs
+    M  src/actions/actions.ts, src/app/AppShell.tsx, src/views/settings/GeneralPage.tsx
+    M  .github/workflows/release.yml, .gitignore
+    M  .claude/COMMITS.md
+Test steps:
+    - cargo test --workspace → 195 core + 51 app (updater_config_is_valid new) + 6 mcp;
+      clippy -D warnings clean
+    - pnpm check → clean; Vitest 231
+    - node scripts/updater-manifest.mjs v1.2.0 LASR-0/Blotter <dummy bundles> → nsis, msi
+      and appimage entries with their signatures and download URLs
+    - Pending: the first tagged release with the secrets set (the workflow's signing and
+      updater jobs); then an installed 1.2.0 seeing 1.2.1 and updating itself
+Notes:
+    - Luke's key pair lives in C:\Users\ROXBLUK\.tauri (moved out of a literal "~" folder in
+      the repo, never committed). Losing the private key means installed copies can't take
+      updates signed with a new one: keep a backup.
+    - 1.1.0 has no updater, so 1.2.0 itself is installed by hand; 1.2.1 is the first update
+      it can take.

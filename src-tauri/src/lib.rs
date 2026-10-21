@@ -20,6 +20,7 @@ mod shell;
 mod subscriptions;
 mod themes;
 mod titlebar;
+mod updates;
 
 use std::path::PathBuf;
 use std::sync::Mutex;
@@ -150,6 +151,7 @@ pub fn run() {
             reminders::start(app.handle().clone());
             app.manage(subscriptions::Fetching::default());
             app.manage(public_holidays::Tried::default());
+            app.manage(updates::Updates::default());
             subscriptions::start(app.handle().clone());
             // The main window starts hidden (tauri.conf.json) so `--hidden`
             // launches never flash it.
@@ -159,6 +161,8 @@ pub fn run() {
         .plugin(tauri_plugin_notification::init())
         .plugin(autostart::plugin())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .on_window_event(shell::on_window_event)
         .invoke_handler(tauri::generate_handler![
             commands::app_version,
@@ -203,6 +207,10 @@ pub fn run() {
             ics::export_ics,
             ics::pick_ics_import,
             ics::apply_ics_import,
+            updates::check_for_update,
+            updates::available_update,
+            updates::install_update,
+            updates::open_release_notes,
             public_holidays::public_holiday_guess,
             public_holidays::public_holiday_countries,
             public_holidays::public_holiday_regions,
