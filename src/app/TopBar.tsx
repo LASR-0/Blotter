@@ -1,4 +1,12 @@
-import { Calendar, CaretLeft, CaretRight, ChatCircleText, Notebook } from '@phosphor-icons/react';
+import {
+  Calendar,
+  CaretLeft,
+  CaretRight,
+  ChatCircleText,
+  Notebook,
+  Plus,
+} from '@phosphor-icons/react';
+import { openNewItem } from '@/actions/itemActions';
 import { Button } from '@/components/ui/button';
 import { Segmented } from '@/components/ui/segmented';
 import { Tooltip } from '@/components/ui/tooltip';
@@ -114,6 +122,13 @@ export function TopBar() {
           onChange={go}
           options={CAL_OPTIONS}
         />
+      )}
+      {calendar && (
+        <Tooltip label="New item on the focused day…">
+          <Button size="icon" variant="icon" aria-label="New item" onClick={openNewItem}>
+            <Plus />
+          </Button>
+        </Tooltip>
       )}
       <Tooltip label="Toggle AI chat" shortcut="Ctrl+/">
         <Button

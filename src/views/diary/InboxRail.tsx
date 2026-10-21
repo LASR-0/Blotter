@@ -9,6 +9,7 @@ import {
   Sparkle,
   Tray,
 } from '@phosphor-icons/react';
+import { openNewItem } from '@/actions/itemActions';
 import { runAutoSlot } from '@/app/autoSlot';
 import { runConsultMe, runSmartSlot } from '@/app/smartSlot';
 import { useNav } from '@/app/nav';
@@ -23,6 +24,22 @@ import { formatDuration } from '@/lib/duration';
 import { useOp } from '@/lib/queries';
 import { itemColor } from '@/lib/tags';
 import type { Item } from '@/lib/types';
+
+/** Opens the full item dialog, with every kind and field. */
+function NewItemButton({ side }: { side?: 'right' }) {
+  return (
+    <Tooltip label="New item…" side={side}>
+      <button
+        type="button"
+        onClick={openNewItem}
+        aria-label="New item"
+        className="grid size-6 cursor-pointer place-items-center rounded-sm text-text-muted hover:bg-hover hover:text-text"
+      >
+        <Plus />
+      </button>
+    </Tooltip>
+  );
+}
 
 /** The Diary's collapsible Inbox rail: brain-dump input and open Inbox tasks. */
 export function InboxRail() {
@@ -51,6 +68,7 @@ export function InboxRail() {
               <CaretDoubleRight size={12} />
             </button>
           </Tooltip>
+          <NewItemButton side="right" />
         </div>
       </SlidePanel>
     );
@@ -111,6 +129,7 @@ export function InboxRail() {
             </button>
           </Tooltip>
         )}
+        <NewItemButton />
         <Tooltip label="Hide Inbox">
           <button
             type="button"

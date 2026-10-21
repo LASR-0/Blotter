@@ -41,7 +41,7 @@ import {
   Tray,
   type Icon,
 } from '@phosphor-icons/react';
-import { deleteFocused, openFocused, toggleFocused } from '@/actions/itemActions';
+import { deleteFocused, openFocused, openNewItem, toggleFocused } from '@/actions/itemActions';
 import { useChat } from '@/chat/chatStore';
 import { runAutoSlot } from '@/app/autoSlot';
 import { runConsultMe, runSmartSlot } from '@/app/smartSlot';
@@ -468,7 +468,7 @@ export function buildActions(): Action[] {
       group: 'Actions',
       icon: NotePencil,
       keywords: ['create', 'add', 'task', 'event'],
-      run: () => overlay().openItem({ defaults: {} }),
+      run: openNewItem,
     },
     {
       id: 'help.shortcuts',

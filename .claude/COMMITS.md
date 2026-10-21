@@ -142,8 +142,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 63g | 14f | `fix(ui): logo spark centred and larger, cutting into the B` | committed `6ec8b01` |
 | 64 | 14f | `chore(release): v1.1.0` | committed `a1ff0a1` |
 | 64a | 14f | `build: AUR checksum for v1.1.0` | committed (hash in the next entry) |
-| 65 | 15 | `docs: v1.2.0 plan` | committed (hash in the next entry) |
-| 66 | 15a | `feat(ui): new item button in the Inbox rail and top bar` | planned |
+| 65 | 15 | `docs: v1.2.0 plan` | committed `74ae4f7` |
+| 66 | 15a | `feat(ui): new item button in the Inbox rail and top bar` | committed (hash in the next entry) |
 | 67 | 15b | `feat(core): tags whose tasks can share time` | planned |
 | 68 | 15c | `fix(core): holidays leave Sleep-type block-outs in place` | planned |
 | 69 | 15c | `feat: public holiday import` | planned |
@@ -4591,7 +4591,7 @@ Notes:
     - .SRCINFO edited by hand to match (only the checksum line changes); on Arch,
       makepkg --printsrcinfo gives the same.
 
-### #65 — v1.2.0 plan            [status: committed — hash in the next entry]
+### #65 — v1.2.0 plan            [status: committed 74ae4f7]
 Phase: 15
 Message:
     docs: v1.2.0 plan
@@ -4604,3 +4604,24 @@ Files:
     M  .claude/roadmap.md, .claude/COMMITS.md
 Test steps:
     - none (docs only)
+
+### #66 — New item button in the Inbox rail and top bar            [status: committed — hash in the next entry]
+Phase: 15a
+Message:
+    feat(ui): new item button in the Inbox rail and top bar
+
+    A + button opens the full item dialog, with every kind and field:
+    in the Diary's Inbox rail (open and collapsed) and in the top bar of
+    the Week, Month and Year views. In a calendar view the new item starts
+    on the focused day; from the Diary it has no date, so a task goes to
+    the Inbox. The palette's New item does the same (openNewItem).
+Files:
+    M  src/actions/itemActions.ts, src/actions/actions.ts
+    M  src/views/diary/InboxRail.tsx, src/app/TopBar.tsx
+    M  .claude/COMMITS.md
+Test steps:
+    - pnpm check → clean; Vitest 229
+    - Pending (Luke's installed Blotter was running): Diary rail open and collapsed → + opens
+      New item with no date; Week with the cursor on Thu → + opens it dated Thu; Month likewise
+Notes:
+    - Year view gets the top-bar button too (it has a focused day); Inbox and History don't.

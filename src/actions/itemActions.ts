@@ -1,10 +1,13 @@
 // Actions on the keyboard-focused item, shared by every navigable view.
 
+import { format } from 'date-fns';
 import { deleteSelection } from '@/actions/bulkActions';
 import { useFocus } from '@/app/focus';
+import { useNav } from '@/app/nav';
 import { useOverlay } from '@/app/overlay';
 import { runOp } from '@/lib/api';
 import { isRecurring, type OpCallSpec } from '@/lib/itemDraft';
+import { isCalendarView } from '@/lib/period';
 import type { Item } from '@/lib/types';
 
 /** Surfaces failures until toasts land; nothing is lost because the op didn't apply. */
@@ -57,6 +60,18 @@ export function openFocused(): boolean {
   if (!id) return false;
   useOverlay.getState().openItem({ id });
   return true;
+}
+
+/**
+ * Opens the item dialog for a new item. In the calendar views it starts on
+ * the focused day; in the Diary and Inbox it has no date, so a task made
+ * there goes to the Inbox.
+ */
+export function openNewItem(): void {
+  const day = isCalendarView(useNav.getState().view)
+    ? useFocus.getState().controller?.day?.()
+    : null;
+  useOverlay.getState().openItem({ defaults: day ? { date: format(day, 'yyyy-MM-dd') } : {} });
 }
 
 export function deleteFocused(): void {
