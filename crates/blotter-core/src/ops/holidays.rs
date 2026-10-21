@@ -1,5 +1,6 @@
-//! Holidays: date ranges away from the usual week. Making one lifts every
-//! block-out that falls on its days (exceptions carrying the holiday's id,
+//! Holidays: date ranges away from the usual week. Making one lifts the
+//! block-outs that fall on its days, except ones that warn about fixed items
+//! such as Sleep (exceptions carrying the holiday's id,
 //! shown with the block-out as usual); changing or deleting it puts them
 //! back. The slot engine keeps work tasks off its days and gives tasks
 //! tagged `holiday` first pick. Once its last day has passed it is removed.
@@ -30,7 +31,7 @@ pub(super) fn defs() -> Vec<OpDef> {
         OpDef::new(
             "create_holiday",
             "Add a holiday from `start_date` to `end_date` (inclusive). Block-outs on those \
-             days are lifted, work tasks aren't slotted into them, and tasks tagged `holiday` \
+             days are lifted (except ones with `permits_fixed` false, such as Sleep), work tasks aren't slotted into them, and tasks tagged `holiday` \
              get first pick. It is removed automatically after its last day.",
             true,
             create_holiday,
@@ -123,9 +124,11 @@ fn validate(h: &mut Holiday) -> Result<()> {
     Ok(())
 }
 
-/// Lifts every block-out falling on the holiday's days, unless already lifted.
+/// Lifts the block-outs falling on the holiday's days, unless already lifted.
+/// Ones that warn about fixed items (Sleep) stay: a day off still has a night.
 fn lift(ctx: &mut Ctx<'_>, h: &Holiday) -> Result<Vec<BlockoutException>> {
-    let blockouts = store::blockouts::list(ctx.conn)?;
+    let mut blockouts = store::blockouts::list(ctx.conn)?;
+    blockouts.retain(|b| b.permits_fixed);
     let taken =
         store::blockouts::list_exceptions(ctx.conn, None, Some((h.start_date, h.end_date)))?;
     let mut made = Vec::new();
@@ -297,6 +300,32 @@ mod tests {
                 .len(),
             1
         );
+    }
+
+    #[test]
+    fn a_holiday_leaves_sleep_in_place() {
+        let mut p = with_work();
+        run(
+            &mut p,
+            "create_blockout",
+            json!({ "label": "Sleep", "weekdays": ["mon","tue","wed","thu","fri","sat","sun"],
+                    "start_time": "23:00", "end_time": "06:30", "permits_fixed": false }),
+        );
+        let h = run(
+            &mut p,
+            "create_holiday",
+            json!({ "label": "Coast", "start_date": "2026-10-16", "end_date": "2026-10-16" }),
+        );
+        let lifted = h["lifted"].as_array().unwrap();
+        assert_eq!(lifted.len(), 1, "Work, not Sleep");
+        let work = run(&mut p, "list_blockouts", json!({}))
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|b| b["label"] == "Work")
+            .unwrap()["id"]
+            .clone();
+        assert_eq!(lifted[0]["blockout_id"], work);
     }
 
     #[test]

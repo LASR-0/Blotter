@@ -144,8 +144,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 64a | 14f | `build: AUR checksum for v1.1.0` | committed (hash in the next entry) |
 | 65 | 15 | `docs: v1.2.0 plan` | committed `74ae4f7` |
 | 66 | 15a | `feat(ui): new item button in the Inbox rail and top bar` | committed `0c828ab` |
-| 67 | 15b | `feat(core): tags whose tasks can share time` | committed (hash in the next entry) |
-| 68 | 15c | `fix(core): holidays leave Sleep-type block-outs in place` | planned |
+| 67 | 15b | `feat(core): tags whose tasks can share time` | committed `cabc654` |
+| 68 | 15c | `fix(core): holidays leave Sleep-type block-outs in place` | committed (hash in the next entry) |
 | 69 | 15c | `feat: public holiday import` | planned |
 | 70 | 15d | `feat(app): in-app updates` | planned (needs Luke's updater key) |
 | 71 | 15d | `chore(release): v1.2.0` | planned |
@@ -4626,7 +4626,7 @@ Test steps:
 Notes:
     - Year view gets the top-bar button too (it has a focused day); Inbox and History don't.
 
-### #67 — Tags whose tasks can share time            [status: committed — hash in the next entry]
+### #67 — Tags whose tasks can share time            [status: committed cabc654]
 Phase: 15b
 Message:
     feat(core): tags whose tasks can share time
@@ -4663,3 +4663,25 @@ Test steps:
 Notes:
     - Dragging was never refused for overlaps, so drag needs no change; it only shows (or
       no longer shows) the conflict.
+
+### #68 — Holidays leave Sleep-type block-outs in place            [status: committed — hash in the next entry]
+Phase: 15c
+Message:
+    fix(core): holidays leave Sleep-type block-outs in place
+
+    A holiday lifted every block-out on its days, Sleep included. It now
+    lifts only the block-outs that permit fixed items; ones that warn
+    about them (Sleep) stay, so a day off still has its night. Migration
+    0010 drops the Sleep lifts existing holidays made. The Holidays copy
+    in Settings says so.
+Files:
+    A  crates/blotter-core/migrations/0010_holidays_keep_sleep.sql
+    M  crates/blotter-core/src/db.rs, crates/blotter-core/src/ops/holidays.rs
+    M  src/views/settings/HolidaysSection.tsx
+    M  .claude/COMMITS.md
+Test steps:
+    - cargo test -p blotter-core → 189 (1 new); clippy -D warnings clean
+    - pnpm check → clean; Vitest 229
+Notes:
+    - Turning permits_fixed off on a block-out later doesn't undo lifts a holiday already
+      made on it; editing the holiday's dates redoes them.

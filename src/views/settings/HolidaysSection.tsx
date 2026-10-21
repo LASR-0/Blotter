@@ -72,7 +72,7 @@ function HolidayForm({ holiday, onDone }: { holiday?: Holiday; onDone: () => voi
       </div>
       <div className="flex items-center gap-2">
         <span className="flex-1 text-xs text-text-muted">
-          Block-outs on these days are lifted for you.
+          Block-outs on these days are lifted for you (not Sleep-type ones).
         </span>
         <Button size="sm" variant="ghost" onClick={onDone}>
           Cancel
@@ -116,9 +116,10 @@ export function HolidaysSection({ blockouts }: { blockouts: readonly Blockout[] 
         )}
       </div>
       <p className="m-0 max-w-[560px] leading-normal text-text-muted">
-        Days away from the usual week. Block-outs on those days are lifted, work tasks aren’t
-        slotted in, and tasks tagged <span className="font-mono">#holiday</span> get first pick. A
-        holiday disappears from here once its last day has passed.
+        Days away from the usual week. Block-outs on those days are lifted (except ones that warn
+        about fixed items, such as Sleep), work tasks aren’t slotted in, and tasks tagged{' '}
+        <span className="font-mono">#holiday</span> get first pick. A holiday disappears from here
+        once its last day has passed.
       </p>
       {editing === 'new' && <HolidayForm onDone={() => setEditing(null)} />}
       {list.length === 0 && editing !== 'new' && holidays.isSuccess && (
