@@ -5,6 +5,7 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+use super::input::patch;
 use super::{Ctx, OpDef};
 use crate::error::{CoreError, Result};
 use crate::store;
@@ -16,9 +17,13 @@ pub(super) fn defs() -> Vec<OpDef> {
     vec![
         OpDef::new(
             "set_tag",
-            "Create a tag, or change its colour. `color` is `#rrggbb` or a theme tag colour \
-             (`var(--tag-work)`, `-health`, `-home`, `-shopping`, `-personal`, `-ics`); null \
-             goes back to the automatic colour.",
+            "Create a tag, or change its colour or whether its tasks share time; fields left \
+             out are kept. `color` is `#rrggbb` or a theme tag colour (`var(--tag-work)`, \
+             `-health`, `-home`, `-shopping`, `-personal`, `-ics`); null goes back to the \
+             automatic colour. `shares_time`: its tasks can be done during other tasks \
+             (laundry while cleaning), so slotting may put them over other tasks and they \
+             aren't conflicts with them; they still keep out of block-outs and off events and \
+             fixed items.",
             true,
             set_tag,
         ),
@@ -43,7 +48,9 @@ pub(super) fn defs() -> Vec<OpDef> {
 pub struct SetTagArgs {
     /// Tag name, with or without the leading `#`.
     pub name: String,
-    pub color: Option<String>,
+    #[serde(default, deserialize_with = "patch")]
+    pub color: Option<Option<String>>,
+    pub shares_time: Option<bool>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -102,15 +109,22 @@ fn check_color(color: &str) -> Result<()> {
 
 fn set_tag(ctx: &mut Ctx<'_>, a: SetTagArgs) -> Result<Tag> {
     let name = tag_name(&a.name)?;
-    let color = a
-        .color
-        .map(|c| c.trim().to_owned())
-        .filter(|c| !c.is_empty());
+    let before = store::tags::get(ctx.conn, &name)?;
+    let color = match a.color {
+        Some(c) => c.map(|c| c.trim().to_owned()).filter(|c| !c.is_empty()),
+        None => before.as_ref().and_then(|t| t.color.clone()),
+    };
     if let Some(c) = &color {
         check_color(c)?;
     }
-    let before = store::tags::get(ctx.conn, &name)?;
-    let tag = Tag { name, color };
+    let shares_time = a
+        .shares_time
+        .unwrap_or_else(|| before.as_ref().is_some_and(|t| t.shares_time));
+    let tag = Tag {
+        name,
+        color,
+        shares_time,
+    };
     if before.as_ref() == Some(&tag) {
         return Ok(tag);
     }
@@ -158,16 +172,25 @@ fn rename_tag(ctx: &mut Ctx<'_>, a: RenameTagArgs) -> Result<TagChange> {
     if items == 0 && record.is_none() {
         return Err(CoreError::not_found("tag", from));
     }
-    // The colour moves with the name, unless the tag merged into already has one.
+    // The colour moves with the name, unless the tag merged into already has
+    // one; sharing time carries over if either had it.
     if let Some(old) = record {
         store::tags::delete(ctx.conn, &from)?;
         ctx.record(ENTITY, &from, Some(&old), None)?;
         let existing = store::tags::get(ctx.conn, &to)?;
-        if existing.as_ref().is_none_or(|t| t.color.is_none()) && old.color.is_some() {
-            let moved = Tag {
-                name: to.clone(),
-                color: old.color,
-            };
+        let moved = Tag {
+            name: to.clone(),
+            color: existing
+                .as_ref()
+                .and_then(|t| t.color.clone())
+                .or(old.color),
+            shares_time: old.shares_time || existing.as_ref().is_some_and(|t| t.shares_time),
+        };
+        let changed = match &existing {
+            Some(e) => *e != moved,
+            None => moved.color.is_some() || moved.shares_time,
+        };
+        if changed {
             store::tags::upsert(ctx.conn, &moved)?;
             ctx.record(ENTITY, &to, existing.as_ref(), Some(&moved))?;
         }
@@ -234,8 +257,8 @@ mod tests {
         assert_eq!(
             list,
             json!([
-                { "name": "home", "items": 1, "color": null },
-                { "name": "shopping", "items": 2, "color": "#123456" },
+                { "name": "home", "items": 1, "color": null, "shares_time": false },
+                { "name": "shopping", "items": 2, "color": "#123456", "shares_time": false },
             ])
         );
 
@@ -261,7 +284,7 @@ mod tests {
         );
         assert_eq!(
             run(&mut p, "list_tags", json!({}))[1],
-            json!({ "name": "garden", "items": 0, "color": "var(--tag-health)" })
+            json!({ "name": "garden", "items": 0, "color": "var(--tag-health)", "shares_time": false })
         );
 
         assert_eq!(
@@ -284,6 +307,57 @@ mod tests {
         assert!(
             p.execute("set_tag", json!({ "name": "two words" }), &Actor::User)
                 .is_err()
+        );
+    }
+
+    #[test]
+    fn set_tag_keeps_what_it_is_not_given_and_sharing_survives_a_merge() {
+        let mut p = crate::planner::tests::planner();
+        run(
+            &mut p,
+            "set_tag",
+            json!({ "name": "laundry", "color": "#123456" }),
+        );
+        let t = run(
+            &mut p,
+            "set_tag",
+            json!({ "name": "laundry", "shares_time": true }),
+        );
+        assert_eq!(
+            t,
+            json!({ "name": "laundry", "color": "#123456", "shares_time": true })
+        );
+        let t = run(
+            &mut p,
+            "set_tag",
+            json!({ "name": "laundry", "color": null }),
+        );
+        assert_eq!(
+            t,
+            json!({ "name": "laundry", "color": null, "shares_time": true })
+        );
+
+        run(
+            &mut p,
+            "set_tag",
+            json!({ "name": "washing", "color": "#abcdef" }),
+        );
+        run(
+            &mut p,
+            "rename_tag",
+            json!({ "from": "laundry", "to": "washing" }),
+        );
+        assert_eq!(
+            run(&mut p, "list_tags", json!({})),
+            json!([{ "name": "washing", "items": 0, "color": "#abcdef", "shares_time": true }])
+        );
+        p.execute("undo", json!({}), &Actor::User).unwrap();
+        assert_eq!(
+            run(&mut p, "list_tags", json!({}))
+                .as_array()
+                .unwrap()
+                .len(),
+            2
         );
     }
 }

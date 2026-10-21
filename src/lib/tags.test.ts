@@ -30,8 +30,8 @@ describe('tagColorCss', () => {
   it('writes a rule only for tags with a colour', () => {
     expect(
       tagColorCss([
-        { name: 'garden', items: 0, color: '#123456' },
-        { name: 'home', items: 3, color: null },
+        { name: 'garden', items: 0, color: '#123456', shares_time: false },
+        { name: 'home', items: 3, color: null, shares_time: false },
       ]),
     ).toBe(':root { --tagc-garden: #123456; }');
     expect(tagColorCss([])).toBe('');

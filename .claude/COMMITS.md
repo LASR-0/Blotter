@@ -143,8 +143,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 64 | 14f | `chore(release): v1.1.0` | committed `a1ff0a1` |
 | 64a | 14f | `build: AUR checksum for v1.1.0` | committed (hash in the next entry) |
 | 65 | 15 | `docs: v1.2.0 plan` | committed `74ae4f7` |
-| 66 | 15a | `feat(ui): new item button in the Inbox rail and top bar` | committed (hash in the next entry) |
-| 67 | 15b | `feat(core): tags whose tasks can share time` | planned |
+| 66 | 15a | `feat(ui): new item button in the Inbox rail and top bar` | committed `0c828ab` |
+| 67 | 15b | `feat(core): tags whose tasks can share time` | committed (hash in the next entry) |
 | 68 | 15c | `fix(core): holidays leave Sleep-type block-outs in place` | planned |
 | 69 | 15c | `feat: public holiday import` | planned |
 | 70 | 15d | `feat(app): in-app updates` | planned (needs Luke's updater key) |
@@ -4605,7 +4605,7 @@ Files:
 Test steps:
     - none (docs only)
 
-### #66 — New item button in the Inbox rail and top bar            [status: committed — hash in the next entry]
+### #66 — New item button in the Inbox rail and top bar            [status: committed 0c828ab]
 Phase: 15a
 Message:
     feat(ui): new item button in the Inbox rail and top bar
@@ -4625,3 +4625,41 @@ Test steps:
       New item with no date; Week with the cursor on Thu → + opens it dated Thu; Month likewise
 Notes:
     - Year view gets the top-bar button too (it has a focused day); Inbox and History don't.
+
+### #67 — Tags whose tasks can share time            [status: committed — hash in the next entry]
+Phase: 15b
+Message:
+    feat(core): tags whose tasks can share time
+
+    A tag can be marked "Simultaneous" in Settings → Tags: its tasks can
+    be done during other tasks (laundry while cleaning).
+
+    - Such a task (a flexible task carrying the tag) is slotted over other
+      tasks but never over events, reminders or fixed items, and stays out
+      of block-outs as before. It doesn't make its own time busy for other
+      tasks, and overlaps between it and flexible tasks aren't conflicts.
+    - Auto-slot, rollover and find_free_slots all follow it;
+      find_free_slots takes shares_time, defaulting to whether exclude_item
+      carries such a tag. Smart slot and Consult me are told the rule.
+    - set_tag keeps fields it isn't given (colour, shares_time), so turning
+      the switch doesn't reset a colour; a rename merge keeps sharing if
+      either tag had it.
+
+    Core: migration 0009 (tags.shares_time), store::tags::sharing,
+    list_tags reports shares_time.
+Files:
+    A  crates/blotter-core/migrations/0009_tag_shares_time.sql
+    M  crates/blotter-core/src/db.rs, crates/blotter-core/src/store/tags.rs
+    M  crates/blotter-core/src/ops/tags.rs, crates/blotter-core/src/ops/reads.rs
+    M  crates/blotter-core/src/ops/slots.rs, crates/blotter-core/src/smart_slot.rs
+    M  src/lib/tags.ts, src/lib/tags.test.ts, src/views/settings/TagsPage.tsx
+    M  .claude/COMMITS.md
+Test steps:
+    - pnpm check → clean; Vitest 229
+    - cargo test --workspace → 188 core (3 new) + 50 app + 6 mcp; clippy -D warnings clean
+    - Pending (Luke's installed Blotter was running): Settings → Tags → turn on Simultaneous
+      for a tag; a task with it auto-slots over a scheduled task, not over an event, and the
+      overlap shows no conflict line
+Notes:
+    - Dragging was never refused for overlaps, so drag needs no change; it only shows (or
+      no longer shows) the conflict.

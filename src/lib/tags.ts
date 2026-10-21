@@ -12,6 +12,8 @@ export interface TagInfo {
   items: number;
   /** Chosen colour, or null for the automatic one. */
   color: string | null;
+  /** Its tasks can be done at the same time as other tasks. */
+  shares_time: boolean;
 }
 
 /** The CSS variable carrying a tag's chosen colour (set by TagColors). */

@@ -3,6 +3,8 @@ import { Hash, Plus, Trash } from '@phosphor-icons/react';
 import { useOverlay } from '@/app/overlay';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Switch } from '@/components/ui/switch';
+import { Tooltip } from '@/components/ui/tooltip';
 import { isOpError, runOp } from '@/lib/api';
 import { cn } from '@/lib/cn';
 import { useOp } from '@/lib/queries';
@@ -134,7 +136,19 @@ function TagRow({ tag, onError }: { tag: TagInfo; onError: (e: unknown) => void 
           className="h-7 min-w-0 flex-1 rounded-sm border border-transparent bg-transparent px-1 text-text outline-none hover:border-border focus:border-accent"
         />
       </span>
-      <span className="font-mono text-sm text-text-muted">
+      <Tooltip label="Tasks with this tag can be done simultaneously with other tasks (never over events or fixed items)">
+        <label className="flex cursor-pointer items-center gap-2 text-sm text-text-muted">
+          Simultaneous
+          <Switch
+            aria-label={`Tasks tagged #${tag.name} can be done simultaneously`}
+            checked={tag.shares_time}
+            onCheckedChange={(on) =>
+              runOp('set_tag', { name: tag.name, shares_time: on }).catch(onError)
+            }
+          />
+        </label>
+      </Tooltip>
+      <span className="w-16 text-right font-mono text-sm text-text-muted">
         {tag.items} {tag.items === 1 ? 'item' : 'items'}
       </span>
       <Button
@@ -161,7 +175,7 @@ export function TagsPage() {
     e.preventDefault();
     const name = draft.trim().replace(/^#/, '');
     if (!name) return;
-    runOp('set_tag', { name, color: null })
+    runOp('set_tag', { name })
       .then(() => {
         setDraft('');
         setError(null);
@@ -175,7 +189,8 @@ export function TagsPage() {
       <p className="m-0 max-w-[600px] leading-normal text-text-muted">
         Tags come from <span className="font-mono">#tag</span> in quick add and the Inbox, or from
         here. Renaming a tag onto another merges them; deleting one takes it off every item. Both
-        undo with Ctrl+Z.
+        undo with Ctrl+Z. Tasks with a simultaneous tag, like laundry, can be slotted over other
+        tasks, such as cleaning.
       </p>
       <form onSubmit={create} className="flex max-w-[420px] items-center gap-2">
         <label className="flex h-[30px] flex-1 items-center gap-2 rounded-md border border-border bg-bg px-2 text-text-muted focus-within:border-accent">

@@ -105,6 +105,9 @@ to tell.\n\
 involves). Follow it over these general rules.\n\
 - Holidays are days away from the usual week: never put a work task on one; tasks tagged \
 holiday get first pick of them, and other personal tasks may go there too.\n\
+- Some tags share time (list_tags, shares_time): their tasks, like laundry, can be done \
+during another task, so they may go over other tasks (find_free_slots with exclude_item set \
+to the task finds that time), never over events or fixed items.\n\
 - Leave breathing room: at least 15 minutes between items, more after long or demanding \
 ones. Don't stack a day solid; spread tasks across days instead of filling one.\n\
 - Allow travel time. When a task happens somewhere else (a location, or an errand like \

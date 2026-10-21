@@ -29,6 +29,25 @@ fn has_tag(item: &Item, tag: &str) -> bool {
     item.tags.iter().any(|t| t.eq_ignore_ascii_case(tag))
 }
 
+/// Whether `item` is a flexible task carrying a tag whose tasks share time
+/// (`sharing`, from `store::tags::sharing`): it may sit over other tasks, and
+/// they over it, but not over events or fixed items.
+pub(crate) fn shares_time(item: &Item, sharing: &HashSet<String>) -> bool {
+    item.kind == ItemKind::Task
+        && item.anchoring == Anchoring::Flexible
+        && item
+            .tags
+            .iter()
+            .any(|t| sharing.contains(&t.to_lowercase()))
+}
+
+/// Whether an overlap between `a` and `b` is fine: one shares time and the
+/// other is a flexible task.
+fn may_overlap(a: &Item, b: &Item, sharing: &HashSet<String>) -> bool {
+    let flexible_task = |i: &Item| i.kind == ItemKind::Task && i.anchoring == Anchoring::Flexible;
+    (shares_time(a, sharing) && flexible_task(b)) || (shares_time(b, sharing) && flexible_task(a))
+}
+
 /// Each holiday overlapping `[from, until)` as one whole-days window.
 fn holiday_windows(ctx: &Ctx<'_>, from: Instant, until: Instant) -> Result<Vec<BlockoutWindow>> {
     let tz = ctx.settings.tz;
@@ -108,7 +127,9 @@ pub(super) fn defs() -> Vec<OpDef> {
             "Find free time for a flexible task of `duration_min`: within planning hours, \
              outside block-outs and clear of scheduled items (plus the buffer). Returns the \
              earliest fit in each free gap, soonest first, never in the past. Defaults to the \
-             next 14 days; pass `until` (e.g. a due date) to search less.",
+             next 14 days; pass `until` (e.g. a due date) to search less. Tasks tagged with a \
+             tag that shares time (list_tags) don't count as busy; with `shares_time` (or an \
+             `exclude_item` carrying such a tag) no task does, only events and fixed items.",
             false,
             find_free_slots,
         ),
@@ -139,6 +160,10 @@ pub struct FindFreeSlotsArgs {
     pub limit: Option<u32>,
     /// Ignore this item's own time, when looking for somewhere to move it.
     pub exclude_item: Option<String>,
+    /// Looking for time for a task that can share time with other tasks:
+    /// only events and fixed items are busy. Defaults to whether
+    /// `exclude_item` carries a tag that shares time.
+    pub shares_time: Option<bool>,
 }
 
 #[derive(Debug, Serialize)]
@@ -177,13 +202,21 @@ fn find_free_slots(ctx: &mut Ctx<'_>, a: FindFreeSlotsArgs) -> Result<FreeSlots>
     let (from, until) = search_window(ctx, a.from, a.until)?;
     let buffer = buffer(ctx);
     let blockouts = windows::load(ctx.conn, ctx.settings.tz, from, until)?;
+    let sharing = store::tags::sharing(ctx.conn)?;
+    let shares = match (a.shares_time, &a.exclude_item) {
+        (Some(s), _) => s,
+        (None, Some(id)) => {
+            store::items::get(ctx.conn, id)?.is_some_and(|i| shares_time(&i, &sharing))
+        }
+        (None, None) => false,
+    };
     let exclude: HashSet<String> = a.exclude_item.into_iter().collect();
-    let busy = busy_time(ctx, from - buffer, until + buffer, &exclude)?;
+    let busy = busy_time(ctx, from - buffer, until + buffer, &exclude, &sharing)?;
     let engine = SlotEngine {
         tz: ctx.settings.tz,
         planning: &ctx.settings.planning_hours,
         blockouts: &blockouts,
-        busy: &busy,
+        busy: busy.for_task(shares),
         buffer,
     };
     let limit = a.limit.unwrap_or(10) as usize;
@@ -357,7 +390,8 @@ pub(crate) fn place(
     work_blockouts.extend(holiday_windows(ctx, from, until)?);
     // The tasks being placed don't block each other's old spots.
     let moving: HashSet<String> = tasks.iter().map(|i| i.id.clone()).collect();
-    let mut busy = busy_time(ctx, from - buffer, until + buffer, &moving)?;
+    let sharing = store::tags::sharing(ctx.conn)?;
+    let mut busy = busy_time(ctx, from - buffer, until + buffer, &moving, &sharing)?;
     let fmt_day = |t: Instant| t.with_timezone(&tz).format("%a %-d %b").to_string();
     let fmt_time = |t: Instant| t.with_timezone(&tz).format("%H:%M").to_string();
 
@@ -418,11 +452,12 @@ pub(crate) fn place(
         } else {
             &blockouts
         };
+        let shares = shares_time(&item, &sharing);
         let engine = SlotEngine {
             tz,
             planning: &ctx.settings.planning_hours,
             blockouts: base,
-            busy: &busy,
+            busy: busy.for_task(shares),
             buffer,
         };
         // Its usual time of day first, then any free time.
@@ -434,7 +469,7 @@ pub(crate) fn place(
                     tz,
                     planning: &ctx.settings.planning_hours,
                     blockouts: &outside,
-                    busy: &busy,
+                    busy: busy.for_task(shares),
                     buffer,
                 }
                 .slots(duration, lo, hi, 1)
@@ -483,7 +518,9 @@ pub(crate) fn place(
         finalize(ctx, &mut item)?;
         store::items::update(ctx.conn, &item)?;
         ctx.record(ITEM_ENTITY, &item.id, Some(&before), Some(&item))?;
-        busy.push((slot.start, slot.end));
+        if !shares {
+            busy.all.push((slot.start, slot.end));
+        }
         placed.push(PlacedTask {
             start: slot.start,
             end: slot.end,
@@ -495,13 +532,29 @@ pub(crate) fn place(
     Ok((placed, unplaced))
 }
 
+/// Scheduled time, split by what it keeps a task out of.
+pub(crate) struct Busy {
+    /// Everything except tasks that share time: busy for an ordinary task.
+    pub all: Vec<Interval>,
+    /// Events, reminders and fixed items: busy for a task that shares time.
+    pub fixed: Vec<Interval>,
+}
+
+impl Busy {
+    pub fn for_task(&self, shares_time: bool) -> &[Interval] {
+        if shares_time { &self.fixed } else { &self.all }
+    }
+}
+
 /// Time taken by open, timed items overlapping `[from, to)`, except `exclude`.
+/// Tasks that share time (`sharing` tags) take none.
 pub(crate) fn busy_time(
     ctx: &Ctx<'_>,
     from: Instant,
     to: Instant,
     exclude: &HashSet<String>,
-) -> Result<Vec<Interval>> {
+    sharing: &HashSet<String>,
+) -> Result<Busy> {
     let tz = ctx.settings.tz;
     let range = ItemRange {
         start: from,
@@ -509,11 +562,23 @@ pub(crate) fn busy_time(
         start_date: from.with_timezone(&tz).date_naive(),
         end_date: to.with_timezone(&tz).date_naive(),
     };
-    Ok(crate::recurrence::agenda(ctx.conn, range, tz)?
-        .into_iter()
-        .filter(|i| i.status == ItemStatus::Open && !exclude.contains(&i.id))
-        .filter_map(|i| Some((i.start_at?, i.end_at?)))
-        .collect())
+    let mut busy = Busy {
+        all: Vec::new(),
+        fixed: Vec::new(),
+    };
+    for i in crate::recurrence::agenda(ctx.conn, range, tz)? {
+        if i.status != ItemStatus::Open || exclude.contains(&i.id) || shares_time(&i, sharing) {
+            continue;
+        }
+        let (Some(start), Some(end)) = (i.start_at, i.end_at) else {
+            continue;
+        };
+        busy.all.push((start, end));
+        if !(i.kind == ItemKind::Task && i.anchoring == Anchoring::Flexible) {
+            busy.fixed.push((start, end));
+        }
+    }
+    Ok(busy)
 }
 
 /// A scheduling problem with one item (roadmap §4.5 rule 3): it overlaps
@@ -545,6 +610,18 @@ pub(crate) fn conflicts(ctx: &Ctx<'_>, items: &[Item]) -> Result<Vec<Conflict>> 
         .filter(|w| !w.permits_fixed)
         .collect();
     let mut overlaps = overlapping(&timed);
+    let sharing = store::tags::sharing(ctx.conn)?;
+    let by_id: std::collections::HashMap<&str, &Item> =
+        items.iter().map(|i| (i.id.as_str(), i)).collect();
+    for (id, with) in &mut overlaps {
+        if let Some(a) = by_id.get(id.as_str()) {
+            with.retain(|o| {
+                by_id
+                    .get(o.as_str())
+                    .is_none_or(|b| !may_overlap(a, b, &sharing))
+            });
+        }
+    }
     let mut out = Vec::new();
     for item in items {
         let blockout = match (item.anchoring, item.start_at, item.end_at) {
@@ -967,5 +1044,84 @@ mod tests {
 
         let summary = run(&mut p, "get_day_summary", json!({ "date": "2026-10-15" }));
         assert_eq!(summary["conflicts"].as_array().unwrap().len(), 3);
+    }
+
+    /// Cleaning 17:00–19:00 and the dentist 19:00–20:00 on Wednesday, plus
+    /// laundry (its tag shares time) and email waiting in the Inbox.
+    fn with_laundry() -> (crate::Planner, Value, Value, Value) {
+        let mut p = with_work();
+        run(
+            &mut p,
+            "set_tag",
+            json!({ "name": "laundry", "shares_time": true }),
+        );
+        let cleaning = run(
+            &mut p,
+            "create_item",
+            json!({ "title": "Cleaning", "start": "2026-10-14T17:00", "duration_min": 120 }),
+        );
+        let dentist = run(
+            &mut p,
+            "create_item",
+            json!({ "title": "Dentist", "kind": "event", "start": "2026-10-14T19:00", "duration_min": 60 }),
+        );
+        let laundry = run(
+            &mut p,
+            "create_item",
+            json!({ "title": "Laundry", "duration_min": 30, "tags": ["Laundry"] }),
+        );
+        (p, cleaning, dentist, laundry)
+    }
+
+    #[test]
+    fn tasks_that_share_time_go_over_other_tasks_but_not_events() {
+        let (mut p, _, _, _) = with_laundry();
+        run(
+            &mut p,
+            "create_item",
+            json!({ "title": "Email", "duration_min": 30 }),
+        );
+        let out = run(&mut p, "auto_slot", json!({}));
+        let placed = titles_and_starts(&out);
+        // Laundry goes in during cleaning; email waits until after the dentist,
+        // and laundry doesn't keep it out of anywhere.
+        assert!(placed.contains(&("Laundry".to_owned(), "2026-10-14T06:00:00Z".to_owned())));
+        assert!(placed.contains(&("Email".to_owned(), "2026-10-14T09:00:00Z".to_owned())));
+
+        // Asked for directly, the dentist still blocks: 17:00 then 20:00.
+        let free = run(
+            &mut p,
+            "find_free_slots",
+            json!({ "duration_min": 90, "until": "2026-10-14T23:00", "shares_time": true }),
+        );
+        assert_eq!(starts(&free)[0], "2026-10-14T06:00:00Z");
+        let free = run(
+            &mut p,
+            "find_free_slots",
+            json!({ "duration_min": 150, "until": "2026-10-14T23:00", "shares_time": true }),
+        );
+        assert_ne!(
+            starts(&free).first().map(String::as_str),
+            Some("2026-10-14T06:00:00Z")
+        );
+    }
+
+    #[test]
+    fn tasks_that_share_time_are_not_conflicts_with_tasks() {
+        let (mut p, cleaning, dentist, laundry) = with_laundry();
+        run(
+            &mut p,
+            "schedule_item",
+            json!({ "id": laundry["id"], "start": "2026-10-14T18:45" }),
+        );
+        let agenda = run(&mut p, "list_agenda", json!({ "start": "2026-10-14" }));
+        let conflicts = agenda["conflicts"].as_array().unwrap();
+        // Over cleaning is fine; over the dentist (19:00–19:15) isn't.
+        let laundry_c = conflicts
+            .iter()
+            .find(|c| c["item_id"] == laundry["id"])
+            .unwrap();
+        assert_eq!(laundry_c["overlaps"], json!([dentist["id"]]));
+        assert!(conflicts.iter().all(|c| c["item_id"] != cleaning["id"]));
     }
 }

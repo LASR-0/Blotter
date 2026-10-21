@@ -42,7 +42,7 @@ pub(super) fn defs() -> Vec<OpDef> {
         ),
         OpDef::new(
             "list_tags",
-            "List every tag, lowercased, with how many items carry it and its colour (null:              automatic). Tags made in Settings are listed before any item uses them.",
+            "List every tag, lowercased, with how many items carry it, its colour (null:              automatic) and whether its tasks share time (`shares_time`: they may be done during other tasks). Tags made in Settings are listed before any item uses them.",
             false,
             list_tags,
         ),
@@ -254,6 +254,8 @@ pub struct TagCount {
     pub name: String,
     pub items: u32,
     pub color: Option<String>,
+    /// Its tasks can be done at the same time as other tasks.
+    pub shares_time: bool,
 }
 
 fn list_tags(ctx: &mut Ctx<'_>, _: NoArgs) -> Result<Vec<TagCount>> {
@@ -264,18 +266,20 @@ fn list_tags(ctx: &mut Ctx<'_>, _: NoArgs) -> Result<Vec<TagCount>> {
                 name: name.clone(),
                 items,
                 color: None,
+                shares_time: false,
             };
             (name, t)
         })
         .collect();
     for t in store::tags::list(ctx.conn)? {
-        tags.entry(t.name.clone())
-            .or_insert(TagCount {
-                name: t.name,
-                items: 0,
-                color: None,
-            })
-            .color = t.color;
+        let entry = tags.entry(t.name.clone()).or_insert(TagCount {
+            name: t.name,
+            items: 0,
+            color: None,
+            shares_time: false,
+        });
+        entry.color = t.color;
+        entry.shares_time = t.shares_time;
     }
     Ok(tags.into_values().collect())
 }
@@ -677,8 +681,8 @@ mod tests {
         assert_eq!(
             run(&mut p, "list_tags", json!({})),
             json!([
-                { "name": "health", "items": 1, "color": null },
-                { "name": "work", "items": 2, "color": null }
+                { "name": "health", "items": 1, "color": null, "shares_time": false },
+                { "name": "work", "items": 2, "color": null, "shares_time": false }
             ])
         );
     }
