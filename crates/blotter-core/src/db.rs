@@ -6,6 +6,7 @@ use rusqlite::Connection;
 use rusqlite_migration::{M, Migrations};
 
 use crate::error::Result;
+use crate::sync;
 
 /// Ordered schema migrations. Append new ones; never edit a shipped one.
 const MIGRATION_LIST: &[M<'static>] = &[
@@ -20,6 +21,7 @@ const MIGRATION_LIST: &[M<'static>] = &[
     M::up(include_str!("../migrations/0009_tag_shares_time.sql")),
     M::up(include_str!("../migrations/0010_holidays_keep_sleep.sql")),
     M::up(include_str!("../migrations/0011_holiday_source.sql")),
+    M::up(include_str!("../migrations/0012_sync_device.sql")),
 ];
 const MIGRATIONS: Migrations<'static> = Migrations::from_slice(MIGRATION_LIST);
 
@@ -56,13 +58,16 @@ impl Database {
         conn.pragma_update(None, "foreign_keys", "ON")?;
         conn.busy_timeout(std::time::Duration::from_secs(5))?;
         MIGRATIONS.to_latest(&mut conn)?;
+        sync::device::ensure(&conn, chrono::Utc::now())?;
         Ok(Self { conn })
     }
 
     /// Replaces this database's contents with the database file at `path`
     /// (SQLite's backup API, so the open connection stays valid), then
-    /// migrates it, in case it came from an older version of Blotter.
+    /// migrates it, in case it came from an older version of Blotter. This
+    /// device's sync identity and clock are kept, whatever the file holds.
     pub fn restore_from(&mut self, path: &Path) -> Result<()> {
+        let kept = sync::device::keep(&self.conn)?;
         self.conn.restore(
             rusqlite::MAIN_DB,
             path,
@@ -70,6 +75,7 @@ impl Database {
         )?;
         self.conn.pragma_update(None, "foreign_keys", "ON")?;
         MIGRATIONS.to_latest(&mut self.conn)?;
+        sync::device::put_back(&self.conn, &kept)?;
         Ok(())
     }
 
@@ -116,7 +122,7 @@ mod tests {
     #[test]
     fn in_memory_database_is_migrated() {
         let db = Database::open_in_memory().unwrap();
-        assert_eq!(db.schema_version().unwrap(), 11);
+        assert_eq!(db.schema_version().unwrap(), 12);
         let fk: i64 = db
             .conn()
             .pragma_query_value(None, "foreign_keys", |r| r.get(0))
@@ -133,7 +139,7 @@ mod tests {
             assert_eq!(db.journal_mode().unwrap(), "wal");
         }
         let db = Database::open(&path).unwrap();
-        assert_eq!(db.schema_version().unwrap(), 11);
+        assert_eq!(db.schema_version().unwrap(), 12);
     }
 
     #[test]

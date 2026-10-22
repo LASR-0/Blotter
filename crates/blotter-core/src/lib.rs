@@ -25,6 +25,7 @@ pub mod smart_slot;
 pub mod snapshots;
 pub mod store;
 pub mod subscriptions;
+pub mod sync;
 pub mod time;
 pub mod windows;
 

@@ -151,8 +151,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 70a | 15d | `fix(ui): plain update errors and the holiday list's empty line` | committed `2d94a55` |
 | 71 | 15d | `chore(release): v1.2.0` | committed `4cb1d74` (untagged) |
 | 72 | 16 | `docs: v1.2.1 sync plan` | committed `7cb6137` |
-| 72a | 16 | `docs: sync schema gate confirmed, Blotter-Sync repo name` | committed (hash in the next entry) |
-| 73 | 16a | `feat(core): device identity and hybrid logical clock` | planned |
+| 72a | 16 | `docs: sync schema gate confirmed, Blotter-Sync repo name` | committed `78626ec` |
+| 73 | 16a | `feat(core): device identity and hybrid logical clock` | committed (hash in the next entry) |
 | 74 | 16a | `feat(core): sync registry for tables, columns and settings` | planned |
 | 75 | 16a | `feat(core): capture synced writes into an outbox` | planned |
 | 76 | 16a | `feat(core): wire types and merging remote changes per field group` | planned |
@@ -4906,3 +4906,46 @@ Files:
     M  .claude/roadmap.md, .claude/COMMITS.md
 Test steps:
     - none (docs only)
+
+### #73 — Device identity and hybrid logical clock            [status: committed — hash in the next entry]
+Phase: 16a
+Message:
+    feat(core): device identity and hybrid logical clock
+
+    The first piece of sync groundwork (roadmap §14), with no visible
+    change. A new blotter_core::sync module:
+
+    - sync::device: every database gets a device id (a ULID) the first
+      time it is opened, kept for good, plus an optional name for the
+      user to set (trimmed, 1-64 characters). Two connections opening a
+      new database at once (app and MCP) agree on one id.
+    - sync::hlc: hybrid logical clock stamps (wall ms, counter, device
+      id), ordered by all three, stored and sent as fixed-width text so
+      text order is stamp order in Rust and SQL alike. tick() for a
+      local write (run in the write's transaction), observe() for a
+      stamp from another replica, current(). A wall clock that steps
+      back is carried by the counter; a full counter moves to the next
+      millisecond.
+    - Migration 0012 adds the device-local sync_device and sync_clock
+      tables. Snapshot restore keeps this device's identity and the later
+      of the two clocks, whatever the restored file holds (another
+      install's id, an older clock, or none for a pre-1.2.1 file). JSON
+      import never touches them.
+
+    #72a is 78626ec.
+Files:
+    A  crates/blotter-core/migrations/0012_sync_device.sql
+    A  crates/blotter-core/src/sync/mod.rs, crates/blotter-core/src/sync/device.rs,
+       crates/blotter-core/src/sync/hlc.rs
+    M  crates/blotter-core/src/lib.rs, crates/blotter-core/src/db.rs
+    M  .claude/COMMITS.md
+Test steps:
+    - cargo test --workspace → 212 core (17 new) + 51 app + 6 mcp; clippy -D warnings clean;
+      fmt clean
+    - Upgrade check on a copy of Luke's 1.2.0 database (never the original): schema 11 → 12;
+      items, reminders, tags, blockouts, exceptions, holidays, changes and settings all keep
+      their counts; a device id appears, ticks, and is the same after reopening
+Notes:
+    - Nothing writes stamps yet; capture (#75) ticks the clock from SQL triggers, in the
+      same fixed-width format, so the app and the MCP process share one clock.
+    - The device name is set from Settings → Sync (#81); until then it stays empty.
