@@ -10,6 +10,7 @@ import { syncPrefs, usePrefs } from '@/lib/prefs';
 import { applyOverrides } from '@/keymap/overrides';
 import { useKeymap } from '@/keymap/useKeymap';
 import { usePlannerSync } from '@/lib/queries';
+import { useNewDay } from './useNewDay';
 import { useBlockoutWindows } from '@/lib/useBlockoutWindows';
 import { useTheme } from '@/theme/theme';
 import { DiaryView } from '@/views/diary/DiaryView';
@@ -103,6 +104,7 @@ export function AppShell() {
   const overlayOpen = useOverlay((s) => s.overlay !== null);
   useKeymap(actions, contexts, overlayOpen);
   usePlannerSync();
+  useNewDay();
   const windows = useBlockoutWindows();
   useNarrowWindow();
 

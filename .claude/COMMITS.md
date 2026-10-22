@@ -159,7 +159,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 77 | 16a | `test(core): multi-replica convergence tests` | committed `d5ec285` |
 | 78 | 16a | `feat(core): undo and redo scoped to this device` | committed `4dd7ae4` |
 | 79 | 16a | `refactor(core): subscription and holiday upkeep a caller can drive` | committed `3b87cab` |
-| 79a | 16a | `build: rust-version 1.95` | committed (hash in the next entry) |
+| 79a | 16a | `build: rust-version 1.95` | committed `aa31b69` |
+| 79b | 16 | `fix(ui): the Diary moves on to today when the date changes` | committed (hash in the next entry) |
 | 80 | 16b | `feat(app): sync engine with push, pull and address failover` | planned |
 | 81 | 16b | `feat(app): pairing and Settings → Sync` | planned |
 | 82 | 16b | `feat(app): connect to a home server from first run, and joining` | planned |
@@ -5240,3 +5241,30 @@ Files:
     M  .claude/COMMITS.md
 Test steps:
     - cargo check --workspace → clean on 1.98
+
+### #79b — The Diary moves on to today when the date changes            [status: committed — hash in the next entry]
+Phase: 16 (patch, Luke's report)
+Message:
+    fix(ui): the Diary moves on to today when the date changes
+
+    Left open overnight, the Diary still started on yesterday and its
+    timeline still showed yesterday, until a restart. The Diary's columns
+    and timeline follow the navigation anchor, which was set to midnight
+    once at launch and never moved by the date changing (the columns'
+    "today" marking did update, so yesterday's column just lost its
+    highlight). Still so in 1.2.0.
+
+    Now a check every minute, and whenever the window regains focus or
+    becomes visible (waking from sleep), moves the anchor on to the new
+    today, but only if it was on the old one: a day the user moved to
+    stays put. #79a is aa31b69.
+Files:
+    A  src/app/useNewDay.ts, src/app/nav.test.ts
+    M  src/app/nav.ts, src/app/AppShell.tsx
+    M  .claude/COMMITS.md
+Test steps:
+    - pnpm check → clean; Vitest 236 (5 new: the anchor moves from yesterday to today,
+      stays where the user moved it, doesn't move within a day, catches up after days
+      asleep; the store action)
+    - Pending, Luke: leave Blotter open past midnight (or put the machine to sleep across
+      it) → the Diary starts on the new day and the timeline shows it

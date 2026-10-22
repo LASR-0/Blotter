@@ -47,9 +47,21 @@ interface NavState {
   openBlockout: (id: string | null) => void;
   setChord: (chord: NavState['chord']) => void;
   toggleDiaryInbox: () => void;
+  /** The local date moved on from `prevToday` to `today` while open. */
+  newDay: (prevToday: Date, today: Date) => void;
 }
 
-const midnight = (d = new Date()) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+export const midnight = (d = new Date()) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+
+/**
+ * Where the anchor goes when the date moves on while Blotter is open: from
+ * the old today to the new one, so the Diary and its timeline start on
+ * today again. An anchor the user moved elsewhere stays put.
+ */
+export function rolledAnchor(anchor: Date, prevToday: Date, today: Date): Date {
+  const same = (a: Date, b: Date) => midnight(a).getTime() === midnight(b).getTime();
+  return same(anchor, prevToday) && !same(prevToday, today) ? midnight(today) : anchor;
+}
 
 export const useNav = create<NavState>()(
   persist(
@@ -79,6 +91,8 @@ export const useNav = create<NavState>()(
         set({ view: 'settings', settingsPage: 'blockouts', blockoutId }),
       setChord: (chord) => set({ chord }),
       toggleDiaryInbox: () => set((s) => ({ diaryInbox: !s.diaryInbox })),
+      newDay: (prevToday, today) =>
+        set((s) => ({ anchor: rolledAnchor(s.anchor, prevToday, today) })),
     }),
     {
       name: 'blotter.nav',
