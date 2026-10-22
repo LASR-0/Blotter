@@ -152,8 +152,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 71 | 15d | `chore(release): v1.2.0` | committed `4cb1d74` (untagged) |
 | 72 | 16 | `docs: v1.2.1 sync plan` | committed `7cb6137` |
 | 72a | 16 | `docs: sync schema gate confirmed, Blotter-Sync repo name` | committed `78626ec` |
-| 73 | 16a | `feat(core): device identity and hybrid logical clock` | committed (hash in the next entry) |
-| 74 | 16a | `feat(core): sync registry for tables, columns and settings` | planned |
+| 73 | 16a | `feat(core): device identity and hybrid logical clock` | committed `eda091d` |
+| 74 | 16a | `feat(core): sync registry for tables, columns and settings` | committed (hash in the next entry) |
 | 75 | 16a | `feat(core): capture synced writes into an outbox` | planned |
 | 76 | 16a | `feat(core): wire types and merging remote changes per field group` | planned |
 | 77 | 16a | `test(core): multi-replica convergence tests` | planned |
@@ -4949,3 +4949,48 @@ Notes:
     - Nothing writes stamps yet; capture (#75) ticks the clock from SQL triggers, in the
       same fixed-width format, so the app and the MCP process share one clock.
     - The device name is set from Settings → Sync (#81); until then it stays empty.
+
+### #74 — Sync registry            [status: committed — hash in the next entry]
+Phase: 16a
+Message:
+    feat(core): sync registry for tables, columns and settings
+
+    sync::registry classifies every table, column and setting as synced,
+    device-local or server-owned, and puts every column of a shared table
+    in exactly one field group (roadmap §14.5): the CHECK-tied columns
+    merge together (items timing, status, kind, window and series;
+    reminder triggers; block-out hours and active range; holiday ranges),
+    as do a block-out exception's UNIQUE (blockout_id, date) pair, a
+    setting's value and timestamp, and a keybinding's binding and
+    timestamp. reminders.fired_at is device-local (D-S9); subscription
+    fetch status and the ics_events cache are server-owned. It also lists
+    each shared table's UNIQUE constraints and cascading parents, for the
+    merge.
+
+    SYNC_SCHEMA (1) is the version Blotter Sync gates on (D-S15). Tests
+    hold the registry to the migrated schema: every table classified
+    once, keys equal to primary keys, every column in one group, every
+    multi-column CHECK inside one group (parsed from the schema), UNIQUE
+    constraints and cascades as listed, every settings.rs key in one
+    class, DEVICE_KEYS never synced, and a pinned fingerprint of
+    everything shared, so changing what syncs without bumping
+    SYNC_SCHEMA fails.
+
+    Settings: clock (12/24-hour) syncs; ai_mode stays per device, as it
+    already did through restore and import. Unknown keys stay local.
+    settings.rs gains KEY_THEME for the "theme" key. #73 is eda091d.
+Files:
+    A  crates/blotter-core/src/sync/registry.rs
+    M  crates/blotter-core/src/sync/mod.rs, crates/blotter-core/src/settings.rs
+    M  .claude/roadmap.md   (§14.5 settings: clock synced, ai_mode device-local)
+    M  .claude/COMMITS.md
+Test steps:
+    - cargo test --workspace → 225 core (13 new) + 51 app + 6 mcp; clippy -D warnings clean;
+      fmt clean
+    - Mutation check: dropping items.tz from the registry fails two tests ("items.tz isn't
+      classified", and the fingerprint); restored
+Notes:
+    - For Luke: ai_mode (Propose/Auto) is device-local and clock (12/24-hour) is synced.
+      The brief had ai_mode synced and didn't list clock; say if either should change.
+    - FINGERPRINTS[0] may still be replaced until 1.2.1 ships (#75 adds sync tables, all
+      device-local, which don't change it).

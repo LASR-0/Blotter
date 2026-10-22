@@ -851,8 +851,8 @@ Known, accepted limit: `items.tags` is one JSON column, so two devices changing 
 | `proposals`, `proposal_ops`, `chat_threads`, `chat_messages`, `providers`, `snapshots` | Device-local | Keys stay in each OS keychain. |
 
 Settings (every key in `settings.rs` is classified; a test fails on an unclassified key):
-- **Synced:** `planning_hours`, `week_start`, `timezone`, `rollover_mode`, `rollover_time`, `slot_buffer_min`, `default_task_duration_min`, `default_event_duration_min`, `default_event_reminder_min`, `snooze_options_min`, `public_holidays`, `ai_mode`.
-- **Device-local:** `theme` (the selected theme, O1), `ai_route`, `claude_code_*`, `codex_*`, `briefing_enabled`, `briefing_time`, `last_briefing_date`, `close_to_tray`, `notifications_enabled`, `catch_up_enabled`, `catch_up_hours`, `snapshot_dir`, `snapshot_keep`, `update_check_enabled`, `setup_done`, `last_reminder_check`.
+- **Synced:** `planning_hours`, `week_start`, `clock` (12/24-hour), `timezone`, `rollover_mode`, `rollover_time`, `slot_buffer_min`, `default_task_duration_min`, `default_event_duration_min`, `default_event_reminder_min`, `snooze_options_min`, `public_holidays`.
+- **Device-local:** `theme` (the selected theme, O1), `ai_mode` (auto-apply on one device's AI shouldn't turn it on everywhere; it was already kept per device through restore and import), `ai_route`, `claude_code_*`, `codex_*`, `briefing_enabled`, `briefing_time`, `last_briefing_date`, `close_to_tray`, `notifications_enabled`, `catch_up_enabled`, `catch_up_hours`, `snapshot_dir`, `snapshot_keep`, `update_check_enabled`, `setup_done`, `last_reminder_check`.
 - **Server-owned:** `last_rollover_date`.
 
 **Wire types** live in `blotter-core::sync` (serde types for hello, pair, bootstrap, push, pull, the change notice and every typed error, plus the merge function), so the app and the server can't drift. The endpoint list and their server-side behaviour are in the server roadmap (§5.2 there); changing a wire type bumps the sync protocol.

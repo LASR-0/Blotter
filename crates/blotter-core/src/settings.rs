@@ -64,6 +64,9 @@ pub const KEY_CLOSE_TO_TRAY: &str = "close_to_tray";
 pub const KEY_UPDATE_CHECK: &str = "update_check_enabled";
 /// Set once the first-run setup is finished or skipped (per device).
 pub const KEY_SETUP_DONE: &str = "setup_done";
+/// The theme this device shows (set by the UI); custom themes themselves are
+/// rows in `themes`.
+pub const KEY_THEME: &str = "theme";
 
 crate::model::string_enum!(
     /// The first day of the week in Week, Month and Year views.
@@ -104,7 +107,7 @@ pub const DEVICE_KEYS: [&str; 12] = [
     KEY_CLAUDE_CODE_PATH,
     KEY_CODEX_MODEL,
     KEY_CODEX_PATH,
-    "theme",
+    KEY_THEME,
 ];
 pub const DEFAULT_SNAPSHOT_KEEP: u32 = 20;
 
