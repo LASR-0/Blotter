@@ -9,10 +9,9 @@ use chrono::{Datelike, NaiveDate};
 use serde_json::{Value, json};
 use tauri::{AppHandle, Emitter, Manager, State};
 
+use blotter_core::OpOutcome;
 use blotter_core::model::Actor;
-use blotter_core::public_holidays::{self, API, Config, Country, Guess, PublicHoliday};
-use blotter_core::settings::KEY_PUBLIC_HOLIDAYS;
-use blotter_core::store;
+use blotter_core::public_holidays::{self, API, Country, Guess, PublicHoliday};
 
 use crate::AppState;
 use crate::commands::{CHANGED_EVENT, CommandError};
@@ -27,10 +26,14 @@ fn lock_err() -> CommandError {
     CommandError::internal("planner state is unavailable after an earlier crash")
 }
 
-async fn get(path: &str) -> Result<String, CommandError> {
-    fetch_text(&format!("{API}{path}"), "application/json")
+async fn get_url(url: &str) -> Result<String, CommandError> {
+    fetch_text(url, "application/json")
         .await
         .map_err(|e| CommandError::internal(format!("couldn't reach date.nager.at: {e}")))
+}
+
+async fn get(path: &str) -> Result<String, CommandError> {
+    get_url(&format!("{API}{path}")).await
 }
 
 /// A year's public holidays for `country` that apply in `region`.
@@ -39,7 +42,7 @@ async fn fetch_year(
     region: Option<&str>,
     year: i32,
 ) -> Result<Vec<PublicHoliday>, CommandError> {
-    let json = get(&format!("/PublicHolidays/{year}/{country}")).await?;
+    let json = get_url(&public_holidays::year_url(country, year)).await?;
     Ok(public_holidays::select(&json, region)?)
 }
 
@@ -92,13 +95,24 @@ pub async fn import_public_holidays(
 }
 
 fn run(app: &AppHandle, args: Value, actor: &Actor) -> blotter_core::Result<Value> {
+    with_planner(app, |planner| {
+        planner.execute("import_public_holidays", args, actor)
+    })
+    .map(|outcome| outcome.result)
+}
+
+/// Runs an import against the planner and tells the windows.
+fn with_planner(
+    app: &AppHandle,
+    import: impl FnOnce(&mut blotter_core::Planner) -> blotter_core::Result<OpOutcome>,
+) -> blotter_core::Result<OpOutcome> {
     let state = app.state::<AppState>();
     let outcome = {
         let mut planner = state
             .planner
             .lock()
             .map_err(|_| blotter_core::CoreError::invalid("planner state is unavailable"))?;
-        planner.execute("import_public_holidays", args, actor)?
+        import(&mut planner)?
     };
     if let Some(batch_id) = &outcome.batch_id {
         let _ = app.emit(
@@ -106,33 +120,29 @@ fn run(app: &AppHandle, args: Value, actor: &Actor) -> blotter_core::Result<Valu
             json!({ "batch_id": batch_id, "ops": ["import_public_holidays"] }),
         );
     }
-    Ok(outcome.result)
+    Ok(outcome)
 }
 
 /// From the minute check: fetches next year's holidays once this year's
-/// are the last ones in, at most one try a day.
+/// are the last ones in, at most one try a day. What is due, and applying
+/// it, are the core's (Blotter Sync does the same upkeep for paired devices).
 pub fn update_if_due(app: &AppHandle) {
     let Some(state) = app.try_state::<AppState>() else {
         return;
     };
-    let (config, today) = {
+    let (due, today) = {
         let Ok(planner) = state.planner.lock() else {
+            return;
+        };
+        let Ok(Some(due)) = public_holidays::upkeep(&planner) else {
             return;
         };
         let Ok(settings) = planner.settings() else {
             return;
         };
-        let today = planner.now().with_timezone(&settings.tz).date_naive();
-        let config: Option<Config> =
-            store::settings::get(planner.db().conn(), KEY_PUBLIC_HOLIDAYS).unwrap_or(None);
-        (config, today)
+        (due, planner.now().with_timezone(&settings.tz).date_naive())
     };
-    let Some(config) = config else {
-        return;
-    };
-    let Some(year) = config.due(today) else {
-        return;
-    };
+    let year = due.year;
     let tried = app.state::<Tried>();
     {
         let Ok(mut last) = tried.0.lock() else {
@@ -145,15 +155,9 @@ pub fn update_if_due(app: &AppHandle) {
     }
     let app = app.clone();
     tauri::async_runtime::spawn(async move {
-        let fetched = fetch_year(&config.country, config.region.as_deref(), year).await;
-        let result = fetched.map_err(|e| e.message).and_then(|holidays| {
-            let args = json!({
-                "country": config.country,
-                "region": config.region,
-                "years": [year],
-                "holidays": holidays,
-            });
-            run(&app, args, &Actor::System).map_err(|e| e.to_string())
+        let fetched = get_url(&due.url()).await;
+        let result = fetched.map_err(|e| e.message).and_then(|json| {
+            with_planner(&app, |planner| due.apply(planner, &json)).map_err(|e| e.to_string())
         });
         if let Err(err) = result {
             eprintln!("blotter: fetching {year}'s public holidays failed: {err}");

@@ -157,8 +157,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 75 | 16a | `feat(core): capture synced writes into an outbox` | committed `bbaf848` |
 | 76 | 16a | `feat(core): wire types and merging remote changes per field group` | committed `b875e15` |
 | 77 | 16a | `test(core): multi-replica convergence tests` | committed `d5ec285` |
-| 78 | 16a | `feat(core): undo and redo scoped to this device` | committed (hash in the next entry) |
-| 79 | 16a | `refactor(core): subscription and holiday upkeep a caller can drive` | planned |
+| 78 | 16a | `feat(core): undo and redo scoped to this device` | committed `4dd7ae4` |
+| 79 | 16a | `refactor(core): subscription and holiday upkeep a caller can drive` | committed (hash in the next entry) |
 | 80 | 16b | `feat(app): sync engine with push, pull and address failover` | planned |
 | 81 | 16b | `feat(app): pairing and Settings → Sync` | planned |
 | 82 | 16b | `feat(app): connect to a home server from first run, and joining` | planned |
@@ -5191,3 +5191,36 @@ Notes:
       completion counts as the user's, on that device.
     - The History chip with a device name is untried in the window until two instances
       sync (16b).
+
+### #79 — Subscription and holiday upkeep a caller can drive            [status: committed — hash in the next entry]
+Phase: 16a
+Message:
+    refactor(core): subscription and holiday upkeep a caller can drive
+
+    Blotter Sync takes over the automatic duties once devices pair, so
+    the decisions about them live in the core and each replica only
+    brings its own HTTP and timer:
+
+    - public_holidays::upkeep(planner) says which year's holidays are
+      due (keep up to date on, next year not in yet), Upkeep::url() where
+      to fetch them, and Upkeep::apply() imports the answer as a system
+      change. year_url() builds a year's address. The app's minute check
+      now uses them instead of its own copy of the logic.
+    - Subscriptions already were drivable (subscriptions::due, fetch_url,
+      record_fetch); rollover (Planner::rollover_if_due) and pruning (the
+      prune_holidays op) already are core calls. Nothing changes there.
+    #78 is 4dd7ae4.
+Files:
+    M  crates/blotter-core/src/public_holidays/mod.rs
+    M  src-tauri/src/public_holidays.rs
+    M  .claude/COMMITS.md
+Test steps:
+    - cargo test --workspace → 270 core (3 new) + 51 app + 6 mcp; clippy -D warnings clean;
+      fmt clean
+    - New: nothing is due before an import; after this year's, next year's is due with its
+      URL, applying a sample answer adds New Year's Day and Melbourne Cup (not NSW's) as
+      system changes, and then nothing is due; turned off, nothing is due
+    - cargo test -p blotter live_nager -- --ignored → passes against date.nager.at
+Notes:
+    - 16a is complete in code (#73-#79). Next: Blotter Sync #03-#06 in ../Blotter-sync,
+      then 16b here.

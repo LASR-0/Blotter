@@ -1,7 +1,7 @@
 //! Public holidays from Nager.Date (https://date.nager.at): which country
 //! and region the user is likely in, read from their time zone, and the
-//! holidays that apply there out of the API's answer. Fetching is the app's
-//! job; this is pure.
+//! holidays that apply there out of the API's answer. Fetching is the caller's
+//! job (the app, or Blotter Sync); this is pure but for [`Upkeep::apply`].
 
 mod zones;
 
@@ -174,6 +174,63 @@ impl Config {
     }
 }
 
+/// The address of a year's public holidays for `country`.
+pub fn year_url(country: &str, year: i32) -> String {
+    format!("{API}/PublicHolidays/{year}/{country}")
+}
+
+/// An automatic fetch of the next year's public holidays that is due. Each
+/// replica that does upkeep (the app in Local only mode, Blotter Sync once
+/// devices are paired) asks [`upkeep`], fetches [`Upkeep::url`] with its own
+/// HTTP, and hands the answer to [`Upkeep::apply`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Upkeep {
+    pub country: String,
+    pub region: Option<String>,
+    pub year: i32,
+}
+
+/// The fetch that is due now, if the user keeps public holidays up to date
+/// and the next year's aren't in yet.
+pub fn upkeep(planner: &crate::Planner) -> Result<Option<Upkeep>> {
+    let config: Option<Config> =
+        crate::store::settings::get(planner.db().conn(), crate::settings::KEY_PUBLIC_HOLIDAYS)?;
+    let Some(config) = config else {
+        return Ok(None);
+    };
+    let today = planner
+        .now()
+        .with_timezone(&planner.settings()?.tz)
+        .date_naive();
+    Ok(config.due(today).map(|year| Upkeep {
+        country: config.country,
+        region: config.region,
+        year,
+    }))
+}
+
+impl Upkeep {
+    pub fn url(&self) -> String {
+        year_url(&self.country, self.year)
+    }
+
+    /// Imports the year's holidays from what [`Self::url`] answered, as an
+    /// automatic (system) change.
+    pub fn apply(&self, planner: &mut crate::Planner, json: &str) -> Result<crate::OpOutcome> {
+        let holidays = select(json, self.region.as_deref())?;
+        planner.execute(
+            "import_public_holidays",
+            serde_json::json!({
+                "country": self.country,
+                "region": self.region,
+                "years": [self.year],
+                "holidays": holidays,
+            }),
+            &crate::model::Actor::System,
+        )
+    }
+}
+
 /// A country Nager.Date covers.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -266,5 +323,76 @@ mod tests {
         let json = r#"[{"countryCode":"NZ","name":"New Zealand"},{"countryCode":"AU","name":"Australia"}]"#;
         let c = countries(json).unwrap();
         assert_eq!(c[0].country_code, "AU");
+    }
+}
+
+#[cfg(test)]
+mod upkeep_tests {
+    use chrono::Datelike;
+    use serde_json::json;
+
+    use super::*;
+    use crate::model::Actor;
+
+    fn answer(year: i32) -> String {
+        json!([
+            { "date": format!("{year}-01-01"), "localName": "New Year's Day", "global": true, "types": ["Public"] },
+            { "date": format!("{year}-11-02"), "localName": "Melbourne Cup", "global": false,
+              "counties": ["AU-VIC"], "types": ["Public"] },
+            { "date": format!("{year}-11-03"), "localName": "Elsewhere", "global": false,
+              "counties": ["AU-NSW"], "types": ["Public"] }
+        ])
+        .to_string()
+    }
+
+    #[test]
+    fn nothing_is_due_until_holidays_are_imported() {
+        let p = crate::planner::tests::planner();
+        assert_eq!(upkeep(&p).unwrap(), None);
+    }
+
+    #[test]
+    fn next_years_fetch_is_due_then_applied_then_not() {
+        let mut p = crate::planner::tests::planner();
+        let year = p.now().with_timezone(&p.settings().unwrap().tz).year();
+        let holidays = select(&answer(year), Some("AU-VIC")).unwrap();
+        p.execute(
+            "import_public_holidays",
+            json!({ "country": "AU", "region": "AU-VIC", "years": [year], "holidays": holidays }),
+            &Actor::User,
+        )
+        .unwrap();
+
+        let due = upkeep(&p).unwrap().unwrap();
+        assert_eq!(
+            due,
+            Upkeep {
+                country: "AU".into(),
+                region: Some("AU-VIC".into()),
+                year: year + 1
+            }
+        );
+        assert_eq!(due.url(), format!("{API}/PublicHolidays/{}/AU", year + 1));
+
+        let out = due.apply(&mut p, &answer(year + 1)).unwrap();
+        assert!(out.batch_id.is_some());
+        assert!(out.changes.iter().all(|c| c.actor == Actor::System));
+        let added = out.changes.iter().filter(|c| c.entity == "holiday").count();
+        assert_eq!(added, 2, "New Year's Day and Melbourne Cup, not NSW's");
+        assert_eq!(upkeep(&p).unwrap(), None, "next year is in");
+    }
+
+    #[test]
+    fn upkeep_waits_when_turned_off() {
+        let mut p = crate::planner::tests::planner();
+        let year = p.now().with_timezone(&p.settings().unwrap().tz).year();
+        p.execute(
+            "import_public_holidays",
+            json!({ "country": "AU", "region": "AU-VIC", "years": [year], "holidays": [],
+                    "keep_updated": false }),
+            &Actor::User,
+        )
+        .unwrap();
+        assert_eq!(upkeep(&p).unwrap(), None);
     }
 }
