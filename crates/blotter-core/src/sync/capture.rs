@@ -46,7 +46,7 @@ impl Role {
         }
     }
 
-    fn captures(self, class: Class) -> bool {
+    pub(crate) fn captures(self, class: Class) -> bool {
         match class {
             Class::Synced => true,
             Class::ServerOwned => self == Role::Server,
@@ -109,7 +109,7 @@ fn row_filter(table: &Table, role: Role, alias: &str) -> Option<String> {
 }
 
 /// The groups of `table` this role captures.
-fn captured_groups(table: &Table, role: Role) -> Vec<&'static registry::Group> {
+pub(crate) fn captured_groups(table: &Table, role: Role) -> Vec<&'static registry::Group> {
     if !role.captures(table.class) {
         return Vec::new();
     }
@@ -352,8 +352,6 @@ fn backfill(conn: &Connection, role: Role) -> Result<()> {
 
 /// Turns capture off for the writes that apply remote changes. Always pair
 /// it with `applying(conn, false)` in the same transaction.
-// The merge (#76) is its first caller outside the tests.
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn applying(conn: &Connection, on: bool) -> Result<()> {
     conn.execute(
         "UPDATE sync_state SET applying = ?1 WHERE id = 1",

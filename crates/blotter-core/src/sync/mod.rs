@@ -9,10 +9,15 @@
 pub mod capture;
 pub mod device;
 pub mod hlc;
+pub mod merge;
 pub mod registry;
+pub mod state;
+pub mod wire;
 
 pub use device::Device;
 pub use hlc::Hlc;
+pub use merge::merge;
+pub use wire::{GroupState, Merged, Rejection, RowState, SYNC_PROTOCOL};
 
 /// Turns a database back into Blotter 1.2.0's shape (schema 11, nothing of
 /// sync), as a pre-sync file to restore or upgrade from.

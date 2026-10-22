@@ -154,8 +154,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 72a | 16 | `docs: sync schema gate confirmed, Blotter-Sync repo name` | committed `78626ec` |
 | 73 | 16a | `feat(core): device identity and hybrid logical clock` | committed `eda091d` |
 | 74 | 16a | `feat(core): sync registry for tables, columns and settings` | committed `12a01e5` |
-| 75 | 16a | `feat(core): capture synced writes into an outbox` | committed (hash in the next entry) |
-| 76 | 16a | `feat(core): wire types and merging remote changes per field group` | planned |
+| 75 | 16a | `feat(core): capture synced writes into an outbox` | committed `bbaf848` |
+| 76 | 16a | `feat(core): wire types and merging remote changes per field group` | committed (hash in the next entry) |
 | 77 | 16a | `test(core): multi-replica convergence tests` | planned |
 | 78 | 16a | `feat(core): undo and redo scoped to this device` | planned |
 | 79 | 16a | `refactor(core): subscription and holiday upkeep a caller can drive` | planned |
@@ -5055,3 +5055,53 @@ Notes:
     - The outbox is the pending flag on sync_clocks, not a separate table: a group pending
       twice is one entry with the newer stamp, and a push reads current values with them.
     - Local only mode captures too, so a first pairing can push everything it holds.
+
+### #76 — Wire types and merging per field group            [status: committed — hash in the next entry]
+Phase: 16a
+Message:
+    feat(core): wire types and merging remote changes per field group
+
+    The merge every replica runs on rows from another (roadmap §14.5),
+    and the types they travel in.
+
+    - sync::wire: SYNC_PROTOCOL (1); RowState, one row's existence stamp
+      and each field group's stamp and values, the one shape pushes,
+      pulls and bootstraps carry; Merged and Rejection.
+    - sync::state: a replica's rows as RowStates: row(), outbox() (every
+      row with a pending change, whole, plus the entries to acknowledge)
+      and all() (a bootstrap, tombstones included).
+    - sync::merge: field groups are last-writer-wins by stamp. A row
+      exists by the newer of its creation and deletion stamps, a delete
+      winning a tie, and edits only stamp groups, so a concurrent edit
+      never brings back a deleted row (D-S10) while making it again (an
+      undo) does. A parent's tombstone takes its children with it,
+      stamped at the later of the two; a UNIQUE collision keeps the row
+      created first. Tombstones the merge works out itself go out with
+      the next push, so every replica learns them. One transaction per
+      batch with capture off and foreign keys checked at the end; a row
+      that can't apply is refused on its own. Devices take server-owned
+      data from the server; the server ignores it from devices; neither
+      takes device-local tables or settings. The clock moves past the
+      newest stamp merged.
+
+    #75 is bbaf848.
+Files:
+    A  crates/blotter-core/src/sync/wire.rs, crates/blotter-core/src/sync/state.rs,
+       crates/blotter-core/src/sync/merge.rs
+    M  crates/blotter-core/src/sync/mod.rs, crates/blotter-core/src/sync/capture.rs
+    M  .claude/COMMITS.md
+Test steps:
+    - cargo test --workspace → 260 core (17 new) + 51 app + 6 mcp; clippy -D warnings clean;
+      fmt clean
+    - Two-replica cases: a new row arrives whole and isn't sent back; edits to different
+      groups both survive; the newer edit to one group wins; start and end move together
+      (no row with end before start); delete beats a concurrent edit in either order; an
+      undo of a delete brings the row back; a reminder added to an item deleted elsewhere
+      goes too; two lifts of the same day keep the first; a newer remote edit clears a
+      pending local one; merging twice changes nothing; the clock passes merged stamps; bad
+      rows are refused one by one; server-owned data flows server → device only; a child
+      whose parent was never known is refused; one tag made on two devices merges into one
+Notes:
+    - Randomised convergence across many replicas and orderings is #77.
+    - A rejection is reported, not retried: Blotter Sync returns them to the device (#05
+      there), which shows them as a sync problem.
