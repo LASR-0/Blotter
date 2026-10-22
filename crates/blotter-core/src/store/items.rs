@@ -271,22 +271,37 @@ pub fn list_all(conn: &Connection) -> Result<Vec<Item>> {
     collect(conn, &sql, [])
 }
 
-/// Items completed in `[from, to)`, newest first, each with the actor of
-/// the change that completed it (the latest one not undone), if the change
-/// log still has it.
+/// An item's completion as the change log tells it: who made it, and the
+/// device it came from when it was merged from another (`origin`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DoneBy {
+    pub actor: Option<String>,
+    pub origin: Option<String>,
+}
+
+/// Items completed in `[from, to)`, newest first, each with the change that
+/// completed it (the latest one not undone), if the change log still has it.
 pub fn list_completed(
     conn: &Connection,
     from: Instant,
     to: Instant,
-) -> Result<Vec<(Item, Option<String>)>> {
+) -> Result<Vec<(Item, DoneBy)>> {
+    let done_change = |column: &str| {
+        format!(
+            "(SELECT c.{column} FROM changes c \
+               WHERE c.entity = 'item' AND c.entity_id = items.id AND c.undone_at IS NULL \
+                 AND json_extract(c.after_json, '$.status') = 'done' \
+                 AND (c.before_json IS NULL \
+                      OR json_extract(c.before_json, '$.status') IS NOT 'done') \
+               ORDER BY c.created_at DESC, c.rowid DESC LIMIT 1)"
+        )
+    };
     let sql = format!(
-        "SELECT {COLUMNS}, (SELECT c.actor FROM changes c \
-           WHERE c.entity = 'item' AND c.entity_id = items.id AND c.undone_at IS NULL \
-             AND json_extract(c.after_json, '$.status') = 'done' \
-             AND (c.before_json IS NULL OR json_extract(c.before_json, '$.status') IS NOT 'done') \
-           ORDER BY c.created_at DESC LIMIT 1) AS done_by \
+        "SELECT {COLUMNS}, {} AS done_actor, {} AS done_origin \
          FROM items WHERE status = 'done' AND completed_at >= :from AND completed_at < :to \
-         ORDER BY completed_at DESC, id"
+         ORDER BY completed_at DESC, id",
+        done_change("actor"),
+        done_change("origin"),
     );
     let mut stmt = conn.prepare(&sql)?;
     let mut rows = stmt.query(named_params! {
@@ -295,7 +310,13 @@ pub fn list_completed(
     })?;
     let mut out = Vec::new();
     while let Some(row) = rows.next()? {
-        out.push((read(row)?, row.get("done_by")?));
+        out.push((
+            read(row)?,
+            DoneBy {
+                actor: row.get("done_actor")?,
+                origin: row.get("done_origin")?,
+            },
+        ));
     }
     Ok(out)
 }

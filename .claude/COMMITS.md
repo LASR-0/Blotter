@@ -156,8 +156,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 74 | 16a | `feat(core): sync registry for tables, columns and settings` | committed `12a01e5` |
 | 75 | 16a | `feat(core): capture synced writes into an outbox` | committed `bbaf848` |
 | 76 | 16a | `feat(core): wire types and merging remote changes per field group` | committed `b875e15` |
-| 77 | 16a | `test(core): multi-replica convergence tests` | committed (hash in the next entry) |
-| 78 | 16a | `feat(core): undo and redo scoped to this device` | planned |
+| 77 | 16a | `test(core): multi-replica convergence tests` | committed `d5ec285` |
+| 78 | 16a | `feat(core): undo and redo scoped to this device` | committed (hash in the next entry) |
 | 79 | 16a | `refactor(core): subscription and holiday upkeep a caller can drive` | planned |
 | 80 | 16b | `feat(app): sync engine with push, pull and address failover` | planned |
 | 81 | 16b | `feat(app): pairing and Settings → Sync` | planned |
@@ -5141,3 +5141,53 @@ Test steps:
       fails the property; so does dropping "a local delete beats incoming edits"
 Notes:
     - The core suite takes ~19 s in debug now (was ~12 s); most of it is the 64 cases.
+
+### #78 — Undo and redo scoped to this device            [status: committed — hash in the next entry]
+Phase: 16a
+Message:
+    feat(core): undo and redo scoped to this device
+
+    Once changes arrive from other devices, Ctrl+Z still only reverses
+    what this device did (H4, amends D24), and History says where the
+    rest came from.
+
+    - Migration 0014: changes.origin (null for this device's own rows,
+      else the id of the device a merged change came from), and a
+      device-local sync_peers table of the other devices' names, which
+      the app fills from the server (#81).
+    - The merge records what it applied in the change log as "sync"
+      rows, with the entity's state before and after and its origin, for
+      items, reminders, block-outs and their exceptions, holidays, tags
+      and settings.
+    - Undo and redo, the chat's "Undo batch" and the redo check ignore
+      rows with an origin; undoing one by id is refused ("undo it there").
+      A merged change doesn't clear redo; if it touched the same thing,
+      undo or redo refuses as it already does when an entity has changed.
+    - list_completions gives each completion the device it was completed
+      on, by name ("another device" until its name is known); History
+      shows it in the chip where AI and MCP completions show theirs.
+    #77 is d5ec285.
+Files:
+    A  crates/blotter-core/migrations/0014_change_origin.sql
+    M  crates/blotter-core/src/db.rs, crates/blotter-core/src/model/change.rs,
+       crates/blotter-core/src/store/changes.rs, crates/blotter-core/src/store/items.rs,
+       crates/blotter-core/src/ops/mod.rs, crates/blotter-core/src/ops/undo.rs,
+       crates/blotter-core/src/ops/history.rs
+    M  crates/blotter-core/src/sync/merge.rs, crates/blotter-core/src/sync/device.rs,
+       crates/blotter-core/src/sync/registry.rs, crates/blotter-core/src/sync/mod.rs
+    M  src/lib/history.ts, src/views/HistoryView.tsx
+    M  .claude/COMMITS.md
+Test steps:
+    - cargo test --workspace → 267 core (5 new) + 51 app + 6 mcp; clippy -D warnings clean;
+      fmt clean
+    - pnpm check → clean; Vitest 231
+    - New: a merged item is logged as "sync" with the sender's id and nothing to undo, and
+      undoing it by id is refused; undo reverses this device's edit, not the one merged
+      after it; a remote edit to the same item blocks undo; a merged change leaves redo
+      offered; a completion from the laptop reads "another device", then "Laptop" once the
+      peer's name is known, and this device's own reads none
+Notes:
+    - Who made a merged change (user, AI, MCP) doesn't travel, only where: a remote
+      completion counts as the user's, on that device.
+    - The History chip with a device name is untried in the window until two instances
+      sync (16b).

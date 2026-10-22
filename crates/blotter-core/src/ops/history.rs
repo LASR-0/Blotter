@@ -79,6 +79,9 @@ pub struct Completion {
     pub done_by: DoneBy,
     /// The local day it was completed on.
     pub done_on: NaiveDate,
+    /// The other device it was completed on, by name; none for this one.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub device: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -177,24 +180,24 @@ fn list_completions(ctx: &mut Ctx<'_>, a: ListCompletionsArgs) -> Result<History
         .filter(|q| !q.is_empty());
     let from = start_of_day(tz, start);
     let to = start_of_day(tz, end + Duration::days(1));
-    let mut completions: Vec<Completion> = store::items::list_completed(ctx.conn, from, to)?
-        .into_iter()
-        .filter(|(item, _)| {
-            tag.as_ref()
-                .is_none_or(|t| item.tags.iter().any(|x| x.to_lowercase() == *t))
-                && query.as_ref().is_none_or(|q| {
-                    item.title.to_lowercase().contains(q) || item.notes.to_lowercase().contains(q)
-                })
-        })
-        .filter_map(|(item, actor)| {
-            let done_on = local(item.completed_at?);
-            Some(Completion {
-                done_by: DoneBy::from_actor(actor.as_deref()),
-                done_on,
-                item,
-            })
-        })
-        .collect();
+    let mut completions = Vec::new();
+    for (item, by) in store::items::list_completed(ctx.conn, from, to)? {
+        let wanted = tag
+            .as_ref()
+            .is_none_or(|t| item.tags.iter().any(|x| x.to_lowercase() == *t))
+            && query.as_ref().is_none_or(|q| {
+                item.title.to_lowercase().contains(q) || item.notes.to_lowercase().contains(q)
+            });
+        let Some(completed_at) = item.completed_at.filter(|_| wanted) else {
+            continue;
+        };
+        completions.push(Completion {
+            done_by: DoneBy::from_actor(by.actor.as_deref()),
+            done_on: local(completed_at),
+            device: crate::sync::device::origin_name(ctx.conn, by.origin.as_deref())?,
+            item,
+        });
+    }
     let truncated = completions.len() > MAX_ITEMS;
     completions.truncate(MAX_ITEMS);
 

@@ -86,6 +86,36 @@ pub fn set_name(conn: &Connection, name: &str) -> Result<Device> {
     get(conn)
 }
 
+/// Replaces what this device knows of the others on its server: id → name.
+pub fn set_peers(conn: &Connection, peers: &[(String, String)]) -> Result<()> {
+    conn.execute("DELETE FROM sync_peers", [])?;
+    let mut stmt =
+        conn.prepare("INSERT OR REPLACE INTO sync_peers (device_id, name) VALUES (?1, ?2)")?;
+    for (id, name) in peers {
+        stmt.execute((id, name))?;
+    }
+    Ok(())
+}
+
+/// What a change's `origin` reads as: none for this device's own changes,
+/// the device's name when known, "another device" otherwise.
+pub fn origin_name(conn: &Connection, origin: Option<&str>) -> Result<Option<String>> {
+    let Some(origin) = origin else {
+        return Ok(None);
+    };
+    if origin == id(conn)? {
+        return Ok(None);
+    }
+    let name: Option<String> = conn
+        .query_row(
+            "SELECT name FROM sync_peers WHERE device_id = ?1",
+            [origin],
+            |r| r.get(0),
+        )
+        .optional()?;
+    Ok(Some(name.unwrap_or_else(|| "another device".to_owned())))
+}
+
 /// This device's identity and clock, held across a wholesale replace of the
 /// database (snapshot restore), which would otherwise bring back an older
 /// clock, another install's id, or none at all for a pre-1.2.1 snapshot.
@@ -200,7 +230,7 @@ mod tests {
         let stamp = hlc::tick(db.conn(), far_future()).unwrap();
 
         db.restore_from(&old_path).unwrap();
-        assert_eq!(db.schema_version().unwrap(), 13);
+        assert_eq!(db.schema_version().unwrap(), 14);
         assert_eq!(get(db.conn()).unwrap(), mine);
         assert!(hlc::tick(db.conn(), Utc::now()).unwrap() > stamp);
     }

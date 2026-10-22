@@ -6,7 +6,7 @@ use crate::model::{Actor, Change};
 use crate::time;
 
 const COLUMNS: &str = "id, batch_id, op, entity, entity_id, before_json, after_json, actor, created_at, undone_at, \
-     reverts";
+     reverts, origin";
 
 fn read(row: &Row<'_>) -> Result<Change> {
     Ok(Change {
@@ -21,6 +21,7 @@ fn read(row: &Row<'_>) -> Result<Change> {
         created_at: time::parse_instant("created_at", &row.get::<_, String>("created_at")?)?,
         undone_at: opt_instant("undone_at", row.get("undone_at")?)?,
         reverts: row.get("reverts")?,
+        origin: row.get("origin")?,
     })
 }
 
@@ -38,7 +39,7 @@ pub fn insert(conn: &Connection, c: &Change) -> Result<()> {
     conn.execute(
         &format!(
             "INSERT INTO changes ({COLUMNS}) VALUES (:id, :batch_id, :op, :entity, :entity_id, \
-             :before, :after, :actor, :created_at, :undone_at, :reverts)"
+             :before, :after, :actor, :created_at, :undone_at, :reverts, :origin)"
         ),
         named_params! {
             ":id": c.id,
@@ -52,6 +53,7 @@ pub fn insert(conn: &Connection, c: &Change) -> Result<()> {
             ":created_at": time::fmt_instant(c.created_at),
             ":undone_at": fmt_opt_instant(c.undone_at),
             ":reverts": c.reverts,
+            ":origin": c.origin,
         },
     )?;
     Ok(())
@@ -81,7 +83,7 @@ pub fn last_rowid(conn: &Connection) -> Result<i64> {
 pub fn batches_since(conn: &Connection, actor: &Actor, rowid: i64) -> Result<Vec<String>> {
     let mut stmt = conn.prepare(
         "SELECT batch_id FROM changes WHERE actor = ?1 AND rowid > ?2 AND reverts IS NULL \
-         GROUP BY batch_id ORDER BY MIN(rowid)",
+         AND origin IS NULL GROUP BY batch_id ORDER BY MIN(rowid)",
     )?;
     let rows = stmt.query_map(rusqlite::params![actor.to_string(), rowid], |r| r.get(0))?;
     Ok(rows.collect::<rusqlite::Result<_>>()?)
@@ -112,13 +114,15 @@ const REVERSAL_OPS: &str = "('undo', 'redo')";
 
 /// The newest batch of edits that hasn't been undone: what undo reverses.
 /// Automatic system changes (the rollover) are skipped: undo is for the
-/// user's and the AI's edits.
+/// user's and the AI's edits. So are changes merged from other devices:
+/// undo only reverses what this device did.
 pub fn newest_undoable(conn: &Connection) -> Result<Option<String>> {
     Ok(conn
         .query_row(
             &format!(
                 "SELECT batch_id FROM changes WHERE op NOT IN {REVERSAL_OPS} \
-                 AND actor <> 'system' AND undone_at IS NULL ORDER BY rowid DESC LIMIT 1"
+                 AND actor <> 'system' AND origin IS NULL AND undone_at IS NULL \
+                 ORDER BY rowid DESC LIMIT 1"
             ),
             [],
             |r| r.get(0),
@@ -127,7 +131,9 @@ pub fn newest_undoable(conn: &Connection) -> Result<Option<String>> {
 }
 
 /// The batch redo re-applies: the one the most recent undo reversed, if
-/// it's still undone and no edit (by the user or the AI) has been made since.
+/// it's still undone and no edit (by the user or the AI, on this device) has
+/// been made since. A change merged from elsewhere doesn't clear redo; if it
+/// touched the same things, redo refuses when it tries.
 pub fn newest_redoable(conn: &Connection) -> Result<Option<String>> {
     let last_undo: Option<(i64, String)> = conn
         .query_row(
@@ -145,7 +151,7 @@ pub fn newest_redoable(conn: &Connection) -> Result<Option<String>> {
     let edited_since: bool = conn.query_row(
         &format!(
             "SELECT EXISTS (SELECT 1 FROM changes WHERE op NOT IN {REVERSAL_OPS} \
-             AND actor <> 'system' AND rowid > ?1)"
+             AND actor <> 'system' AND origin IS NULL AND rowid > ?1)"
         ),
         [undo_row],
         |r| r.get(0),
@@ -211,6 +217,7 @@ mod tests {
             created_at: now,
             undone_at: None,
             reverts: None,
+            origin: None,
         };
         let a = mk("01", "b1", json!({ "title": "Gym" }));
         let b = mk("02", "b1", json!({ "title": "Gym", "priority": 1 }));

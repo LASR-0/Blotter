@@ -82,6 +82,9 @@ pub struct Change {
     /// For undo and redo rows: the batch they reverse or re-apply.
     #[serde(default)]
     pub reverts: Option<String>,
+    /// The device a merged change came from; none for this device's own.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub origin: Option<String>,
 }
 
 #[cfg(test)]

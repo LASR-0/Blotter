@@ -19,7 +19,7 @@ mod rollover;
 mod settings;
 mod slots;
 mod tags;
-mod undo;
+pub(crate) mod undo;
 
 use std::collections::{BTreeMap, VecDeque};
 
@@ -91,6 +91,7 @@ impl Ctx<'_> {
             created_at: self.now,
             undone_at: None,
             reverts: self.reverts.clone(),
+            origin: None,
         };
         store::changes::insert(self.conn, &change)?;
         self.changes.push(change);

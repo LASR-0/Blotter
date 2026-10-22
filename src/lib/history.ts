@@ -6,6 +6,8 @@ export interface Completion extends Item {
   done_by: 'user' | 'ai' | 'mcp' | 'system';
   /** Local day it was completed on, `YYYY-MM-DD`. */
   done_on: string;
+  /** The other device it was completed on, by name; absent for this one. */
+  device?: string;
 }
 
 /** Mirrors `ops::history::History`. */

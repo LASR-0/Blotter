@@ -21,12 +21,16 @@
 //! table, a group that doesn't fit, a constraint) is rejected on its own and
 //! the rest still apply.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use rusqlite::{Connection, TransactionBehavior};
 use serde_json::{Map, Value};
 
 use crate::error::{CoreError, Result};
+use crate::id::new_id;
+use crate::model::{Actor, Change};
+use crate::ops::undo;
+use crate::store;
 use crate::sync::capture::{self, ROW, Role};
 use crate::sync::registry::{self, Class, Group, TABLES, Table};
 use crate::sync::state::{self, quoted_columns, to_sql};
@@ -34,7 +38,58 @@ use crate::sync::wire::{GroupState, Merged, Rejection, RowState};
 use crate::sync::{Hlc, hlc};
 use crate::time::Instant;
 
-type Touched = BTreeSet<(&'static str, String)>;
+/// The change-log entity for a synced table's rows, where the app's history
+/// and undo know it.
+fn entity(table: &str) -> Option<&'static str> {
+    Some(match table {
+        "items" => "item",
+        "reminders" => "reminder",
+        "blockouts" => "blockout",
+        "blockout_exceptions" => "blockout_exception",
+        "holidays" => "holiday",
+        "tags" => "tag",
+        "settings" => "setting",
+        _ => return None,
+    })
+}
+
+type RowId = (&'static str, String);
+
+/// The rows a merge changed, and how each read before it did.
+#[derive(Default)]
+struct Touched {
+    rows: BTreeSet<RowId>,
+    before: BTreeMap<RowId, Option<Value>>,
+}
+
+impl Touched {
+    /// Notes a row's state before the merge first changes it.
+    fn note(&mut self, conn: &Connection, table: &'static Table, key: &str) -> Result<()> {
+        let id = (table.name, key.to_owned());
+        if self.before.contains_key(&id) {
+            return Ok(());
+        }
+        if let Some(e) = entity(table.name) {
+            self.before.insert(id, undo::current(conn, e, key)?);
+        }
+        Ok(())
+    }
+
+    fn insert(&mut self, id: RowId) {
+        self.rows.insert(id);
+    }
+
+    fn remove(&mut self, id: &RowId) {
+        self.rows.remove(id);
+    }
+
+    fn extend(&mut self, other: Touched) {
+        self.rows.extend(other.rows);
+        for (id, before) in other.before {
+            self.before.entry(id).or_insert(before);
+        }
+    }
+}
 
 /// Merges `rows` from another replica into this one. Returns what changed
 /// here (Blotter Sync logs it for every other device) and what was refused.
@@ -48,11 +103,11 @@ pub fn merge(conn: &mut Connection, rows: &[RowState], now: Instant) -> Result<M
         hlc::observe(&tx, newest, now)?;
     }
 
-    let mut touched = Touched::new();
+    let mut touched = Touched::default();
     let mut rejected = Vec::new();
     for row in rows {
         let sp = tx.savepoint()?;
-        let mut here = Touched::new();
+        let mut here = Touched::default();
         match apply(&sp, role, row, &mut here) {
             Ok(()) => {
                 sp.commit()?;
@@ -71,17 +126,61 @@ pub fn merge(conn: &mut Connection, rows: &[RowState], now: Instant) -> Result<M
     orphans(&tx, &mut touched, &mut rejected)?;
 
     capture::applying(&tx, false)?;
+    let batch_id = new_id();
     let mut changed = Vec::new();
-    for (table, key) in &touched {
+    for (table, key) in &touched.rows {
         let Some(t) = registry::table(table) else {
             continue;
         };
-        if let Some(state) = state::row_of(&tx, t, key, role)? {
-            changed.push(state);
-        }
+        let Some(state) = state::row_of(&tx, t, key, role)? else {
+            continue;
+        };
+        log(&tx, &batch_id, &touched, t, key, &state, now)?;
+        changed.push(state);
     }
     tx.commit()?;
     Ok(Merged { changed, rejected })
+}
+
+/// Records a merged change in this device's change log, so History can say
+/// where it came from; undo never offers it (its origin is set).
+fn log(
+    conn: &Connection,
+    batch_id: &str,
+    touched: &Touched,
+    table: &'static Table,
+    key: &str,
+    state: &RowState,
+    now: Instant,
+) -> Result<()> {
+    let Some(e) = entity(table.name) else {
+        return Ok(());
+    };
+    let Some(before) = touched.before.get(&(table.name, key.to_owned())) else {
+        return Ok(());
+    };
+    let after = undo::current(conn, e, key)?;
+    if *before == after {
+        return Ok(());
+    }
+    store::changes::insert(
+        conn,
+        &Change {
+            id: new_id(),
+            batch_id: batch_id.to_owned(),
+            op: "sync".to_owned(),
+            entity: e.to_owned(),
+            entity_id: key.to_owned(),
+            before: before.clone(),
+            after,
+            // Who on the other device made it doesn't travel; where does.
+            actor: Actor::User,
+            created_at: now,
+            undone_at: None,
+            reverts: None,
+            origin: Some(state.newest().device.clone()),
+        },
+    )
 }
 
 /// Whether an incoming group of this class may change this replica: devices
@@ -116,6 +215,7 @@ fn apply(conn: &Connection, role: Role, row: &RowState, touched: &mut Touched) -
     }
     let groups = incoming_groups(table, role, row)?;
     let key = row.key.as_str();
+    touched.note(conn, table, key)?;
 
     let local = capture::stamp(conn, table.name, key, ROW)?;
     let incoming_wins = local
@@ -396,6 +496,7 @@ fn tombstone_in(
     if !visiting.insert((table.name, key.to_owned())) {
         return Ok(());
     }
+    touched.note(conn, table, key)?;
     for child in TABLES {
         for parent in child.parents.iter().filter(|p| p.table == table.name) {
             let keys: Vec<String> = conn
@@ -947,5 +1048,156 @@ mod tests {
         settle(&mut a, &mut b);
         same(&a, &b);
         assert_eq!(count(&a, "tags"), 1);
+    }
+}
+
+/// Undo, redo and History once changes arrive from other devices (#78).
+#[cfg(test)]
+mod device_scoped {
+    use chrono::Utc;
+    use serde_json::{Value, json};
+
+    use super::merge;
+    use crate::model::Actor;
+    use crate::sync::{capture, device, state};
+    use crate::{Database, Planner, store};
+
+    fn planner() -> Planner {
+        Planner::new(Database::open_in_memory().unwrap(), chrono_tz::UTC)
+    }
+
+    fn run(p: &mut Planner, op: &str, args: Value) -> Value {
+        p.execute(op, args, &Actor::User).unwrap().result
+    }
+
+    /// `from`'s outbox merged into `to`.
+    fn send(from: &mut Planner, to: &mut Planner) {
+        let (rows, pending) = state::outbox(from.db().conn()).unwrap();
+        merge(to.db_mut().conn_mut(), &rows, Utc::now()).unwrap();
+        capture::acknowledge(from.db().conn(), &pending).unwrap();
+    }
+
+    #[test]
+    fn merged_changes_are_logged_with_their_origin_and_never_undone() {
+        let (mut laptop, mut desktop) = (planner(), planner());
+        let id = run(&mut laptop, "create_item", json!({ "title": "Buy milk" }))["id"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        send(&mut laptop, &mut desktop);
+
+        let log = store::changes::list_for_entity(desktop.db().conn(), "item", &id).unwrap();
+        assert_eq!(log.len(), 1);
+        assert_eq!(log[0].op, "sync");
+        assert_eq!(log[0].before, None);
+        assert_eq!(log[0].after.as_ref().unwrap()["title"], "Buy milk");
+        let laptop_id = device::id(laptop.db().conn()).unwrap();
+        assert_eq!(log[0].origin.as_deref(), Some(laptop_id.as_str()));
+
+        // Nothing this device did: nothing to undo.
+        let state = run(&mut desktop, "get_undo_state", json!({}));
+        assert!(state["undo"].is_null());
+        assert!(run(&mut desktop, "undo", json!({})).is_null());
+        assert!(
+            desktop
+                .execute("undo", json!({ "batch_id": log[0].batch_id }), &Actor::User)
+                .is_err(),
+            "undoing another device's change by id is refused"
+        );
+    }
+
+    #[test]
+    fn undo_reverses_this_devices_edit_not_the_one_merged_after_it() {
+        let (mut laptop, mut desktop) = (planner(), planner());
+        let a = run(&mut desktop, "create_item", json!({ "title": "Mine" }))["id"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        run(&mut laptop, "create_item", json!({ "title": "Theirs" }));
+        send(&mut laptop, &mut desktop);
+
+        let undone = run(&mut desktop, "undo", json!({}));
+        assert!(undone["summary"].as_str().unwrap().contains("Mine"));
+        assert!(
+            store::items::get(desktop.db().conn(), &a)
+                .unwrap()
+                .is_none()
+        );
+        let titles: Vec<String> = store::items::list_all(desktop.db().conn())
+            .unwrap()
+            .into_iter()
+            .map(|i| i.title)
+            .collect();
+        assert_eq!(titles, ["Theirs"]);
+    }
+
+    #[test]
+    fn a_remote_edit_to_the_same_item_blocks_undo() {
+        let (mut laptop, mut desktop) = (planner(), planner());
+        let id = run(&mut desktop, "create_item", json!({ "title": "Gym" }))["id"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        send(&mut desktop, &mut laptop);
+        run(
+            &mut desktop,
+            "update_item",
+            json!({ "id": id, "title": "Gym at 6" }),
+        );
+        run(
+            &mut laptop,
+            "update_item",
+            json!({ "id": id, "priority": 2 }),
+        );
+        send(&mut laptop, &mut desktop);
+        let err = desktop
+            .execute("undo", json!({}), &Actor::User)
+            .unwrap_err();
+        assert!(err.to_string().contains("has changed since"), "{err}");
+    }
+
+    #[test]
+    fn a_merged_change_doesnt_clear_redo() {
+        let (mut laptop, mut desktop) = (planner(), planner());
+        run(&mut desktop, "create_item", json!({ "title": "Mine" }));
+        run(&mut desktop, "undo", json!({}));
+        run(&mut laptop, "create_item", json!({ "title": "Theirs" }));
+        send(&mut laptop, &mut desktop);
+        let state = run(&mut desktop, "get_undo_state", json!({}));
+        assert!(!state["redo"].is_null());
+    }
+
+    #[test]
+    fn completions_say_which_device_they_came_from() {
+        let (mut laptop, mut desktop) = (planner(), planner());
+        let theirs = run(&mut laptop, "create_item", json!({ "title": "Theirs" }))["id"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        run(&mut laptop, "complete_item", json!({ "id": theirs }));
+        let mine = run(&mut desktop, "create_item", json!({ "title": "Mine" }))["id"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        run(&mut desktop, "complete_item", json!({ "id": mine }));
+        send(&mut laptop, &mut desktop);
+
+        let device_of = |p: &mut Planner, id: &str| -> Value {
+            let h = run(p, "list_completions", json!({}));
+            h["completions"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|c| c["id"] == id)
+                .unwrap()
+                .get("device")
+                .cloned()
+                .unwrap_or(Value::Null)
+        };
+        assert_eq!(device_of(&mut desktop, &mine), Value::Null);
+        assert_eq!(device_of(&mut desktop, &theirs), json!("another device"));
+        let laptop_id = device::id(laptop.db().conn()).unwrap();
+        device::set_peers(desktop.db().conn(), &[(laptop_id, "Laptop".into())]).unwrap();
+        assert_eq!(device_of(&mut desktop, &theirs), json!("Laptop"));
     }
 }

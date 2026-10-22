@@ -38,6 +38,7 @@ pub(crate) fn downgrade_to_1_2_0(conn: &rusqlite::Connection) {
     }
     conn.execute_batch(
         "DROP VIEW sync_now; DROP TABLE sync_clocks; DROP TABLE sync_state; \
+         DROP TABLE sync_peers; ALTER TABLE changes DROP COLUMN origin; \
          DROP TABLE sync_device; DROP TABLE sync_clock; PRAGMA user_version = 11;",
     )
     .unwrap();

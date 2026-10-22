@@ -191,13 +191,21 @@ export function HistoryView() {
                       )}
                     </span>
                     <span
-                      title={c.done_by === 'ai' ? 'Completed by the AI' : 'Completed over MCP'}
+                      title={
+                        c.device
+                          ? `Completed on ${c.device}`
+                          : c.done_by === 'ai'
+                            ? 'Completed by the AI'
+                            : 'Completed over MCP'
+                      }
                       className={cn(
-                        'rounded-[3px] border border-border px-[5px] font-mono text-[10px] text-text-muted',
-                        (c.done_by === 'user' || c.done_by === 'system') && 'invisible',
+                        'max-w-32 truncate rounded-[3px] border border-border px-[5px] font-mono text-[10px] text-text-muted',
+                        !c.device &&
+                          (c.done_by === 'user' || c.done_by === 'system') &&
+                          'invisible',
                       )}
                     >
-                      {c.done_by}
+                      {c.device ?? c.done_by}
                     </span>
                     <span className="text-right font-mono text-sm text-text-muted">
                       ✓ {c.completed_at ? clockTime(parseISO(c.completed_at)) : ''}

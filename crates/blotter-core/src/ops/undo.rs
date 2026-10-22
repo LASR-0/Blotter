@@ -73,7 +73,7 @@ pub struct UndoState {
 }
 
 /// Reads an entity's current state as the change log records it.
-fn current(conn: &Connection, entity: &str, id: &str) -> Result<Option<Value>> {
+pub(crate) fn current(conn: &Connection, entity: &str, id: &str) -> Result<Option<Value>> {
     Ok(match entity {
         "item" => store::items::get(conn, id)?
             .map(serde_json::to_value)
@@ -273,6 +273,11 @@ fn apply(ctx: &mut Ctx<'_>, batch_id: &str, undoing: bool) -> Result<BatchInfo> 
     if rows.iter().any(|c| c.op == "undo" || c.op == "redo") {
         return Err(CoreError::invalid(
             "that batch is itself an undo or redo; use redo or undo instead",
+        ));
+    }
+    if rows.iter().any(|c| c.origin.is_some()) {
+        return Err(CoreError::invalid(
+            "that change was made on another device; undo it there",
         ));
     }
     let summary = summarize(&rows);
