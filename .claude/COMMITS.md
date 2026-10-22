@@ -158,7 +158,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 76 | 16a | `feat(core): wire types and merging remote changes per field group` | committed `b875e15` |
 | 77 | 16a | `test(core): multi-replica convergence tests` | committed `d5ec285` |
 | 78 | 16a | `feat(core): undo and redo scoped to this device` | committed `4dd7ae4` |
-| 79 | 16a | `refactor(core): subscription and holiday upkeep a caller can drive` | committed (hash in the next entry) |
+| 79 | 16a | `refactor(core): subscription and holiday upkeep a caller can drive` | committed `3b87cab` |
+| 79a | 16a | `build: rust-version 1.95` | committed (hash in the next entry) |
 | 80 | 16b | `feat(app): sync engine with push, pull and address failover` | planned |
 | 81 | 16b | `feat(app): pairing and Settings → Sync` | planned |
 | 82 | 16b | `feat(app): connect to a home server from first run, and joining` | planned |
@@ -5224,3 +5225,18 @@ Test steps:
 Notes:
     - 16a is complete in code (#73-#79). Next: Blotter Sync #03-#06 in ../Blotter-sync,
       then 16b here.
+
+### #79a — rust-version 1.95            [status: committed — hash in the next entry]
+Phase: 16a
+Message:
+    build: rust-version 1.95
+
+    The workspace said 1.88, but rusqlite_migration 2.6.0 already needs
+    1.95, so an older toolchain failed on a dependency rather than at the
+    stated minimum. Found while setting up Blotter Sync, which builds
+    blotter-core as a git dependency. #79 is 3b87cab.
+Files:
+    M  Cargo.toml
+    M  .claude/COMMITS.md
+Test steps:
+    - cargo check --workspace → clean on 1.98
