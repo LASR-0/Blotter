@@ -33,6 +33,15 @@ pub(crate) fn ensure(conn: &Connection, now: Instant) -> Result<()> {
     Ok(())
 }
 
+/// Gives a copied database a new identity (for in-memory test copies).
+pub(crate) fn renew(conn: &Connection, now: Instant) -> Result<()> {
+    conn.execute(
+        "UPDATE sync_device SET device_id = ?1, name = NULL, created_at = ?2 WHERE id = 1",
+        (new_id(), time::fmt_instant(now)),
+    )?;
+    Ok(())
+}
+
 pub fn get(conn: &Connection) -> Result<Device> {
     let (id, name, created_at): (String, Option<String>, String) = conn
         .query_row(
@@ -183,11 +192,7 @@ mod tests {
         let old_path = dir.path().join("1.2.0.db");
         {
             let old = Database::open(&old_path).unwrap();
-            old.conn()
-                .execute_batch(
-                    "DROP TABLE sync_device; DROP TABLE sync_clock; PRAGMA user_version = 11;",
-                )
-                .unwrap();
+            crate::sync::downgrade_to_1_2_0(old.conn());
         }
 
         let mut db = Database::open(&dir.path().join("mine.db")).unwrap();
@@ -195,7 +200,7 @@ mod tests {
         let stamp = hlc::tick(db.conn(), far_future()).unwrap();
 
         db.restore_from(&old_path).unwrap();
-        assert_eq!(db.schema_version().unwrap(), 12);
+        assert_eq!(db.schema_version().unwrap(), 13);
         assert_eq!(get(db.conn()).unwrap(), mine);
         assert!(hlc::tick(db.conn(), Utc::now()).unwrap() > stamp);
     }

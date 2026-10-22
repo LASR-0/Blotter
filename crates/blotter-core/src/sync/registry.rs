@@ -320,6 +320,8 @@ pub const TABLES: &[Table] = &[
     local_table("snapshots", &["id"]),
     local_table("sync_device", &["id"]),
     local_table("sync_clock", &["id"]),
+    local_table("sync_state", &["id"]),
+    local_table("sync_clocks", &["tbl", "row_key", "grp"]),
 ];
 
 /// Settings shared by every device: how the planner itself behaves.

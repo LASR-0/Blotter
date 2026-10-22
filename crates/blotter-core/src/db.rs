@@ -1,11 +1,13 @@
 //! Opening the SQLite database, connection pragmas and schema migrations.
 
 use std::path::Path;
+use std::sync::{Mutex, OnceLock};
 
 use rusqlite::Connection;
+use rusqlite::backup::Backup;
 use rusqlite_migration::{M, Migrations};
 
-use crate::error::Result;
+use crate::error::{CoreError, Result};
 use crate::sync;
 
 /// Ordered schema migrations. Append new ones; never edit a shipped one.
@@ -22,6 +24,7 @@ const MIGRATION_LIST: &[M<'static>] = &[
     M::up(include_str!("../migrations/0010_holidays_keep_sleep.sql")),
     M::up(include_str!("../migrations/0011_holiday_source.sql")),
     M::up(include_str!("../migrations/0012_sync_device.sql")),
+    M::up(include_str!("../migrations/0013_sync_capture.sql")),
 ];
 const MIGRATIONS: Migrations<'static> = Migrations::from_slice(MIGRATION_LIST);
 
@@ -49,9 +52,33 @@ impl Database {
         Self::init(conn)
     }
 
-    /// A private in-memory database, for tests.
+    /// A private in-memory database, for tests. Each is a copy of one
+    /// migrated template (migrating and installing capture for every test
+    /// database is slow), with its own device id.
     pub fn open_in_memory() -> Result<Self> {
-        Self::init(Connection::open_in_memory()?)
+        static TEMPLATE: OnceLock<Mutex<Connection>> = OnceLock::new();
+        let template = match TEMPLATE.get() {
+            Some(t) => t,
+            None => {
+                let fresh = Self::init(Connection::open_in_memory()?)?.conn;
+                TEMPLATE.get_or_init(|| Mutex::new(fresh))
+            }
+        };
+        let mut conn = Connection::open_in_memory()?;
+        {
+            let source = template
+                .lock()
+                .map_err(|_| CoreError::invalid("the template database is poisoned"))?;
+            Backup::new(&source, &mut conn)?.run_to_completion(
+                i32::MAX,
+                std::time::Duration::ZERO,
+                None,
+            )?;
+        }
+        conn.pragma_update(None, "foreign_keys", "ON")?;
+        conn.busy_timeout(std::time::Duration::from_secs(5))?;
+        sync::device::renew(&conn, chrono::Utc::now())?;
+        Ok(Self { conn })
     }
 
     fn init(mut conn: Connection) -> Result<Self> {
@@ -59,15 +86,18 @@ impl Database {
         conn.busy_timeout(std::time::Duration::from_secs(5))?;
         MIGRATIONS.to_latest(&mut conn)?;
         sync::device::ensure(&conn, chrono::Utc::now())?;
+        sync::capture::install(&mut conn)?;
         Ok(Self { conn })
     }
 
     /// Replaces this database's contents with the database file at `path`
     /// (SQLite's backup API, so the open connection stays valid), then
     /// migrates it, in case it came from an older version of Blotter. This
-    /// device's sync identity and clock are kept, whatever the file holds.
+    /// device's sync identity, clock and role are kept, whatever the file
+    /// holds, and capture is installed if the file predates it.
     pub fn restore_from(&mut self, path: &Path) -> Result<()> {
         let kept = sync::device::keep(&self.conn)?;
+        let role = sync::capture::role(&self.conn)?;
         self.conn.restore(
             rusqlite::MAIN_DB,
             path,
@@ -76,6 +106,7 @@ impl Database {
         self.conn.pragma_update(None, "foreign_keys", "ON")?;
         MIGRATIONS.to_latest(&mut self.conn)?;
         sync::device::put_back(&self.conn, &kept)?;
+        sync::capture::set_role(&mut self.conn, role)?;
         Ok(())
     }
 
@@ -122,7 +153,7 @@ mod tests {
     #[test]
     fn in_memory_database_is_migrated() {
         let db = Database::open_in_memory().unwrap();
-        assert_eq!(db.schema_version().unwrap(), 12);
+        assert_eq!(db.schema_version().unwrap(), 13);
         let fk: i64 = db
             .conn()
             .pragma_query_value(None, "foreign_keys", |r| r.get(0))
@@ -139,7 +170,7 @@ mod tests {
             assert_eq!(db.journal_mode().unwrap(), "wal");
         }
         let db = Database::open(&path).unwrap();
-        assert_eq!(db.schema_version().unwrap(), 12);
+        assert_eq!(db.schema_version().unwrap(), 13);
     }
 
     #[test]

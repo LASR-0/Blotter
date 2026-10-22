@@ -153,8 +153,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 72 | 16 | `docs: v1.2.1 sync plan` | committed `7cb6137` |
 | 72a | 16 | `docs: sync schema gate confirmed, Blotter-Sync repo name` | committed `78626ec` |
 | 73 | 16a | `feat(core): device identity and hybrid logical clock` | committed `eda091d` |
-| 74 | 16a | `feat(core): sync registry for tables, columns and settings` | committed (hash in the next entry) |
-| 75 | 16a | `feat(core): capture synced writes into an outbox` | planned |
+| 74 | 16a | `feat(core): sync registry for tables, columns and settings` | committed `12a01e5` |
+| 75 | 16a | `feat(core): capture synced writes into an outbox` | committed (hash in the next entry) |
 | 76 | 16a | `feat(core): wire types and merging remote changes per field group` | planned |
 | 77 | 16a | `test(core): multi-replica convergence tests` | planned |
 | 78 | 16a | `feat(core): undo and redo scoped to this device` | planned |
@@ -4994,3 +4994,64 @@ Notes:
       The brief had ai_mode synced and didn't list clock; say if either should change.
     - FINGERPRINTS[0] may still be replaced until 1.2.1 ships (#75 adds sync tables, all
       device-local, which don't change it).
+
+### #75 — Capture synced writes into an outbox            [status: committed — hash in the next entry]
+Phase: 16a
+Message:
+    feat(core): capture synced writes into an outbox
+
+    Change capture with SQLite triggers (D-S7), so every write to synced
+    data is stamped and queued, whichever code path or process makes it:
+    the operation layer, direct store writes (settings, keybindings,
+    themes, subscriptions, reminder snoozes), imports, and the MCP
+    server's own connection.
+
+    - sync::capture generates insert, update, re-key and delete triggers
+      for every synced table from the registry and installs them when
+      the database opens; a fingerprint in sync_state reinstalls them
+      only when the registry or role changes. An update stamps only the
+      field groups whose columns changed; a write that changes nothing
+      synced isn't captured at all.
+    - The triggers tick the hybrid logical clock in SQL, in the same
+      format as sync::hlc, so the app, the MCP process and Rust code all
+      share one clock.
+    - sync_clocks (migration 0013) keeps the stamp per row and group,
+      and per row under the group "" when it was created or deleted (a
+      tombstone; cascaded deletes leave theirs). Its pending flag is the
+      outbox: pending(), pending_count(), and acknowledge(), which keeps
+      a group pending if a newer write stamped it after it was read.
+    - Settings sync per key; device-local columns and tables
+      (reminders.fired_at, the undo log, chat, snapshots) are never
+      captured. Server-owned data (subscription fetch status, the
+      ics_events cache, last_rollover_date) is captured only once Blotter
+      Sync sets the role to server.
+    - Writes made while applying remote changes aren't captured: the
+      merge sets sync_state.applying inside its transaction (the
+      connection-scoped flag of D-S7; a main-schema trigger can't read a
+      temp table, and no other connection can write in between).
+    - Upgrading, or restoring a pre-1.2.1 snapshot, stamps every existing
+      row once. Restore keeps the role.
+    - Database::open_in_memory copies one migrated template instead of
+      migrating every test database (the core tests had gone from 5 s to
+      16 s; now 9 s).
+
+    #74 is 12a01e5.
+Files:
+    A  crates/blotter-core/migrations/0013_sync_capture.sql
+    A  crates/blotter-core/src/sync/capture.rs
+    M  crates/blotter-core/src/sync/mod.rs, crates/blotter-core/src/sync/registry.rs,
+       crates/blotter-core/src/sync/device.rs, crates/blotter-core/src/db.rs
+    M  .claude/COMMITS.md
+Test steps:
+    - cargo test --workspace → 243 core (18 new) + 51 app + 6 mcp; clippy -D warnings clean;
+      fmt clean
+    - Cost (release build): 1,000 item inserts + 1,000 updates in one transaction take
+      396 ms with capture and 27 ms without (~0.2 ms a write; an operation makes a handful).
+      Installing the triggers takes ~7 ms, once per upgrade.
+    - Upgrade check on a copy of Luke's database: schema 11 → 13; first open 16 ms; every
+      row stamped once (items 29 rows, 464 stamps = 16 each; settings 6 synced keys of 13);
+      715 changes pending; the next open 5 ms
+Notes:
+    - The outbox is the pending flag on sync_clocks, not a separate table: a group pending
+      twice is one entry with the newer stamp, and a push reads current values with them.
+    - Local only mode captures too, so a first pairing can push everything it holds.
