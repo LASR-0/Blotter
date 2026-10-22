@@ -1,0 +1,7 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc bd1feebac7c0f6310a82fcc1bffc983c5d0db129fca92620bb892720ff4b423a # shrinks to steps = [Edit(1, AddReminder(1, 3)), Sync { device: 1, seed: 745528891607815231, repeat: true }, Edit(2, Lift(0, 1)), Edit(2, CreateItem(3)), Edit(2, WeekStart(1)), Edit(1, Lift(0, 0)), Edit(0, Reschedule(0, 15, 4)), Edit(0, Unlift(2)), Edit(1, Retitle(2, 187)), Edit(2, Reschedule(0, 29, 1)), Edit(2, AddReminder(2, 2)), Edit(2, Snooze(0, 255)), Edit(2, Lift(1, 0)), Edit(2, TagColor(0, 100))]

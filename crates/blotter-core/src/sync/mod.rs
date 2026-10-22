@@ -7,6 +7,8 @@
 //! server each bring their own.
 
 pub mod capture;
+#[cfg(test)]
+mod convergence;
 pub mod device;
 pub mod hlc;
 pub mod merge;

@@ -155,8 +155,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 73 | 16a | `feat(core): device identity and hybrid logical clock` | committed `eda091d` |
 | 74 | 16a | `feat(core): sync registry for tables, columns and settings` | committed `12a01e5` |
 | 75 | 16a | `feat(core): capture synced writes into an outbox` | committed `bbaf848` |
-| 76 | 16a | `feat(core): wire types and merging remote changes per field group` | committed (hash in the next entry) |
-| 77 | 16a | `test(core): multi-replica convergence tests` | planned |
+| 76 | 16a | `feat(core): wire types and merging remote changes per field group` | committed `b875e15` |
+| 77 | 16a | `test(core): multi-replica convergence tests` | committed (hash in the next entry) |
 | 78 | 16a | `feat(core): undo and redo scoped to this device` | planned |
 | 79 | 16a | `refactor(core): subscription and holiday upkeep a caller can drive` | planned |
 | 80 | 16b | `feat(app): sync engine with push, pull and address failover` | planned |
@@ -5105,3 +5105,39 @@ Notes:
     - Randomised convergence across many replicas and orderings is #77.
     - A rejection is reported, not retried: Blotter Sync returns them to the device (#05
       there), which shows them as a sync problem.
+
+### #77 — Multi-replica convergence tests            [status: committed — hash in the next entry]
+Phase: 16a
+Message:
+    test(core): multi-replica convergence tests
+
+    Property tests (proptest) for the merge (roadmap §14.10): three
+    devices and a server hub with a change log run random interleavings
+    of item edits, reschedules, completions, deletes and re-creations,
+    reminders and snoozes, block-out lifts (colliding on purpose), tags
+    and settings, syncing now and then with each pull shuffled and, at
+    random, earlier log entries delivered again. Once everything has
+    synced, every device holds exactly the server's rows, stamps and
+    values, nothing is left pending, and no row breaks a constraint or
+    lost its parent. 64 cases per run; failures shrink and are kept in
+    proptest-regressions/ so they replay.
+
+    The first long run found that settling in a fixed number of rounds
+    could stop one round early: a tombstone a device works out in a
+    merge reaches the others with its next push. The test now settles
+    until nothing is pending and every device has pulled the whole log,
+    and the shrunk case is a named test. #76 is b875e15.
+Files:
+    A  crates/blotter-core/src/sync/convergence.rs
+    A  crates/blotter-core/proptest-regressions/sync/convergence.txt
+    M  crates/blotter-core/src/sync/mod.rs, crates/blotter-core/Cargo.toml, Cargo.lock
+       (proptest 1.12.0, dev only)
+    M  .claude/COMMITS.md
+Test steps:
+    - cargo test --workspace → 262 core (2 new) + 51 app + 6 mcp; clippy -D warnings clean;
+      fmt clean
+    - PROPTEST_CASES=3000 cargo test --release -p blotter-core convergence → passes (187 s)
+    - Mutation checks, each restored: an incoming group always winning, whatever its stamp,
+      fails the property; so does dropping "a local delete beats incoming edits"
+Notes:
+    - The core suite takes ~19 s in debug now (was ~12 s); most of it is the 64 cases.
