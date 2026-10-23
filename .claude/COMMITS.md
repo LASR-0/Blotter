@@ -162,7 +162,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 79a | 16a | `build: rust-version 1.95` | committed `aa31b69` |
 | 79b | 16 | `fix(ui): the Diary moves on to today when the date changes` | committed `bd0017b` |
 | 79c | 16a | `test(core): the clock test no longer expires` | committed `6b33cb5` |
-| 79d | 16a | `feat(core): undo per field group` | committed (hash in the next entry) |
+| 79d | 16a | `feat(core): undo per field group` | committed `661cbeb` |
+| 79e | 16a | `feat(core): Blotter Sync's request and response types` | committed (hash in the next entry) |
 | 80 | 16b | `feat(app): sync engine with push, pull and address failover` | planned |
 | 81 | 16b | `feat(app): pairing and Settings → Sync` | planned |
 | 82 | 16b | `feat(app): connect to a home server from first run, and joining` | planned |
@@ -5323,3 +5324,28 @@ Notes:
     - Blotter Sync's tests/two_replicas.rs expects the old refusal (a reschedule undone over
       a retitle); flip it when its blotter-core pin moves past this commit.
     - The refusal message is unchanged ("“X” has changed since").
+
+### #79e — Blotter Sync's request and response types            [status: committed — hash in the next entry]
+Phase: 16a
+Message:
+    feat(core): Blotter Sync's request and response types
+
+    The HTTP API's envelopes move into blotter-core::sync::api, so the
+    app's client (#80) and the server build against one copy (§14.5):
+    the version headers and Versions, the endpoint paths, Hello, the
+    typed ErrorCode and ErrorBody (an unknown code from a newer server
+    reads as Unknown), PairRequest and Paired, push, pull and bootstrap
+    bodies, the change stream's Notice, and the snapshot types. Shapes
+    are exactly Blotter Sync's as of its 1.0.0-rc.1. #79d is 661cbeb.
+Files:
+    A  crates/blotter-core/src/sync/api.rs
+    M  crates/blotter-core/src/sync/mod.rs
+    M  .claude/COMMITS.md
+Test steps:
+    - cargo test -p blotter-core → 279 passed (3 new: hello as the server sends it, round
+      trip; an error with the server's versions, an unknown code; paths and a pull page);
+      clippy, fmt clean
+Notes:
+    - Blotter Sync switches its api.rs, changes.rs, auth.rs and admin.rs types to these
+      when its blotter-core pin moves (its own ledger entry); its axum status mapping stays
+      there.

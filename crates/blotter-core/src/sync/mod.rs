@@ -3,9 +3,11 @@
 //! Everything a replica needs to take part in sync without any networking:
 //! this device's identity, its hybrid logical clock, and the registry of
 //! what syncs. Change capture, the merge function and the wire types join
-//! them (roadmap §14). Networking stays out of the core: the app and the
+//! them (roadmap §14), with the HTTP API's request and response types
+//! (`api`). Networking stays out of the core: the app and the
 //! server each bring their own.
 
+pub mod api;
 pub mod capture;
 #[cfg(test)]
 mod convergence;
