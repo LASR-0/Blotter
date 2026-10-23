@@ -163,8 +163,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 79b | 16 | `fix(ui): the Diary moves on to today when the date changes` | committed `bd0017b` |
 | 79c | 16a | `test(core): the clock test no longer expires` | committed `6b33cb5` |
 | 79d | 16a | `feat(core): undo per field group` | committed `661cbeb` |
-| 79e | 16a | `feat(core): Blotter Sync's request and response types` | committed (hash in the next entry) |
-| 80 | 16b | `feat(app): sync engine with push, pull and address failover` | planned |
+| 79e | 16a | `feat(core): Blotter Sync's request and response types` | committed `2c89f08` |
+| 80 | 16b | `feat(app): sync engine with push, pull and address failover` | committed (hash in the next entry) |
 | 81 | 16b | `feat(app): pairing and Settings → Sync` | planned |
 | 82 | 16b | `feat(app): connect to a home server from first run, and joining` | planned |
 | 83 | 16b | `feat(app): hand automatic duties to the server` | planned |
@@ -5349,3 +5349,64 @@ Notes:
     - Blotter Sync switches its api.rs, changes.rs, auth.rs and admin.rs types to these
       when its blotter-core pin moves (its own ledger entry); its axum status mapping stays
       there.
+
+### #80 — Sync engine with push, pull and address failover            [status: committed — hash in the next entry]
+Phase: 16b
+Message:
+    feat(app): sync engine with push, pull and address failover
+
+    Once a home server is paired, the app syncs with it in the
+    background (§14.6); in Local only mode nothing runs.
+
+    - Core: migration 0015 adds sync_server, the device-local link to
+      the server (its id, the ordered addresses, the epoch and last seq
+      pulled, when it last synced), kept across a snapshot restore with
+      the device's identity. No row is Local only.
+    - The engine picks the first address answering as this device's
+      server with matching versions, and rechecks earlier ones every 5
+      minutes so a laptop back home returns to the LAN; another server
+      at an address is skipped. It pushes the outbox, acknowledges it
+      (rejections are logged), pulls page by page and merges each, and
+      records the cursor.
+    - It runs after local writes (debounced 1.5 s; its own merges don't
+      wake it), on every notice from the server's change stream, every
+      minute as a fallback, and with backoff and jitter (2 s to 5 min)
+      while unreachable. Merged rows refresh the windows through the
+      changed event.
+    - One status for the UI (sync_status, "sync:status"): local only,
+      syncing, synced via an address, offline with why each address
+      failed and a Tailscale hint, or needs attention: update Blotter or
+      update Blotter Sync (from the versions), revoked, unauthorized,
+      fetch the server's planner again, a different server. Plus unsent
+      changes and the last sync.
+    - Plain http:// only to loopback, private, link-local, unique-local
+      and Tailscale addresses, judged by what a name resolves to
+      (D-S6). The token is read from the OS keychain.
+    #79e is 2c89f08.
+Files:
+    A  crates/blotter-core/migrations/0015_sync_server.sql, crates/blotter-core/src/sync/link.rs
+    M  crates/blotter-core/src/db.rs, crates/blotter-core/src/sync/device.rs,
+       crates/blotter-core/src/sync/mod.rs, crates/blotter-core/src/sync/registry.rs
+    A  src-tauri/src/sync/mod.rs, src-tauri/src/sync/engine.rs, src-tauri/src/sync/client.rs,
+       src-tauri/src/sync/address.rs, src-tauri/src/sync/token.rs
+    M  src-tauri/src/lib.rs, src-tauri/Cargo.toml (url; reqwest gzip; tokio net), Cargo.lock
+    M  .claude/COMMITS.md
+Test steps:
+    - cargo test --workspace → 281 core (2 new) + 63 app (12 new) + 6 mcp; clippy -D
+      warnings, fmt clean
+    - New, against an in-memory server: two devices sync both ways and the outbox empties;
+      failover to Tailscale and back to the LAN only at the recheck; offline lists each
+      address's failure and the Tailscale hint; another server at an address is skipped,
+      and alone it's "a different server"; mismatches name the side to update; revoked,
+      unauthorized and stale epoch need attention, a rate limit retries; Local only and a
+      missing token do nothing. The link survives a restore. Address rule and Tailscale
+      ranges; backoff; status JSON.
+    - Live (ignored test live_sync_against_blotter_sync, BLOTTER_LIVE_SYNC and
+      BLOTTER_LIVE_SYNC_CODE): against Blotter Sync 1.0.0-rc.1 on 127.0.0.1 → paired,
+      pushed, pulled, heard the push's seq on the change stream, a bad token is
+      unauthorized. Passed.
+Notes:
+    - Nothing sets a link yet: pairing and Settings → Sync are #81, so this is inert in
+      the app until then. normalize() and the token's set/delete come with #81.
+    - A stale epoch only reports "fetch again"; re-bootstrapping is #82 with joining.
+    - The duties still run here too until #83.

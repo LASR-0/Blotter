@@ -9,7 +9,7 @@ use serde::Serialize;
 
 use crate::error::{CoreError, Result};
 use crate::id::new_id;
-use crate::sync::hlc;
+use crate::sync::{hlc, link};
 use crate::time::{self, Instant};
 
 /// Longest device name, in characters.
@@ -116,25 +116,32 @@ pub fn origin_name(conn: &Connection, origin: Option<&str>) -> Result<Option<Str
     Ok(Some(name.unwrap_or_else(|| "another device".to_owned())))
 }
 
-/// This device's identity and clock, held across a wholesale replace of the
-/// database (snapshot restore), which would otherwise bring back an older
-/// clock, another install's id, or none at all for a pre-1.2.1 snapshot.
+/// This device's identity, clock and server link, held across a wholesale
+/// replace of the database (snapshot restore), which would otherwise bring
+/// back an older clock, another install's id (or none at all, for a
+/// pre-1.2.1 snapshot) and an older pull cursor or pairing.
 #[derive(Debug)]
 pub(crate) struct Kept {
     device: Device,
     clock: hlc::Clock,
+    link: Option<link::Link>,
 }
 
 pub(crate) fn keep(conn: &Connection) -> Result<Kept> {
     Ok(Kept {
         device: get(conn)?,
         clock: hlc::load(conn)?,
+        link: link::get(conn)?,
     })
 }
 
 /// Puts back what [`keep`] held. The clock keeps the later of the two, so it
 /// never goes backwards.
 pub(crate) fn put_back(conn: &Connection, kept: &Kept) -> Result<()> {
+    link::clear(conn)?;
+    if let Some(l) = &kept.link {
+        link::set(conn, l)?;
+    }
     conn.execute(
         "INSERT INTO sync_device (id, device_id, name, created_at) VALUES (1, ?1, ?2, ?3) \
          ON CONFLICT (id) DO UPDATE SET device_id = excluded.device_id, name = excluded.name, \
@@ -230,7 +237,7 @@ mod tests {
         let stamp = hlc::tick(db.conn(), far_future()).unwrap();
 
         db.restore_from(&old_path).unwrap();
-        assert_eq!(db.schema_version().unwrap(), 14);
+        assert_eq!(db.schema_version().unwrap(), 15);
         assert_eq!(get(db.conn()).unwrap(), mine);
         assert!(hlc::tick(db.conn(), Utc::now()).unwrap() > stamp);
     }

@@ -18,6 +18,7 @@ mod reminders;
 mod rollover;
 mod shell;
 mod subscriptions;
+mod sync;
 mod themes;
 mod titlebar;
 mod updates;
@@ -153,6 +154,8 @@ pub fn run() {
             app.manage(public_holidays::Tried::default());
             app.manage(updates::Updates::default());
             subscriptions::start(app.handle().clone());
+            app.manage(sync::SyncEngine::default());
+            sync::start(app.handle().clone());
             // The main window starts hidden (tauri.conf.json) so `--hidden`
             // launches never flash it.
             shell::handle_launch(app.handle(), &launch);
@@ -220,6 +223,7 @@ pub fn run() {
             subscriptions::update_subscription,
             subscriptions::remove_subscription,
             subscriptions::refresh_subscription,
+            sync::sync_status,
             ai::commands::list_providers,
             ai::commands::save_provider,
             ai::commands::delete_provider,

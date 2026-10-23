@@ -26,6 +26,7 @@ const MIGRATION_LIST: &[M<'static>] = &[
     M::up(include_str!("../migrations/0012_sync_device.sql")),
     M::up(include_str!("../migrations/0013_sync_capture.sql")),
     M::up(include_str!("../migrations/0014_change_origin.sql")),
+    M::up(include_str!("../migrations/0015_sync_server.sql")),
 ];
 const MIGRATIONS: Migrations<'static> = Migrations::from_slice(MIGRATION_LIST);
 
@@ -154,7 +155,7 @@ mod tests {
     #[test]
     fn in_memory_database_is_migrated() {
         let db = Database::open_in_memory().unwrap();
-        assert_eq!(db.schema_version().unwrap(), 14);
+        assert_eq!(db.schema_version().unwrap(), 15);
         let fk: i64 = db
             .conn()
             .pragma_query_value(None, "foreign_keys", |r| r.get(0))
@@ -171,7 +172,7 @@ mod tests {
             assert_eq!(db.journal_mode().unwrap(), "wal");
         }
         let db = Database::open(&path).unwrap();
-        assert_eq!(db.schema_version().unwrap(), 14);
+        assert_eq!(db.schema_version().unwrap(), 15);
     }
 
     #[test]

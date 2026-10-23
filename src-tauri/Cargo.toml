@@ -24,7 +24,7 @@ dirs = "7.0.0"
 futures-util = "0.3.32"
 iana-time-zone = "0.1.65"
 keyring = "4.2.0"
-reqwest = { version = "0.13.5", features = ["json", "stream"] }
+reqwest = { version = "0.13.5", features = ["json", "stream", "gzip"] }
 serde.workspace = true
 serde_json.workspace = true
 tauri = { version = "2.12.3", features = ["tray-icon"] }
@@ -36,7 +36,8 @@ tauri-plugin-notification = "2.4.0"
 tauri-plugin-opener = "2.5.5"
 tauri-plugin-single-instance = "2.5.3"
 tauri-plugin-updater = "2.12.0"
-tokio = { version = "1.53.3", features = ["io-util", "macros", "process", "rt", "sync", "time"] }
+url = "2.5.8"
+tokio = { version = "1.53.3", features = ["io-util", "macros", "net", "process", "rt", "sync", "time"] }
 
 [lints]
 workspace = true
