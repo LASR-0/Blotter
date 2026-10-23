@@ -160,7 +160,9 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 78 | 16a | `feat(core): undo and redo scoped to this device` | committed `4dd7ae4` |
 | 79 | 16a | `refactor(core): subscription and holiday upkeep a caller can drive` | committed `3b87cab` |
 | 79a | 16a | `build: rust-version 1.95` | committed `aa31b69` |
-| 79b | 16 | `fix(ui): the Diary moves on to today when the date changes` | committed (hash in the next entry) |
+| 79b | 16 | `fix(ui): the Diary moves on to today when the date changes` | committed `bd0017b` |
+| 79c | 16a | `test(core): the clock test no longer expires` | committed (hash in the next entry) |
+| 79d | 16a | `feat(core): undo per field group` | planned |
 | 80 | 16b | `feat(app): sync engine with push, pull and address failover` | planned |
 | 81 | 16b | `feat(app): pairing and Settings → Sync` | planned |
 | 82 | 16b | `feat(app): connect to a home server from first run, and joining` | planned |
@@ -5268,3 +5270,22 @@ Test steps:
       asleep; the store action)
     - Pending, Luke: leave Blotter open past midnight (or put the machine to sleep across
       it) → the Diary starts on the new day and the timeline shows it
+
+### #79c — The clock test no longer expires            [status: committed — hash in the next entry]
+Phase: 16a (patch)
+Message:
+    test(core): the clock test no longer expires
+
+    observing_a_later_stamp_orders_the_next_tick_after_it used fixed
+    stamps on 2026-10-22, but opening a database captures the default
+    settings, which ticks the clock to the real time; once that passed
+    the remote stamp (08:10 UTC that day), the next tick ordered after
+    the real time instead, and the test failed on every run. Its stamps
+    now sit a day after the real time. #79b is bd0017b.
+Files:
+    M  crates/blotter-core/src/sync/hlc.rs
+    M  .claude/COMMITS.md
+Test steps:
+    - cargo test -p blotter-core → 270 passed (failed 269/1 before); clippy, fmt clean
+Notes:
+    - Test-only: the clock itself was right (it should never go backwards).

@@ -319,9 +319,11 @@ mod tests {
     fn observing_a_later_stamp_orders_the_next_tick_after_it() {
         let db = Database::open_in_memory().unwrap();
         let conn = db.conn();
-        let t = at(1_792_656_000_000);
+        // Opening captures the default settings, which ticks the clock to
+        // the real time, so both stamps sit after it.
+        let t = Utc::now() + Duration::days(1);
         let remote = Hlc {
-            wall_ms: 1_792_656_600_000,
+            wall_ms: (t + Duration::minutes(10)).timestamp_millis(),
             counter: 4,
             device: "01JBOTHERDEVICE00000000000".into(),
         };
