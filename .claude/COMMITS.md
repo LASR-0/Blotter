@@ -161,8 +161,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 79 | 16a | `refactor(core): subscription and holiday upkeep a caller can drive` | committed `3b87cab` |
 | 79a | 16a | `build: rust-version 1.95` | committed `aa31b69` |
 | 79b | 16 | `fix(ui): the Diary moves on to today when the date changes` | committed `bd0017b` |
-| 79c | 16a | `test(core): the clock test no longer expires` | committed (hash in the next entry) |
-| 79d | 16a | `feat(core): undo per field group` | planned |
+| 79c | 16a | `test(core): the clock test no longer expires` | committed `6b33cb5` |
+| 79d | 16a | `feat(core): undo per field group` | committed (hash in the next entry) |
 | 80 | 16b | `feat(app): sync engine with push, pull and address failover` | planned |
 | 81 | 16b | `feat(app): pairing and Settings → Sync` | planned |
 | 82 | 16b | `feat(app): connect to a home server from first run, and joining` | planned |
@@ -5289,3 +5289,37 @@ Test steps:
     - cargo test -p blotter-core → 270 passed (failed 269/1 before); clippy, fmt clean
 Notes:
     - Test-only: the clock itself was right (it should never go backwards).
+
+### #79d — Undo per field group            [status: committed — hash in the next entry]
+Phase: 16a
+Message:
+    feat(core): undo per field group
+
+    Undo and redo refused whenever anything had changed the item since,
+    so once a server's rollover moves tasks and other devices edit, they
+    would often refuse to undo an edit nothing had touched (D33, amends
+    D24). Now, when an entity isn't as the batch left it, they go ahead
+    per field group, the unit sync merges by: the groups the batch
+    changed must still be as it left them (or already back) and are put
+    back, and every other group keeps its later value, with the row's
+    updated_at from that later write. A later change to one of the
+    batch's groups still refuses, as does any field outside the
+    registry's groups; creating and deleting a row, and settings, stay
+    all or nothing. The undo syncs as an ordinary edit. #79c is 6b33cb5.
+Files:
+    M  crates/blotter-core/src/ops/undo.rs, crates/blotter-core/src/sync/merge.rs
+    M  .claude/roadmap.md (D33, §14 AC)
+    M  .claude/COMMITS.md
+Test steps:
+    - cargo test --workspace → 276 core (6 new) + 51 app + 6 mcp; clippy -D warnings, fmt
+      clean
+    - New: undoing a move keeps a later retitle, and redo puts the move back over it; redo
+      keeps an automatic move made after the undo; a system move doesn't block undoing a
+      notes edit (updated_at from the move); a later edit to another column of the same
+      group (timing) refuses and writes nothing; undoing a create after an edit refuses; a
+      remote priority edit survives undoing a retitle and both replicas converge, while a
+      remote retitle still blocks it (replaces a_remote_edit_to_the_same_item_blocks_undo)
+Notes:
+    - Blotter Sync's tests/two_replicas.rs expects the old refusal (a reschedule undone over
+      a retitle); flip it when its blotter-core pin moves past this commit.
+    - The refusal message is unchanged ("“X” has changed since").

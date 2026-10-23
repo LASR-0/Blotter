@@ -3,13 +3,18 @@
 //! Undo reverses the newest batch of edits that hasn't been undone, by the
 //! user or the AI (automatic system changes such as the rollover are
 //! skipped), by writing each entity back to its `before` state; redo
-//! re-applies the batch the latest undo reversed, as long as nothing has
-//! been edited since. Both write their own change rows (op `undo` / `redo`,
-//! `reverts` naming the batch), so the log stays append-only.
+//! re-applies the batch the latest undo reversed. Both write their own
+//! change rows (op `undo` / `redo`, `reverts` naming the batch), so the log
+//! stays append-only.
 //!
-//! Before writing, each entity must still be as the batch left it. If
-//! something changed it since (say an older batch is undone by id after
-//! newer edits), the undo is refused rather than overwriting that change.
+//! Before writing, each entity should still be as the batch left it. If
+//! something changed it since (an older batch undone by id, another
+//! device's edit, the server's rollover), undo and redo go ahead per field
+//! group, the unit sync merges by (`sync::registry`): the groups the batch
+//! changed must still be as it left them and are put back, and every other
+//! group keeps its later value. A later change to one of the batch's groups
+//! refuses rather than overwriting it. Creating and deleting a row, and
+//! settings (one value each), stay all or nothing.
 
 use std::collections::BTreeSet;
 
@@ -22,6 +27,7 @@ use super::{Ctx, OpDef};
 use crate::error::{CoreError, Result};
 use crate::model::{Blockout, BlockoutException, Change, Item, Reminder};
 use crate::store;
+use crate::sync::registry::{self, Group, Table};
 
 pub(super) fn defs() -> Vec<OpDef> {
     vec![
@@ -116,6 +122,86 @@ fn comparable(entity: &str, state: Option<&Value>) -> Option<Value> {
         }
     }
     Some(v)
+}
+
+/// The sync registry's table for an undoable entity. Settings have none
+/// here: each is a single value.
+fn table_of(entity: &str) -> Option<&'static Table> {
+    registry::table(match entity {
+        "item" => "items",
+        "reminder" => "reminders",
+        "blockout" => "blockouts",
+        "blockout_exception" => "blockout_exceptions",
+        "tag" => "tags",
+        "holiday" => "holidays",
+        _ => return None,
+    })
+}
+
+/// Groups that record when a row was written, which every edit moves, so
+/// they never block an undo.
+const BOOKKEEPING: [&str; 2] = ["created_at", "updated_at"];
+
+fn columns<'v>(state: &'v Value, group: &Group) -> Vec<Option<&'v Value>> {
+    group.columns.iter().map(|c| state.get(*c)).collect()
+}
+
+fn overlay(out: &mut Value, from: &Value, group: &Group) {
+    if let (Some(out), Some(from)) = (out.as_object_mut(), from.as_object()) {
+        for c in group.columns {
+            match from.get(*c) {
+                Some(v) => out.insert((*c).to_owned(), v.clone()),
+                None => out.remove(*c),
+            };
+        }
+    }
+}
+
+/// What to write to put `target` back when the entity has changed since the
+/// batch left it at `expect`: `target` in the field groups the batch
+/// changed, `now` in the rest. `None` when a later change touched one of
+/// the batch's groups (or a field outside every group), refusing the undo.
+fn per_group(entity: &str, expect: &Value, target: &Value, now: &Value) -> Option<Value> {
+    let table = table_of(entity)?;
+    let engine = |g: &Group| {
+        ENGINE_FIELDS
+            .iter()
+            .any(|(e, f)| *e == entity && g.columns.contains(f))
+    };
+    let covered = |k: &str| table.key.contains(&k) || table.group_of(k).is_some();
+    let keys = [expect, now]
+        .into_iter()
+        .filter_map(Value::as_object)
+        .flat_map(|o| o.keys());
+    for k in keys {
+        if !covered(k) && expect.get(k) != now.get(k) {
+            return None;
+        }
+    }
+
+    let mut out = target.clone();
+    let mut kept_later = false;
+    for g in table.groups {
+        if BOOKKEEPING.contains(&g.name) || engine(g) {
+            continue;
+        }
+        let (e, t, n) = (columns(expect, g), columns(target, g), columns(now, g));
+        if e != t {
+            // The batch changed this group: it must still be as the batch
+            // left it, or already back where this would put it.
+            if n != e && n != t {
+                return None;
+            }
+        } else if n != t {
+            overlay(&mut out, now, g);
+            kept_later = true;
+        }
+    }
+    // The row was last written by whatever made the change it keeps.
+    if kept_later && let Some(g) = table.groups.iter().find(|g| g.name == "updated_at") {
+        overlay(&mut out, now, g);
+    }
+    Some(out)
 }
 
 fn from_state<T: serde::de::DeserializeOwned>(v: &Value) -> Result<T> {
@@ -300,14 +386,23 @@ fn apply(ctx: &mut Ctx<'_>, batch_id: &str, undoing: bool) -> Result<BatchInfo> 
         if target.is_none() && now.is_none() {
             continue;
         }
-        if comparable(&c.entity, now.as_ref()) != comparable(&c.entity, expect) {
-            let name = name_of(c).map_or_else(|| c.entity.clone(), |n| format!("“{n}”"));
-            return Err(CoreError::invalid(format!(
-                "can't {} “{summary}”: {name} has changed since",
-                if undoing { "undo" } else { "redo" }
-            )));
-        }
-        write(ctx, &c.entity, &c.entity_id, target)?;
+        let restore = if comparable(&c.entity, now.as_ref()) == comparable(&c.entity, expect) {
+            target.cloned()
+        } else {
+            let merged = match (expect, target, now.as_ref()) {
+                (Some(e), Some(t), Some(n)) => per_group(&c.entity, e, t, n),
+                _ => None,
+            };
+            let Some(merged) = merged else {
+                let name = name_of(c).map_or_else(|| c.entity.clone(), |n| format!("“{n}”"));
+                return Err(CoreError::invalid(format!(
+                    "can't {} “{summary}”: {name} has changed since",
+                    if undoing { "undo" } else { "redo" }
+                )));
+            };
+            Some(merged)
+        };
+        write(ctx, &c.entity, &c.entity_id, restore.as_ref())?;
         let after = current(ctx.conn, &c.entity, &c.entity_id)?;
         ctx.record(&c.entity, &c.entity_id, now.as_ref(), after.as_ref())?;
     }
@@ -525,6 +620,140 @@ mod tests {
         let err = try_run(&mut p, "undo", json!({ "batch_id": first })).unwrap_err();
         assert!(err.to_string().contains("has changed since"), "{err}");
         assert_eq!(item(&p, &id).unwrap().title, "Gym 3", "nothing was written");
+    }
+
+    fn event(p: &mut crate::Planner) -> String {
+        let e = run(
+            p,
+            "create_item",
+            json!({ "title": "Dentist", "kind": "event", "start": "2026-10-12T09:00",
+                    "end": "2026-10-12T10:00" }),
+        );
+        e["id"].as_str().unwrap().to_owned()
+    }
+
+    fn batch(p: &mut crate::Planner, op: &str, args: Value, actor: &Actor) -> String {
+        p.execute(op, args, actor).unwrap().batch_id.unwrap()
+    }
+
+    #[test]
+    fn undo_keeps_a_later_edit_to_another_field_group() {
+        let mut p = crate::planner::tests::planner();
+        let id = event(&mut p);
+        let start = item(&p, &id).unwrap().start_at;
+        let moved = batch(
+            &mut p,
+            "update_item",
+            json!({ "id": id, "start": "2026-10-13T09:00", "end": "2026-10-13T10:00" }),
+            &Actor::User,
+        );
+        run(
+            &mut p,
+            "update_item",
+            json!({ "id": id, "title": "Dentist (checkup)" }),
+        );
+
+        let undone = run(&mut p, "undo", json!({ "batch_id": moved }));
+        assert!(
+            undone["summary"]
+                .as_str()
+                .unwrap()
+                .starts_with("Update item")
+        );
+        let now = item(&p, &id).unwrap();
+        assert_eq!(now.start_at, start, "the move is undone");
+        assert_eq!(now.title, "Dentist (checkup)", "the later retitle stays");
+
+        // Redo puts the move back, still over the retitle.
+        run(&mut p, "undo", json!({})); // the retitle, newest first
+        run(&mut p, "redo", json!({}));
+        assert_eq!(item(&p, &id).unwrap().title, "Dentist (checkup)");
+    }
+
+    #[test]
+    fn redo_keeps_a_later_edit_to_another_field_group() {
+        let mut p = crate::planner::tests::planner();
+        let id = event(&mut p);
+        run(&mut p, "update_item", json!({ "id": id, "priority": 2 }));
+        run(&mut p, "undo", json!({}));
+        // An automatic change after the undo, e.g. the rollover moving it.
+        p.execute(
+            "update_item",
+            json!({ "id": id, "start": "2026-10-13T09:00", "end": "2026-10-13T10:00" }),
+            &Actor::System,
+        )
+        .unwrap();
+        let moved = item(&p, &id).unwrap().start_at;
+        run(&mut p, "redo", json!({}));
+        let now = item(&p, &id).unwrap();
+        assert_eq!(now.priority, 2);
+        assert_eq!(now.start_at, moved, "the automatic move stays");
+    }
+
+    #[test]
+    fn a_rollover_move_doesnt_block_undoing_an_unrelated_edit() {
+        let mut p = crate::planner::tests::planner();
+        let id = event(&mut p);
+        run(
+            &mut p,
+            "update_item",
+            json!({ "id": id, "notes": "bring the form" }),
+        );
+        p.execute(
+            "update_item",
+            json!({ "id": id, "start": "2026-10-13T09:00", "end": "2026-10-13T10:00" }),
+            &Actor::System,
+        )
+        .unwrap();
+        let moved = item(&p, &id).unwrap();
+        run(&mut p, "undo", json!({}));
+        let now = item(&p, &id).unwrap();
+        assert_eq!(now.notes, "");
+        assert_eq!(now.start_at, moved.start_at);
+        assert_eq!(
+            now.updated_at, moved.updated_at,
+            "last written by the move it keeps"
+        );
+    }
+
+    #[test]
+    fn a_later_edit_to_the_same_field_group_still_refuses() {
+        let mut p = crate::planner::tests::planner();
+        let id = event(&mut p);
+        let first = batch(
+            &mut p,
+            "update_item",
+            json!({ "id": id, "start": "2026-10-13T09:00", "end": "2026-10-13T10:00" }),
+            &Actor::User,
+        );
+        // A later change to another column of the same group (timing).
+        run(
+            &mut p,
+            "update_item",
+            json!({ "id": id, "end": "2026-10-13T11:00" }),
+        );
+        let before = item(&p, &id).unwrap();
+        let err = try_run(&mut p, "undo", json!({ "batch_id": first })).unwrap_err();
+        assert!(err.to_string().contains("has changed since"), "{err}");
+        assert_eq!(item(&p, &id).unwrap(), before, "nothing was written");
+    }
+
+    #[test]
+    fn undoing_a_create_after_a_later_edit_still_refuses() {
+        let mut p = crate::planner::tests::planner();
+        let made = batch(
+            &mut p,
+            "create_item",
+            json!({ "title": "Gym" }),
+            &Actor::User,
+        );
+        let id = crate::store::changes::list_batch(p.db().conn(), &made).unwrap()[0]
+            .entity_id
+            .clone();
+        run(&mut p, "update_item", json!({ "id": id, "priority": 1 }));
+        let err = try_run(&mut p, "undo", json!({ "batch_id": made })).unwrap_err();
+        assert!(err.to_string().contains("has changed since"), "{err}");
+        assert!(item(&p, &id).is_some());
     }
 
     #[test]

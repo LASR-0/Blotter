@@ -675,6 +675,7 @@ The Claude Design prompt (`design-prompt.md`, which also sets the visual directi
 | D30 | Live tests of the Claude Code route run on Luke's subscription. MCP and AI writes stay on before #32, applying directly with a snapshot before the first change of each session or turn, plus undo. Snapshot policy is the implementer's call (the test data isn't precious) | Confirmed |
 | D31 | The Tauri updater ships in v1.2.0 (§13): its minisign key needs no OS code signing; package-manager installs (.deb, Flatpak, AUR) only get a notice. Supersedes the updater half of D17 | Confirmed |
 | D32 | Self-hosted sync (§14) through **Blotter Sync**, a headless Blotter server in its own repo (`LASR-0/Blotter-Sync`, `../Blotter-sync` on Luke's machine) with its own version and roadmap. Blotter 1.2.1 makes the app and core sync-ready; Blotter Sync 1.0.0 is the first server. Data is no longer only per device once a user pairs a server; Local only stays the default. Amends D4 | Confirmed (Luke, 2026-10-22) |
+| D33 | Undo and redo work **per field group**: an edit made since (on another device, by the server's rollover, or a later local edit undone out of order) is kept unless it touched a group the undone batch changed, in which case undo refuses as before. Creating and deleting a row, and settings, stay all or nothing. Amends D24 | Confirmed (Luke, 2026-10-23) |
 
 ---
 
@@ -896,6 +897,7 @@ In Home server mode the app skips rollover, holiday pruning, public-holiday upke
 - A migration adds device identity, the HLC state, per-row/per-group clocks and the outbox. Existing databases upgrade without losing data; existing rows get clocks stamped at migration time.
 - Every write path in H2, including a write from a second connection (the MCP server), lands in the outbox with correct groups and HLCs. Writes to device-local tables and columns never do.
 - The merge function applies remote changes with LWW per group, tombstones, cascades and unique-collision rules; convergence and constraint tests pass (§14.10).
+- Undo and redo work per field group (D33, #79d): an edit made since to another group of the same row stays; one to a group the batch changed refuses the undo.
 - Undo and redo only touch batches made on this device; remote changes appear in History with their origin and are never undoable.
 - Subscription refresh and public-holiday upkeep can be driven by a caller that does its own HTTP (the app now, the server later), with the decisions about what is due in the core.
 - In Local only mode the app behaves exactly as 1.2.0.

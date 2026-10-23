@@ -1132,7 +1132,7 @@ mod device_scoped {
     }
 
     #[test]
-    fn a_remote_edit_to_the_same_item_blocks_undo() {
+    fn undo_keeps_a_remote_edit_to_another_field_group() {
         let (mut laptop, mut desktop) = (planner(), planner());
         let id = run(&mut desktop, "create_item", json!({ "title": "Gym" }))["id"]
             .as_str()
@@ -1148,6 +1148,37 @@ mod device_scoped {
             &mut laptop,
             "update_item",
             json!({ "id": id, "priority": 2 }),
+        );
+        send(&mut laptop, &mut desktop);
+        run(&mut desktop, "undo", json!({}));
+        let gym = store::items::get(desktop.db().conn(), &id)
+            .unwrap()
+            .unwrap();
+        assert_eq!((gym.title.as_str(), gym.priority), ("Gym", 2));
+
+        // The undo syncs as an ordinary edit, and both end up the same.
+        send(&mut desktop, &mut laptop);
+        let there = store::items::get(laptop.db().conn(), &id).unwrap().unwrap();
+        assert_eq!((there.title.as_str(), there.priority), ("Gym", 2));
+    }
+
+    #[test]
+    fn a_remote_edit_to_the_same_field_group_blocks_undo() {
+        let (mut laptop, mut desktop) = (planner(), planner());
+        let id = run(&mut desktop, "create_item", json!({ "title": "Gym" }))["id"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        send(&mut desktop, &mut laptop);
+        run(
+            &mut desktop,
+            "update_item",
+            json!({ "id": id, "title": "Gym at 6" }),
+        );
+        run(
+            &mut laptop,
+            "update_item",
+            json!({ "id": id, "title": "Gym at 7" }),
         );
         send(&mut laptop, &mut desktop);
         let err = desktop
