@@ -6,14 +6,19 @@
 //! backoff and jitter while the server can't be reached. Each sync pushes
 //! the outbox and pulls from the cursor ([`engine`]); remote changes reach
 //! the windows through the usual changed event. The UI reads one status,
-//! never a toast per attempt.
+//! never a toast per attempt. Settings → Sync pairs, edits the address
+//! list and disconnects through the commands at the end ([`pairing`]).
 
 pub mod address;
 pub mod client;
 pub mod engine;
+#[cfg(test)]
+mod fake;
+pub mod pairing;
 pub mod token;
 
 use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
 use blotter_core::sync::api::Notice;
@@ -26,7 +31,7 @@ use tokio::task::JoinHandle;
 
 use crate::AppState;
 use crate::ai::sse;
-use crate::commands::{CHANGED_EVENT, ChangedPayload};
+use crate::commands::{CHANGED_EVENT, ChangedPayload, CommandError};
 use client::Http;
 use engine::{Attention, Engine, Problem};
 
@@ -57,6 +62,8 @@ pub enum SyncState {
     Synced {
         address: String,
         tailscale: bool,
+        /// Blotter Sync's version.
+        server_version: Option<String>,
     },
     Offline {
         /// Every address failed and at least one is a Tailscale address:
@@ -85,6 +92,9 @@ pub struct SyncStatus {
 /// The engine's handle: what wakes it and what it last reported.
 pub struct SyncEngine {
     wake: Notify,
+    /// The link changed (paired, disconnected, addresses edited): forget
+    /// the route and the change stream before the next sync.
+    relinked: AtomicBool,
     status: Mutex<SyncStatus>,
 }
 
@@ -92,6 +102,7 @@ impl Default for SyncEngine {
     fn default() -> Self {
         Self {
             wake: Notify::new(),
+            relinked: AtomicBool::new(false),
             status: Mutex::new(SyncStatus {
                 state: SyncState::LocalOnly,
                 unsent: 0,
@@ -104,6 +115,14 @@ impl Default for SyncEngine {
 /// Asks the engine to sync now (after pairing, or a change of addresses).
 pub fn wake(app: &AppHandle) {
     if let Some(sync) = app.try_state::<SyncEngine>() {
+        sync.wake.notify_one();
+    }
+}
+
+/// Asks the engine to start over with the link as it now stands.
+fn relink(app: &AppHandle) {
+    if let Some(sync) = app.try_state::<SyncEngine>() {
+        sync.relinked.store(true, Ordering::SeqCst);
         sync.wake.notify_one();
     }
 }
@@ -235,6 +254,14 @@ async fn run(app: AppHandle) {
         } else {
             tokio::time::sleep(wait.max(DEBOUNCE)).await;
         }
+        if app
+            .try_state::<SyncEngine>()
+            .is_some_and(|sync| sync.relinked.swap(false, Ordering::SeqCst))
+        {
+            stop_stream(&mut stream);
+            engine.reset_route();
+            backoff.reset();
+        }
 
         let Some((l, unsent)) = snapshot(&app) else {
             wait = BACKOFF_FIRST;
@@ -297,6 +324,7 @@ async fn run(app: AppHandle) {
                     SyncState::Synced {
                         tailscale: address::is_tailscale(&done.address),
                         address: done.address,
+                        server_version: done.server_version,
                     },
                 );
                 wait = POLL;
@@ -334,6 +362,92 @@ async fn run(app: AppHandle) {
             }
         }
     }
+}
+
+/// Settings → Sync's refusals, as sentences the page shows.
+fn refused(message: String) -> CommandError {
+    CommandError {
+        code: "invalid",
+        message,
+        details: Vec::new(),
+    }
+}
+
+fn http() -> Result<Http, CommandError> {
+    Http::new().map_err(|e| CommandError::internal(format!("sync is unavailable: {e}")))
+}
+
+#[tauri::command]
+pub fn sync_info(state: State<'_, AppState>) -> Result<pairing::SyncInfo, CommandError> {
+    pairing::info(&state.planner).map_err(CommandError::internal)
+}
+
+/// Pairs with the server at `address` using the code `blotter-sync pair`
+/// printed; the token goes to the OS keychain.
+#[tauri::command]
+pub async fn sync_pair(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    address: String,
+    code: String,
+    name: String,
+) -> Result<(), CommandError> {
+    let http = http()?;
+    pairing::pair(&http, &state.planner, &address, &code, &name, token::set)
+        .await
+        .map_err(refused)?;
+    relink(&app);
+    Ok(())
+}
+
+#[tauri::command]
+pub fn sync_set_addresses(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    addresses: Vec<String>,
+) -> Result<Vec<String>, CommandError> {
+    let saved = pairing::set_addresses(&state.planner, &addresses).map_err(refused)?;
+    relink(&app);
+    Ok(saved)
+}
+
+#[tauri::command]
+pub async fn sync_test_address(
+    state: State<'_, AppState>,
+    address: String,
+) -> Result<pairing::AddressCheck, CommandError> {
+    let server_id = pairing::linked_server(&state.planner).map_err(CommandError::internal)?;
+    pairing::test_address(&http()?, &address, server_id.as_deref())
+        .await
+        .map_err(refused)
+}
+
+/// Back to Local only: revokes this device on the server when it can be
+/// reached, forgets the link and removes the token. The planner stays.
+#[tauri::command]
+pub async fn sync_disconnect(
+    app: AppHandle,
+    state: State<'_, AppState>,
+) -> Result<pairing::Disconnected, CommandError> {
+    let server_id = pairing::linked_server(&state.planner).map_err(CommandError::internal)?;
+    let token = match server_id.as_deref().map(token::get) {
+        Some(Ok(t)) => t,
+        Some(Err(err)) => {
+            eprintln!("blotter: {err}");
+            None
+        }
+        None => None,
+    };
+    let done = pairing::disconnect(&http()?, &state.planner, token.as_deref())
+        .await
+        .map_err(refused)?;
+    if let Some(id) = &done.server_id
+        && let Err(err) = token::delete(id)
+    {
+        eprintln!("blotter: {err}");
+    }
+    relink(&app);
+    Ok(done)
 }
 
 #[cfg(test)]

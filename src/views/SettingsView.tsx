@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import {
+  ArrowsClockwise,
   Bell,
   CalendarDots,
   ClockCounterClockwise,
@@ -25,10 +26,12 @@ import { CalendarsPage } from './settings/CalendarsPage';
 import { GeneralPage } from './settings/GeneralPage';
 import { KeybindingsPage } from './settings/KeybindingsPage';
 import { NotificationsPage } from './settings/NotificationsPage';
+import { SyncPage } from './settings/SyncPage';
 import { TagsPage } from './settings/TagsPage';
 
 // Pages appear here as their phases land: General, Block-outs, Calendars,
-// AI providers, Notifications, Keybindings and Backups (design S1–S9).
+// AI providers, Notifications, Keybindings and Backups (design S1–S9), then
+// Sync (roadmap §14.9).
 const PAGES: readonly { id: SettingsPage; label: string; icon: Icon }[] = [
   { id: 'general', label: 'General', icon: SlidersHorizontal },
   { id: 'blockouts', label: 'Block-outs', icon: Prohibit },
@@ -38,6 +41,7 @@ const PAGES: readonly { id: SettingsPage; label: string; icon: Icon }[] = [
   { id: 'ai', label: 'AI providers', icon: Sparkle },
   { id: 'keybindings', label: 'Keybindings', icon: Keyboard },
   { id: 'theme', label: 'Theme', icon: Palette },
+  { id: 'sync', label: 'Sync', icon: ArrowsClockwise },
   { id: 'backups', label: 'Backups', icon: ClockCounterClockwise },
   { id: 'about', label: 'About', icon: Info },
 ];
@@ -73,6 +77,8 @@ function PageBody({ page }: { page: SettingsPage }) {
       return <AiProvidersPage />;
     case 'keybindings':
       return <KeybindingsPage />;
+    case 'sync':
+      return <SyncPage />;
     case 'backups':
       return <BackupsPage />;
     case 'about':

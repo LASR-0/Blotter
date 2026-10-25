@@ -28,6 +28,8 @@ pub struct Synced {
     pub pulled: usize,
     /// Rows the server wouldn't take.
     pub rejected: usize,
+    /// Blotter Sync's version, from its last hello.
+    pub server_version: Option<String>,
 }
 
 /// Something only the user (or an update) can fix; retrying won't help.
@@ -76,7 +78,7 @@ fn locked(db: &Mutex<Planner>) -> Result<std::sync::MutexGuard<'_, Planner>, Pro
 }
 
 /// A version mismatch, naming the side to update.
-fn mismatch(server: Versions) -> Attention {
+pub fn mismatch(server: Versions) -> Attention {
     let ours = Versions::CURRENT;
     if (server.protocol, server.schema) > (ours.protocol, ours.schema) {
         Attention::UpdateBlotter { server }
@@ -91,6 +93,8 @@ pub struct Engine<T> {
     route: Option<usize>,
     /// When the earlier addresses were last tried.
     rechecked: Option<Instant>,
+    /// Blotter Sync's version, from the last hello that answered.
+    server_version: Option<String>,
 }
 
 impl<T: Transport> Engine<T> {
@@ -99,6 +103,7 @@ impl<T: Transport> Engine<T> {
             transport,
             route: None,
             rechecked: None,
+            server_version: None,
         }
     }
 
@@ -114,7 +119,7 @@ impl<T: Transport> Engine<T> {
     /// The first of `addresses[..end]` answering as `server_id` with this
     /// build's versions. Errors are collected in `tried`.
     async fn first_answering(
-        &self,
+        &mut self,
         addresses: &[String],
         end: usize,
         server_id: &str,
@@ -130,7 +135,10 @@ impl<T: Transport> Engine<T> {
                 Ok(h) if h.versions != Versions::CURRENT => {
                     return Err(Problem::Attention(mismatch(h.versions)));
                 }
-                Ok(_) => return Ok(Some(i)),
+                Ok(h) => {
+                    self.server_version = Some(h.version);
+                    return Ok(Some(i));
+                }
                 Err(e) => tried.push((a.clone(), e.to_string())),
             }
         }
@@ -274,177 +282,18 @@ impl<T: Transport> Engine<T> {
             pushed,
             pulled,
             rejected,
+            server_version: self.server_version.clone(),
         })
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashSet;
-    use std::sync::Arc;
-
-    use blotter_core::sync::api::{ErrorBody, Hello, PullResponse, PushResponse};
-    use blotter_core::sync::capture::Role;
-    use blotter_core::sync::{RowState, link};
-    use blotter_core::{Actor, Database};
+    use blotter_core::Database;
     use serde_json::json;
 
+    use super::super::fake::*;
     use super::*;
-
-    const SERVER: &str = "01JBSERVER0000000000000000";
-    const EPOCH: &str = "01JBEPOCH00000000000000000";
-    const LAN: &str = "http://192.168.1.10:7458";
-    const TAILNET: &str = "https://blotter.tail1234.ts.net";
-
-    /// An in-memory Blotter Sync: a server-role replica, a log of changed
-    /// rows by seq, and switches for what goes wrong.
-    struct Fake {
-        planner: Planner,
-        log: Vec<(i64, RowState)>,
-        versions: Versions,
-        down: HashSet<String>,
-        elsewhere: HashSet<String>,
-        refuse: Option<ErrorCode>,
-    }
-
-    #[derive(Clone)]
-    struct Shared(Arc<Mutex<Fake>>);
-
-    impl Shared {
-        fn new() -> Self {
-            let mut planner = Planner::new(Database::open_in_memory().unwrap(), chrono_tz::UTC);
-            capture::set_role(planner.db_mut().conn_mut(), Role::Server).unwrap();
-            Self(Arc::new(Mutex::new(Fake {
-                planner,
-                log: Vec::new(),
-                versions: Versions::CURRENT,
-                down: HashSet::new(),
-                elsewhere: HashSet::new(),
-                refuse: None,
-            })))
-        }
-
-        fn with<R>(&self, f: impl FnOnce(&mut Fake) -> R) -> R {
-            f(&mut self.0.lock().unwrap())
-        }
-    }
-
-    fn refused(code: ErrorCode) -> SyncError {
-        SyncError::Refused(ErrorBody {
-            code,
-            message: format!("{code:?}"),
-            server: None,
-        })
-    }
-
-    impl Transport for Shared {
-        async fn hello(&self, base: &str) -> Result<Hello, SyncError> {
-            self.with(|f| {
-                if f.down.contains(base) {
-                    return Err(SyncError::Unreachable("couldn't connect".into()));
-                }
-                let id = if f.elsewhere.contains(base) {
-                    "01JBSOMEONEELSE00000000000"
-                } else {
-                    SERVER
-                };
-                Ok(Hello {
-                    name: "Blotter Sync".into(),
-                    version: "1.0.0".into(),
-                    blotter_core: "1.2.1".into(),
-                    server_id: id.into(),
-                    versions: f.versions,
-                    epoch: EPOCH.into(),
-                    pairing_open: false,
-                })
-            })
-        }
-
-        async fn push(
-            &self,
-            base: &str,
-            _token: &str,
-            req: &PushRequest,
-        ) -> Result<PushResponse, SyncError> {
-            self.with(|f| {
-                if f.down.contains(base) {
-                    return Err(SyncError::Unreachable("couldn't connect".into()));
-                }
-                if let Some(code) = f.refuse {
-                    return Err(refused(code));
-                }
-                let merged =
-                    merge(f.planner.db_mut().conn_mut(), &req.rows, chrono::Utc::now()).unwrap();
-                for row in merged.changed {
-                    let seq = f.log.len() as i64 + 1;
-                    f.log.push((seq, row));
-                }
-                Ok(PushResponse {
-                    seq: f.log.len() as i64,
-                    rejected: merged.rejected,
-                })
-            })
-        }
-
-        async fn pull(
-            &self,
-            base: &str,
-            _token: &str,
-            _epoch: &str,
-            since: i64,
-        ) -> Result<PullResponse, SyncError> {
-            self.with(|f| {
-                if f.down.contains(base) {
-                    return Err(SyncError::Unreachable("couldn't connect".into()));
-                }
-                if let Some(code) = f.refuse {
-                    return Err(refused(code));
-                }
-                Ok(PullResponse {
-                    epoch: EPOCH.into(),
-                    rows: f
-                        .log
-                        .iter()
-                        .filter(|(s, _)| *s > since)
-                        .map(|(_, r)| r.clone())
-                        .collect(),
-                    seq: f.log.len() as i64,
-                    more: false,
-                })
-            })
-        }
-    }
-
-    fn device(addresses: &[&str]) -> Mutex<Planner> {
-        let planner = Planner::new(Database::open_in_memory().unwrap(), chrono_tz::UTC);
-        link::set(
-            planner.db().conn(),
-            &link::Link {
-                server_id: SERVER.into(),
-                addresses: addresses.iter().map(|a| (*a).to_owned()).collect(),
-                epoch: EPOCH.into(),
-                seq: 0,
-                paired_at: chrono::Utc::now(),
-                last_sync_at: None,
-            },
-        )
-        .unwrap();
-        Mutex::new(planner)
-    }
-
-    fn run(db: &Mutex<Planner>, op: &str, args: serde_json::Value) -> serde_json::Value {
-        db.lock()
-            .unwrap()
-            .execute(op, args, &Actor::User)
-            .unwrap()
-            .result
-    }
-
-    fn title(db: &Mutex<Planner>, id: &str) -> Option<String> {
-        blotter_core::store::items::get(db.lock().unwrap().db().conn(), id)
-            .unwrap()
-            .map(|i| i.title)
-    }
 
     #[tokio::test]
     async fn two_devices_sync_through_the_server() {
@@ -459,6 +308,7 @@ mod tests {
             .to_owned();
         let sent = a.sync_once(&laptop, "token", now).await.unwrap();
         assert!(sent.pushed > 0);
+        assert_eq!(sent.server_version.as_deref(), Some("1.0.0"));
         assert_eq!(
             capture::pending_count(laptop.lock().unwrap().db().conn()).unwrap(),
             0,

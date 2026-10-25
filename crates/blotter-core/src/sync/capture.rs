@@ -410,6 +410,14 @@ pub fn acknowledge(conn: &Connection, changes: &[Pending]) -> Result<()> {
     Ok(())
 }
 
+/// Queues every stamped row and group again, tombstones included, so the
+/// next push sends the whole planner: pairing with a server that may never
+/// have seen what an earlier one acknowledged. Stamps are left as they are.
+pub fn queue_all(conn: &Connection) -> Result<()> {
+    conn.execute("UPDATE sync_clocks SET pending = 1", [])?;
+    Ok(())
+}
+
 /// The stamp that last set a group of a row ([`ROW`] for the row itself),
 /// and whether it is a tombstone.
 pub fn stamp(
@@ -774,6 +782,30 @@ mod tests {
             .unwrap();
         acknowledge(conn, &sent).unwrap();
         assert_eq!(groups(conn, "items", "I1"), just("title"));
+    }
+
+    #[test]
+    fn queueing_everything_again_keeps_the_stamps() {
+        let db = Database::open_in_memory().unwrap();
+        let conn = db.conn();
+        add_item(conn, "I1");
+        add_item(conn, "I2");
+        conn.execute("DELETE FROM items WHERE id = 'I2'", [])
+            .unwrap();
+        let before = stamp_of(conn, "items", "I1", "title");
+        clear(conn);
+        assert_eq!(pending_count(conn).unwrap(), 0);
+
+        queue_all(conn).unwrap();
+        assert!(groups(conn, "items", "I1").contains("title"));
+        assert_eq!(stamp_of(conn, "items", "I1", "title"), before);
+        assert!(
+            pending(conn)
+                .unwrap()
+                .iter()
+                .any(|p| p.row_key == "I2" && p.deleted),
+            "the tombstone goes up too"
+        );
     }
 
     #[test]

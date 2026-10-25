@@ -11,6 +11,7 @@ export type SettingsPage =
   | 'ai'
   | 'keybindings'
   | 'theme'
+  | 'sync'
   | 'backups'
   | 'about';
 

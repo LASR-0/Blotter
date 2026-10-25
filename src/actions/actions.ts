@@ -11,6 +11,7 @@ import {
   ChatCircleText,
   ArrowUp,
   CheckSquare,
+  ArrowsClockwise,
   CloudArrowDown,
   NotePencil as EditIcon,
   Trash,
@@ -455,6 +456,14 @@ export function buildActions(): Action[] {
       icon: Keyboard,
       keywords: ['shortcuts', 'keys', 'rebind', 'settings'],
       run: () => useNav.getState().openSettings('keybindings'),
+    },
+    {
+      id: 'sync.settings',
+      label: 'Sync settings',
+      group: 'Go to',
+      icon: ArrowsClockwise,
+      keywords: ['sync', 'home server', 'pair', 'devices', 'blotter sync', 'settings'],
+      run: () => useNav.getState().openSettings('sync'),
     },
     {
       id: 'app.update',

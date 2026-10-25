@@ -164,8 +164,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 79c | 16a | `test(core): the clock test no longer expires` | committed `6b33cb5` |
 | 79d | 16a | `feat(core): undo per field group` | committed `661cbeb` |
 | 79e | 16a | `feat(core): Blotter Sync's request and response types` | committed `2c89f08` |
-| 80 | 16b | `feat(app): sync engine with push, pull and address failover` | committed (hash in the next entry) |
-| 81 | 16b | `feat(app): pairing and Settings → Sync` | planned |
+| 80 | 16b | `feat(app): sync engine with push, pull and address failover` | committed `f22b2ae` |
+| 81 | 16b | `feat(app): pairing and Settings → Sync` | committed (hash in the next entry) |
 | 82 | 16b | `feat(app): connect to a home server from first run, and joining` | planned |
 | 83 | 16b | `feat(app): hand automatic duties to the server` | planned |
 | 84 | 16b | `feat(ui): sync status, device names in History, server snapshots` | planned |
@@ -5410,3 +5410,71 @@ Notes:
       the app until then. normalize() and the token's set/delete come with #81.
     - A stale epoch only reports "fetch again"; re-bootstrapping is #82 with joining.
     - The duties still run here too until #83.
+
+### #81 — Pairing and Settings → Sync            [status: committed — hash in the next entry]
+Phase: 16b
+Message:
+    feat(app): pairing and Settings → Sync
+
+    Settings gains a Sync page (§14.9), so the engine from #80 has a
+    server to sync with.
+
+    - Local only shows the mode and a Pair form: address, the code from
+      `blotter-sync pair`, and this device's name. Addresses are read as
+      typed (no scheme is plain http, which defaults to port 7458), and
+      plain http to a public IP is refused (D-S6). Pairing checks the
+      server's hello first, so a version mismatch says which side to
+      update and a closed code says to run `blotter-sync pair`. The token
+      goes to the OS keychain.
+    - A first pairing queues the whole planner again (core:
+      capture::queue_all), so a device that synced with an earlier server
+      still seeds a new one. Pairing again with the same server, after a
+      revoke or a lost token, keeps the link and its cursor; another
+      server needs a Disconnect first.
+    - Home server shows the status ("Synced via Tailscale · 2 min ago",
+      offline with each address's failure, or what needs attention, with
+      Pair again for a revoked or unknown token), the server's version,
+      the address list (add, reorder, remove, test), this device's name
+      and Disconnect.
+    - Disconnect revokes this device's token at the first address that
+      answers as its server, forgets the link and the token, and keeps
+      the planner. Offline, it still disconnects and says to revoke the
+      device on the server.
+    - Editing the link makes the engine drop its route and change
+      stream. The palette gains "Sync settings".
+    #80 is f22b2ae.
+Files:
+    M  crates/blotter-core/src/sync/capture.rs
+    A  src-tauri/src/sync/pairing.rs, src-tauri/src/sync/fake.rs
+    M  src-tauri/src/sync/mod.rs, src-tauri/src/sync/engine.rs, src-tauri/src/sync/client.rs,
+       src-tauri/src/sync/address.rs, src-tauri/src/sync/token.rs, src-tauri/src/lib.rs
+    A  src/views/settings/SyncPage.tsx, src/lib/syncFormat.ts, src/lib/syncFormat.test.ts
+    M  src/views/SettingsView.tsx, src/app/nav.ts, src/actions/actions.ts
+    M  .claude/COMMITS.md
+Test steps:
+    - cargo test --workspace → 282 core (1 new) + 72 app (9 new) + 6 mcp; clippy -D
+      warnings, fmt clean
+    - pnpm check → typecheck, eslint, prettier clean; vitest 242 (syncFormat new)
+    - New: addresses as typed and why one can't be used; pairing saves the token, names
+      the device and queues an acknowledged planner; each refusal (no code open, wrong
+      code, public http, unreachable, newer server, no code, no name) says what to do and
+      changes nothing; pairing again keeps the link and cursor, another server waits for
+      Disconnect; the address list normalises and dedupes; testing an address names who
+      answered; Disconnect revokes past another server on the LAN and keeps the planner,
+      and offline still disconnects. The engine's in-memory server moved to fake.rs, shared
+      with these tests. syncFormat: route labels, "2 min ago", every status line, moves.
+    - Live (ignored test live_pair_test_and_disconnect, BLOTTER_LIVE_SYNC and
+      BLOTTER_LIVE_SYNC_CODE): against Blotter Sync 1.0.0-rc.1 on 127.0.0.1 → paired, the
+      address tests ok, the used code is refused, Disconnect revoked the device (the
+      server lists it as revoked) and its token is refused. Passed; the engine's live
+      test still passes.
+Notes:
+    - Not yet checked by eye in the app window: Luke to look over Settings → Sync (both
+      modes, Pair again, Disconnect's dialog) in `pnpm tauri dev` against a local server.
+    - Blotter Sync has no rename endpoint, so the device name is set when pairing and shown
+      read-only afterwards; renaming would be a server change (its own ledger).
+    - Joining a server that already has a planner merges without §14.7's choice or its
+      natural-key rules until #82 (with first run's "Connect to a home server"); a stale
+      epoch still only reports.
+    - Disconnect leaves unsent changes queued, and the next pairing queues everything
+      anyway.

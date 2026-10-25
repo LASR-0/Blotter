@@ -47,6 +47,69 @@ pub fn plain_http_ok(ip: IpAddr) -> bool {
     }
 }
 
+fn insecure(host: &str) -> String {
+    format!(
+        "Plain http:// only works for addresses on your network or Tailscale. \
+         Use https:// for {host}."
+    )
+}
+
+/// Whether `authority` (`host:port`, `[v6]:port`) spells out a port, so an
+/// explicit `:80` isn't mistaken for no port.
+fn has_port(authority: &str) -> bool {
+    authority
+        .rsplit_once(':')
+        .is_some_and(|(_, p)| !p.is_empty() && p.bytes().all(|b| b.is_ascii_digit()))
+}
+
+/// Reads an address as typed (`192.168.1.10`, `nas.local:7458`,
+/// `https://sync.example.com/`) into the form the link stores. No scheme
+/// means plain http, and plain http without a port means Blotter Sync's
+/// default. A path, query or login is refused, as is plain http to a public
+/// IP address; names are judged when they're used ([`check`]).
+pub fn normalize(input: &str) -> Result<String, String> {
+    let text = input.trim();
+    if text.is_empty() {
+        return Err("Enter the server's address.".into());
+    }
+    let full = if text.contains("://") {
+        text.to_owned()
+    } else {
+        format!("http://{text}")
+    };
+    let bad = || format!("“{text}” isn't an address Blotter can use.");
+    let mut url = Url::parse(&full).map_err(|_| bad())?;
+    if !matches!(url.scheme(), "http" | "https") {
+        return Err(format!("Use http:// or https:// for {text}."));
+    }
+    if url.host().is_none()
+        || !url.username().is_empty()
+        || url.password().is_some()
+        || url.query().is_some()
+        || url.fragment().is_some()
+        || url.path() != "/"
+    {
+        return Err(bad());
+    }
+    if url.scheme() == "http" {
+        let authority = full
+            .split_once("://")
+            .map_or("", |(_, rest)| rest.split('/').next().unwrap_or(""));
+        if !has_port(authority) {
+            url.set_port(Some(DEFAULT_PORT)).map_err(|()| bad())?;
+        }
+        let ip = match url.host() {
+            Some(Host::Ipv4(ip)) => Some(IpAddr::V4(ip)),
+            Some(Host::Ipv6(ip)) => Some(IpAddr::V6(ip)),
+            _ => None,
+        };
+        if ip.is_some_and(|ip| !plain_http_ok(ip)) {
+            return Err(insecure(url.host_str().unwrap_or(text)));
+        }
+    }
+    Ok(url.as_str().trim_end_matches('/').to_owned())
+}
+
 /// Refuses a plain `http://` address that is, or resolves to, anything
 /// outside the ranges [`plain_http_ok`] allows.
 pub async fn check(address: &str) -> Result<(), String> {
@@ -66,11 +129,7 @@ pub async fn check(address: &str) -> Result<(), String> {
         None => Vec::new(),
     };
     if ips.is_empty() || !ips.into_iter().all(plain_http_ok) {
-        let host = url.host_str().unwrap_or(address);
-        return Err(format!(
-            "Plain http:// only works for addresses on your network or Tailscale. \
-             Use https:// for {host}."
-        ));
+        return Err(insecure(url.host_str().unwrap_or(address)));
     }
     Ok(())
 }
@@ -78,6 +137,51 @@ pub async fn check(address: &str) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn addresses_read_as_typed() {
+        for (typed, want) in [
+            ("192.168.1.10", "http://192.168.1.10:7458"),
+            (" nas.local:8080 ", "http://nas.local:8080"),
+            ("http://192.168.1.10:80/", "http://192.168.1.10"),
+            ("HTTP://NAS.Local", "http://nas.local:7458"),
+            ("https://sync.example.com/", "https://sync.example.com"),
+            (
+                "https://sync.example.com:8443",
+                "https://sync.example.com:8443",
+            ),
+            ("[fd00::1]", "http://[fd00::1]:7458"),
+            ("[fd00::1]:9000", "http://[fd00::1]:9000"),
+            (
+                "https://blotter.tail1234.ts.net",
+                "https://blotter.tail1234.ts.net",
+            ),
+        ] {
+            assert_eq!(normalize(typed).as_deref(), Ok(want), "{typed}");
+        }
+    }
+
+    #[test]
+    fn unusable_addresses_say_why() {
+        assert_eq!(normalize("  "), Err("Enter the server's address.".into()));
+        for bad in [
+            "https://sync.example.com/blotter",
+            "http://me:pw@nas.local",
+            "nas.local?x=1",
+            "http://",
+        ] {
+            let err = normalize(bad).unwrap_err();
+            assert!(err.contains("isn't an address"), "{bad}: {err}");
+        }
+        assert!(
+            normalize("ftp://nas.local")
+                .unwrap_err()
+                .contains("http://")
+        );
+        let err = normalize("203.0.113.5").unwrap_err();
+        assert!(err.contains("Use https:// for 203.0.113.5"), "{err}");
+        assert!(normalize("https://203.0.113.5").is_ok());
+    }
 
     #[test]
     fn tailscale_is_recognised() {

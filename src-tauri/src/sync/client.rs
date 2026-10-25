@@ -1,12 +1,13 @@
-//! Talking to Blotter Sync over HTTP: the requests the engine makes, behind
-//! [`Transport`] so its tests can run against an in-memory server.
+//! Talking to Blotter Sync over HTTP: the requests the engine and pairing
+//! make, behind [`Transport`] so their tests can run against an in-memory
+//! server.
 
 use std::future::Future;
 use std::time::Duration;
 
 use blotter_core::sync::api::{
-    ErrorBody, HEADER_PROTOCOL, HEADER_SCHEMA, Hello, PullResponse, PushRequest, PushResponse,
-    Versions, path,
+    ErrorBody, HEADER_PROTOCOL, HEADER_SCHEMA, Hello, PairRequest, Paired, PullResponse,
+    PushRequest, PushResponse, Versions, path,
 };
 use reqwest::{Client, RequestBuilder, Response};
 use serde::de::DeserializeOwned;
@@ -38,9 +39,20 @@ impl std::fmt::Display for SyncError {
     }
 }
 
-/// What the engine asks of a server.
+/// What the engine and pairing ask of a server.
 pub trait Transport: Send + Sync {
     fn hello(&self, base: &str) -> impl Future<Output = Result<Hello, SyncError>> + Send;
+    fn pair(
+        &self,
+        base: &str,
+        req: &PairRequest,
+    ) -> impl Future<Output = Result<Paired, SyncError>> + Send;
+    /// Revokes this device's own token (Disconnect).
+    fn disconnect(
+        &self,
+        base: &str,
+        token: &str,
+    ) -> impl Future<Output = Result<(), SyncError>> + Send;
     fn push(
         &self,
         base: &str,
@@ -159,6 +171,28 @@ impl Transport for Http {
                 .timeout(HELLO_TIMEOUT),
         )
         .await
+    }
+
+    async fn pair(&self, base: &str, req: &PairRequest) -> Result<Paired, SyncError> {
+        address::check(base).await.map_err(SyncError::Insecure)?;
+        read(gated(self.api.post(format!("{base}{}", path::PAIR)), "").json(req)).await
+    }
+
+    async fn disconnect(&self, base: &str, token: &str) -> Result<(), SyncError> {
+        address::check(base).await.map_err(SyncError::Insecure)?;
+        let resp = gated(
+            self.api.delete(format!("{base}{}", path::DEVICES_SELF)),
+            token,
+        )
+        .timeout(HELLO_TIMEOUT)
+        .send()
+        .await
+        .map_err(unreachable)?;
+        if resp.status().is_success() {
+            Ok(())
+        } else {
+            Err(refusal(resp).await)
+        }
     }
 
     async fn push(
