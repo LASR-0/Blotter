@@ -30,6 +30,8 @@ export type SyncStatus = SyncState & {
 export interface SyncInfo {
   device_name: string | null;
   server: { server_id: string; addresses: string[]; paired_at: string } | null;
+  /** A pairing waiting on Use the server's planner or Merge: its address. */
+  joining: string | null;
 }
 
 export interface AddressCheck {
@@ -40,6 +42,29 @@ export interface AddressCheck {
 
 export interface Disconnected {
   revoked: boolean;
+}
+
+/**
+ * What pairing did with the planners: this device's went up to an empty
+ * server, it took the server's, it paired again, or both have one and the
+ * user chooses.
+ */
+export type Joined = 'seeded' | 'fetched' | 'again' | 'choose';
+
+export type JoinChoiceValue = 'server' | 'merge';
+
+/** The server's planner was replaced (restored or imported there) and fetched again. */
+export interface SyncNotice {
+  snapshot_id: string;
+  unsent: number;
+}
+
+export function replacedText(n: SyncNotice): string {
+  const kept =
+    n.unsent > 0
+      ? ` It had ${unsentText(n.unsent)} the server never got; they’re in the snapshot in Backups.`
+      : ' This device’s planner from before is in Backups.';
+  return `The home server’s planner was restored or imported there, so Blotter fetched it again.${kept}`;
 }
 
 function hostOf(address: string): string {

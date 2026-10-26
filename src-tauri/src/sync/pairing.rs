@@ -3,12 +3,14 @@
 //! Disconnect. Errors are sentences for the page. The token reaches the OS
 //! keychain through the caller and never the database.
 
+use std::path::Path;
 use std::sync::{Mutex, MutexGuard};
 
 use blotter_core::Planner;
-use blotter_core::sync::api::{ErrorCode, PairRequest, Versions};
-use blotter_core::sync::{capture, device, link};
-use serde::Serialize;
+use blotter_core::snapshots::{self, Reason};
+use blotter_core::sync::api::{Bootstrap, ErrorCode, PairRequest, Versions};
+use blotter_core::sync::{capture, device, join, link, merge, state};
+use serde::{Deserialize, Serialize};
 
 use super::address;
 use super::client::{SyncError, Transport};
@@ -75,13 +77,79 @@ fn said(address: &str, err: SyncError) -> String {
     }
 }
 
+/// What pairing did with the two planners (roadmap §14.7).
+#[derive(Debug)]
+pub enum Joined {
+    /// Paired again with the server already linked: nothing to join.
+    Again,
+    /// The server had no planner: this device's goes up whole.
+    Seeded,
+    /// This device had none: it now has the server's.
+    Fetched,
+    /// Both have one. Nothing is linked until the user picks
+    /// ([`finish_join`]) or gives up ([`abandon`]).
+    Choose(PendingJoin),
+}
+
+impl Joined {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Joined::Again => "again",
+            Joined::Seeded => "seeded",
+            Joined::Fetched => "fetched",
+            Joined::Choose(_) => "choose",
+        }
+    }
+}
+
+/// A pairing waiting on the user's choice, with the server's planner as it
+/// was fetched; pulling from its seq afterwards catches up on the rest.
+#[derive(Debug)]
+pub struct PendingJoin {
+    pub server_id: String,
+    pub address: String,
+    boot: Bootstrap,
+}
+
+/// How a device with a planner joins a server that has one.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Choice {
+    /// Use the server's planner; this device's goes to a snapshot.
+    Server,
+    /// Merge the two.
+    Merge,
+}
+
+fn new_link(server_id: &str, address: &str, boot: &Bootstrap) -> link::Link {
+    link::Link {
+        server_id: server_id.to_owned(),
+        addresses: vec![address.to_owned()],
+        epoch: boot.epoch.clone(),
+        seq: boot.seq,
+        paired_at: blotter_core::time::truncate(chrono::Utc::now()),
+        last_sync_at: None,
+    }
+}
+
+fn report(merged: &blotter_core::sync::Merged) {
+    for r in &merged.rejected {
+        eprintln!(
+            "blotter: couldn't apply {} {} from the server: {}",
+            r.table, r.key, r.reason
+        );
+    }
+}
+
 /// Pairs this device: checks the address answers as a Blotter Sync this
 /// build can sync with and has a code open, trades the code for a token
 /// (handed to `save_token` with the server's id), names the device and
-/// links it. A first link queues the whole planner, so the next sync sends
-/// all of it. Pairing again with the server already linked (after a revoke,
-/// or a lost token) keeps the link and adds the address; another server
-/// needs a Disconnect first.
+/// fetches the server's planner. Then, by what each side has: an empty
+/// server gets this device's whole planner; an empty device takes the
+/// server's; when both have one the user chooses ([`Joined::Choose`]).
+/// Pairing again with the server already linked (after a revoke, or a lost
+/// token) keeps the link and adds the address; another server needs a
+/// Disconnect first.
 pub async fn pair<T: Transport>(
     t: &T,
     db: &Mutex<Planner>,
@@ -89,7 +157,7 @@ pub async fn pair<T: Transport>(
     code: &str,
     name: &str,
     save_token: impl FnOnce(&str, &str) -> Result<(), String>,
-) -> Result<link::Link, String> {
+) -> Result<Joined, String> {
     let address = address::normalize(address)?;
     let code = code.trim();
     if code.is_empty() {
@@ -126,37 +194,92 @@ pub async fn pair<T: Transport>(
         .pair(&address, &req)
         .await
         .map_err(|e| said(&address, e))?;
-    save_token(&paired.server_id, &paired.token)?;
-
-    let p = locked(db)?;
-    let conn = p.db().conn();
     let now = blotter_core::time::truncate(chrono::Utc::now());
-    let l = match existing {
-        Some(mut l) => {
-            if !l.addresses.contains(&address) {
-                l.addresses.push(address);
-            }
-            if l.epoch != paired.epoch {
-                l.epoch = paired.epoch;
-                l.seq = 0;
-            }
-            l.paired_at = now;
-            l
+
+    if let Some(mut l) = existing {
+        save_token(&paired.server_id, &paired.token)?;
+        if !l.addresses.contains(&address) {
+            l.addresses.push(address);
         }
-        None => {
-            capture::queue_all(conn).map_err(|e| sentence(&e))?;
-            link::Link {
-                server_id: paired.server_id,
-                addresses: vec![address],
-                epoch: paired.epoch,
-                seq: 0,
-                paired_at: now,
-                last_sync_at: None,
-            }
+        if l.epoch != paired.epoch {
+            l.epoch = paired.epoch;
+            l.seq = 0;
+        }
+        l.paired_at = now;
+        link::set(locked(db)?.db().conn(), &l).map_err(|e| sentence(&e))?;
+        return Ok(Joined::Again);
+    }
+
+    let boot = match t.bootstrap(&address, &paired.token).await {
+        Ok(boot) => boot,
+        Err(e) => {
+            // Not joined, so the server needn't keep this device.
+            let _ = t.disconnect(&address, &paired.token).await;
+            return Err(said(&address, e));
         }
     };
-    link::set(conn, &l).map_err(|e| sentence(&e))?;
-    Ok(l)
+    save_token(&paired.server_id, &paired.token)?;
+
+    let mut p = locked(db)?;
+    let conn = p.db().conn();
+    let mine = state::all(conn).map_err(|e| sentence(&e))?;
+    let l = new_link(&paired.server_id, &address, &boot);
+    let joined = if !join::has_planner(&boot.rows) {
+        capture::queue_all(conn).map_err(|e| sentence(&e))?;
+        report(&merge(p.db_mut().conn_mut(), &boot.rows, now).map_err(|e| sentence(&e))?);
+        Joined::Seeded
+    } else if !join::has_planner(&mine) {
+        report(
+            &join::replace_with(p.db_mut().conn_mut(), &boot.rows, now)
+                .map_err(|e| sentence(&e))?,
+        );
+        Joined::Fetched
+    } else {
+        return Ok(Joined::Choose(PendingJoin {
+            server_id: paired.server_id,
+            address,
+            boot,
+        }));
+    };
+    link::set(p.db().conn(), &l).map_err(|e| sentence(&e))?;
+    Ok(joined)
+}
+
+/// Joins as the user chose, after a snapshot of this device's planner, and
+/// links the device.
+pub fn finish_join(
+    db: &Mutex<Planner>,
+    pending: PendingJoin,
+    choice: Choice,
+    db_path: &Path,
+) -> Result<(), String> {
+    let now = chrono::Utc::now();
+    let mut p = locked(db)?;
+    let conn = p.db().conn();
+    let dir = snapshots::dir(conn, db_path).map_err(|e| sentence(&e))?;
+    let note = match choice {
+        Choice::Server => "Before using the home server’s planner",
+        Choice::Merge => "Before merging with the home server’s planner",
+    };
+    snapshots::create(conn, &dir, Reason::BeforeSync, Some(note.into()), now)
+        .map_err(|e| sentence(&e))?;
+    let conn = p.db_mut().conn_mut();
+    let merged = match choice {
+        Choice::Server => join::replace_with(conn, &pending.boot.rows, now),
+        Choice::Merge => join::merge_into(conn, &pending.boot.rows, now),
+    }
+    .map_err(|e| sentence(&e))?;
+    report(&merged);
+    let l = new_link(&pending.server_id, &pending.address, &pending.boot);
+    link::set(p.db().conn(), &l).map_err(|e| sentence(&e))?;
+    Ok(())
+}
+
+/// Gives up on a pairing before joining: the server forgets this device.
+pub async fn abandon<T: Transport>(t: &T, pending: &PendingJoin, token: Option<&str>) {
+    if let Some(token) = token {
+        let _ = t.disconnect(&pending.address, token).await;
+    }
 }
 
 /// Replaces the address list with `typed`, read as typed and without
@@ -268,6 +391,8 @@ pub async fn disconnect<T: Transport>(
 pub struct SyncInfo {
     pub device_name: Option<String>,
     pub server: Option<ServerLink>,
+    /// A pairing waiting on Use the server's planner or Merge: its address.
+    pub joining: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -284,6 +409,7 @@ pub fn info(db: &Mutex<Planner>) -> Result<SyncInfo, String> {
     let l = link::get(conn).map_err(|e| sentence(&e))?;
     Ok(SyncInfo {
         device_name: me.name,
+        joining: None,
         server: l.map(|l| ServerLink {
             server_id: l.server_id,
             addresses: l.addresses,
@@ -313,7 +439,7 @@ mod tests {
         db: &Mutex<Planner>,
         address: &str,
         code: &str,
-    ) -> (Result<link::Link, String>, Option<String>) {
+    ) -> (Result<Joined, String>, Option<String>) {
         let saved = StdMutex::new(None);
         let out = pair(server, db, address, code, " Laptop ", |id, token| {
             assert_eq!(id, SERVER);
@@ -346,10 +472,11 @@ mod tests {
         assert_eq!(unsent(&db), 0, "as if an earlier server had it all");
 
         let (out, token) = pair_with(&server, &db, "192.168.1.10", "abcd-efgh").await;
-        let l = out.unwrap();
+        assert!(matches!(out.unwrap(), Joined::Seeded));
+        let l = linked(&db).unwrap();
         assert_eq!((l.server_id.as_str(), l.epoch.as_str()), (SERVER, EPOCH));
         assert_eq!(l.addresses, [LAN]);
-        assert_eq!(linked(&db), Some(l));
+
         let me = device::get(db.lock().unwrap().db().conn()).unwrap();
         assert_eq!(me.name.as_deref(), Some("Laptop"));
         let (sent, name) = server.with(|f| f.devices[&me.id].clone());
@@ -426,7 +553,8 @@ mod tests {
             link::record_sync(p.db().conn(), EPOCH, 5, chrono::Utc::now()).unwrap();
         }
         let (out, token) = pair_with(&server, &db, TAILNET, CODE).await;
-        let l = out.unwrap();
+        assert!(matches!(out.unwrap(), Joined::Again));
+        let l = linked(&db).unwrap();
         assert!(token.is_some());
         assert_eq!(l.addresses, [LAN, TAILNET]);
         assert_eq!(l.seq, 5, "the cursor stays");
@@ -438,6 +566,154 @@ mod tests {
         let (out, token) = pair_with(&server, &db, LAN, CODE).await;
         assert!(out.unwrap_err().contains("Disconnect from it first"));
         assert_eq!(token, None);
+    }
+
+    fn titles(db: &Mutex<Planner>) -> Vec<String> {
+        let p = db.lock().unwrap();
+        let mut t: Vec<String> = p
+            .db()
+            .conn()
+            .prepare("SELECT title FROM items")
+            .unwrap()
+            .query_map([], |r| r.get(0))
+            .unwrap()
+            .map(Result::unwrap)
+            .collect();
+        t.sort();
+        t
+    }
+
+    fn scratch() -> std::path::PathBuf {
+        std::env::temp_dir()
+            .join(format!("blotter-join-{}", blotter_core::id::new_id()))
+            .join("blotter.db")
+    }
+
+    #[tokio::test]
+    async fn an_empty_device_takes_the_servers_planner() {
+        let server = Shared::new();
+        server.run("create_item", json!({ "title": "From the server" }));
+        server.with(|f| f.code = Some(CODE.into()));
+        let db = alone();
+        let (out, _) = pair_with(&server, &db, LAN, CODE).await;
+        assert!(matches!(out.unwrap(), Joined::Fetched));
+        assert_eq!(titles(&db), ["From the server"]);
+        assert_eq!(unsent(&db), 0, "nothing of its own to send");
+        let l = linked(&db).unwrap();
+        assert_eq!(l.seq, server.with(|f| f.log.len() as i64));
+    }
+
+    #[tokio::test]
+    async fn both_with_a_planner_wait_for_the_users_choice() {
+        let server = Shared::new();
+        server.run("create_item", json!({ "title": "From the server" }));
+        let path = scratch();
+
+        for (choice, want) in [
+            (Choice::Server, vec!["From the server"]),
+            (Choice::Merge, vec!["From the server", "Only here"]),
+        ] {
+            server.with(|f| f.code = Some(CODE.into()));
+            let db = alone();
+            run(&db, "create_item", json!({ "title": "Only here" }));
+            let (out, token) = pair_with(&server, &db, LAN, CODE).await;
+            let Ok(Joined::Choose(pending)) = out else {
+                panic!("{out:?}");
+            };
+            assert!(token.is_some());
+            assert_eq!(linked(&db), None, "nothing linked before the choice");
+
+            finish_join(&db, pending, choice, &path).unwrap();
+            assert_eq!(titles(&db), want, "{choice:?}");
+            assert!(linked(&db).is_some());
+            let p = db.lock().unwrap();
+            let snaps = snapshots::list(p.db().conn()).unwrap();
+            assert_eq!(snaps.len(), 1);
+            assert_eq!(snaps[0].reason, Reason::BeforeSync);
+            let queued = capture::pending_count(p.db().conn()).unwrap();
+            assert_eq!(queued > 0, choice == Choice::Merge, "{choice:?}");
+        }
+        let _ = std::fs::remove_dir_all(path.parent().unwrap());
+    }
+
+    #[tokio::test]
+    async fn giving_up_before_joining_unpairs() {
+        let server = Shared::new();
+        server.run("create_item", json!({ "title": "From the server" }));
+        server.with(|f| f.code = Some(CODE.into()));
+        let db = alone();
+        run(&db, "create_item", json!({ "title": "Only here" }));
+        let (out, token) = pair_with(&server, &db, LAN, CODE).await;
+        let Ok(Joined::Choose(pending)) = out else {
+            panic!("{out:?}");
+        };
+        abandon(&server, &pending, token.as_deref()).await;
+        assert_eq!(server.with(|f| f.revoked.len()), 1);
+        assert_eq!(titles(&db), ["Only here"]);
+        assert_eq!(linked(&db), None);
+    }
+
+    /// Pairing answers; fetching the planner doesn't.
+    struct FailingBoot(Shared);
+
+    impl Transport for FailingBoot {
+        async fn hello(&self, b: &str) -> Result<blotter_core::sync::api::Hello, SyncError> {
+            self.0.hello(b).await
+        }
+        async fn pair(
+            &self,
+            b: &str,
+            r: &PairRequest,
+        ) -> Result<blotter_core::sync::api::Paired, SyncError> {
+            self.0.pair(b, r).await
+        }
+        async fn disconnect(&self, b: &str, t: &str) -> Result<(), SyncError> {
+            self.0.disconnect(b, t).await
+        }
+        async fn bootstrap(&self, _: &str, _: &str) -> Result<Bootstrap, SyncError> {
+            Err(SyncError::Unreachable("timed out".into()))
+        }
+        async fn push(
+            &self,
+            b: &str,
+            t: &str,
+            r: &blotter_core::sync::api::PushRequest,
+        ) -> Result<blotter_core::sync::api::PushResponse, SyncError> {
+            self.0.push(b, t, r).await
+        }
+        async fn pull(
+            &self,
+            b: &str,
+            t: &str,
+            e: &str,
+            s: i64,
+        ) -> Result<blotter_core::sync::api::PullResponse, SyncError> {
+            self.0.pull(b, t, e, s).await
+        }
+    }
+
+    #[tokio::test]
+    async fn a_failed_fetch_unpairs_and_saves_no_token() {
+        let server = Shared::new();
+        server.with(|f| f.code = Some(CODE.into()));
+        let db = alone();
+        let saved = StdMutex::new(None);
+        let err = pair(
+            &FailingBoot(server.clone()),
+            &db,
+            LAN,
+            CODE,
+            "Laptop",
+            |_, t| {
+                *saved.lock().unwrap() = Some(t.to_owned());
+                Ok(())
+            },
+        )
+        .await
+        .unwrap_err();
+        assert!(err.contains("timed out"), "{err}");
+        assert_eq!(saved.into_inner().unwrap(), None);
+        assert_eq!(server.with(|f| f.revoked.len()), 1);
     }
 
     #[test]
@@ -554,12 +830,17 @@ mod tests {
         let db = alone();
         run(&db, "create_item", json!({ "title": "Live pairing" }));
         let saved = StdMutex::new(None);
-        let l = pair(&http, &db, &base, &code, "Live pairing", |_, token| {
+        let joined = pair(&http, &db, &base, &code, "Live pairing", |_, token| {
             *saved.lock().unwrap() = Some(token.to_owned());
             Ok(())
         })
         .await
         .unwrap();
+        let dir = std::env::temp_dir().join(format!("blotter-live-{}", blotter_core::id::new_id()));
+        if let Joined::Choose(pending) = joined {
+            finish_join(&db, pending, Choice::Merge, &dir.join("blotter.db")).unwrap();
+        }
+        let l = linked(&db).unwrap();
         let token = saved.into_inner().unwrap().unwrap();
         let address = &l.addresses[0];
         assert!(unsent(&db) > 0);
@@ -581,5 +862,81 @@ mod tests {
             matches!(&after, SyncError::Refused(b) if b.code == ErrorCode::Revoked),
             "{after:?}"
         );
+    }
+
+    /// Runs Blotter Sync's admin command on the live server's data dir.
+    fn admin(args: &[&str]) -> String {
+        let bin = std::env::var("BLOTTER_LIVE_SYNC_ADMIN").unwrap();
+        let data = std::env::var("BLOTTER_LIVE_SYNC_DATA").unwrap();
+        let out = std::process::Command::new(bin)
+            .arg("--data-dir")
+            .arg(data)
+            .args(args)
+            .output()
+            .unwrap();
+        assert!(out.status.success(), "{out:?}");
+        String::from_utf8(out.stdout).unwrap()
+    }
+
+    /// A restore on a real Blotter Sync: the engine snapshots this device
+    /// and fetches the restored planner. As the live test above, plus
+    /// `BLOTTER_LIVE_SYNC_ADMIN` (the `blotter-sync` binary) and
+    /// `BLOTTER_LIVE_SYNC_DATA` (the server's data dir).
+    #[tokio::test]
+    #[ignore = "needs a Blotter Sync server, its binary and a pairing code"]
+    async fn live_refetch_after_a_restore() {
+        use std::time::Instant;
+
+        use super::super::engine::Engine;
+
+        let (Ok(base), Ok(code)) = (
+            std::env::var("BLOTTER_LIVE_SYNC"),
+            std::env::var("BLOTTER_LIVE_SYNC_CODE"),
+        ) else {
+            return;
+        };
+        let http = super::super::client::Http::new().unwrap();
+        let db = alone();
+        let path = scratch();
+        let saved = StdMutex::new(None);
+        let joined = pair(&http, &db, &base, &code, "Live restore", |_, token| {
+            *saved.lock().unwrap() = Some(token.to_owned());
+            Ok(())
+        })
+        .await
+        .unwrap();
+        assert!(
+            matches!(joined, Joined::Fetched | Joined::Seeded),
+            "{joined:?}"
+        );
+        let token = saved.into_inner().unwrap().unwrap();
+        let mut e = Engine::new(http.clone()).snapshots_beside(path.clone());
+        e.sync_once(&db, &token, Instant::now()).await.unwrap();
+
+        let taken = admin(&["snapshot"]);
+        let id = taken.split_whitespace().nth(1).unwrap().to_owned();
+        run(
+            &db,
+            "create_item",
+            json!({ "title": "Pushed, then restored away" }),
+        );
+        e.sync_once(&db, &token, Instant::now()).await.unwrap();
+        run(&db, "create_item", json!({ "title": "Never pushed" }));
+        admin(&["restore", &id]);
+
+        let done = e.sync_once(&db, &token, Instant::now()).await.unwrap();
+        let replaced = done.replaced.expect("fetched again");
+        assert!(replaced.unsent > 0);
+        let t = titles(&db);
+        assert!(!t.iter().any(|t| t == "Never pushed"), "{t:?}");
+        assert!(
+            !t.iter().any(|t| t == "Pushed, then restored away"),
+            "{t:?}"
+        );
+        let again = e.sync_once(&db, &token, Instant::now()).await.unwrap();
+        assert_eq!(again.replaced, None);
+
+        disconnect(&http, &db, Some(&token)).await.unwrap();
+        let _ = std::fs::remove_dir_all(path.parent().unwrap());
     }
 }

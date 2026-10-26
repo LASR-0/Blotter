@@ -38,6 +38,9 @@ use engine::{Attention, Engine, Problem};
 /// Tells the UI the sync status changed; it then calls `sync_status`.
 pub const SYNC_STATUS_EVENT: &str = "sync:status";
 
+/// Tells the UI a sync notice is waiting; it then calls `take_sync_notice`.
+pub const SYNC_NOTICE_EVENT: &str = "sync:notice";
+
 /// The changed event's op for rows a sync merged, so they don't wake the
 /// engine again as if they were local writes.
 const SYNC_OP: &str = "sync";
@@ -96,6 +99,11 @@ pub struct SyncEngine {
     /// the route and the change stream before the next sync.
     relinked: AtomicBool,
     status: Mutex<SyncStatus>,
+    /// A pairing waiting on Use the server's planner or Merge.
+    joining: Mutex<Option<pairing::PendingJoin>>,
+    /// The server's planner was replaced and fetched again: held until a
+    /// window shows it, like the rollover notice.
+    notice: Mutex<Option<engine::Replaced>>,
 }
 
 impl Default for SyncEngine {
@@ -103,6 +111,8 @@ impl Default for SyncEngine {
         Self {
             wake: Notify::new(),
             relinked: AtomicBool::new(false),
+            joining: Mutex::new(None),
+            notice: Mutex::new(None),
             status: Mutex::new(SyncStatus {
                 state: SyncState::LocalOnly,
                 unsent: 0,
@@ -241,6 +251,9 @@ async fn run(app: AppHandle) {
         }
     };
     let mut engine = Engine::new(http);
+    if let Some(state) = app.try_state::<AppState>() {
+        engine = engine.snapshots_beside(state.db_path.clone());
+    }
     let mut backoff = Backoff::default();
     let mut stream: Stream = None;
     let mut wait = Duration::ZERO;
@@ -296,14 +309,16 @@ async fn run(app: AppHandle) {
         match outcome {
             Ok(done) => {
                 backoff.reset();
-                if done.pulled > 0 {
-                    let _ = app.emit(
-                        CHANGED_EVENT,
-                        ChangedPayload {
-                            batch_id: String::new(),
-                            ops: vec![SYNC_OP.into()],
-                        },
-                    );
+                if done.pulled > 0 || done.replaced.is_some() {
+                    merged(&app);
+                }
+                if let Some(replaced) = done.replaced {
+                    if let Some(sync) = app.try_state::<SyncEngine>()
+                        && let Ok(mut slot) = sync.notice.lock()
+                    {
+                        *slot = Some(replaced);
+                    }
+                    let _ = app.emit(SYNC_NOTICE_EVENT, ());
                 }
                 let current = stream
                     .as_ref()
@@ -377,27 +392,103 @@ fn http() -> Result<Http, CommandError> {
     Http::new().map_err(|e| CommandError::internal(format!("sync is unavailable: {e}")))
 }
 
+/// Rows came from the server: the windows refresh, and the engine isn't
+/// woken as if they were local writes.
+fn merged(app: &AppHandle) {
+    let _ = app.emit(
+        CHANGED_EVENT,
+        ChangedPayload {
+            batch_id: String::new(),
+            ops: vec![SYNC_OP.into()],
+        },
+    );
+}
+
 #[tauri::command]
-pub fn sync_info(state: State<'_, AppState>) -> Result<pairing::SyncInfo, CommandError> {
-    pairing::info(&state.planner).map_err(CommandError::internal)
+pub fn sync_info(
+    state: State<'_, AppState>,
+    sync: State<'_, SyncEngine>,
+) -> Result<pairing::SyncInfo, CommandError> {
+    let mut info = pairing::info(&state.planner).map_err(CommandError::internal)?;
+    info.joining = sync
+        .joining
+        .lock()
+        .ok()
+        .and_then(|j| j.as_ref().map(|p| p.address.clone()));
+    Ok(info)
 }
 
 /// Pairs with the server at `address` using the code `blotter-sync pair`
-/// printed; the token goes to the OS keychain.
+/// printed; the token goes to the OS keychain. Answers what happened to
+/// the planners: `seeded`, `fetched`, `again`, or `choose`, when the page
+/// asks Use the server's planner or Merge and calls `sync_join`.
 #[tauri::command]
 pub async fn sync_pair(
     app: AppHandle,
     state: State<'_, AppState>,
+    sync: State<'_, SyncEngine>,
     address: String,
     code: String,
     name: String,
-) -> Result<(), CommandError> {
+) -> Result<&'static str, CommandError> {
     let http = http()?;
-    pairing::pair(&http, &state.planner, &address, &code, &name, token::set)
+    let joined = pairing::pair(&http, &state.planner, &address, &code, &name, token::set)
         .await
         .map_err(refused)?;
+    let answer = joined.as_str();
+    match joined {
+        pairing::Joined::Choose(pending) => {
+            if let Ok(mut slot) = sync.joining.lock() {
+                *slot = Some(pending);
+            }
+        }
+        pairing::Joined::Fetched | pairing::Joined::Seeded => merged(&app),
+        pairing::Joined::Again => {}
+    }
+    relink(&app);
+    Ok(answer)
+}
+
+fn take_pending(sync: &SyncEngine) -> Result<pairing::PendingJoin, CommandError> {
+    sync.joining
+        .lock()
+        .ok()
+        .and_then(|mut j| j.take())
+        .ok_or_else(|| refused("Nothing is waiting to join; pair again.".into()))
+}
+
+/// Joins the server paired last as the user chose: `server` or `merge`.
+#[tauri::command]
+pub fn sync_join(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    sync: State<'_, SyncEngine>,
+    choice: pairing::Choice,
+) -> Result<(), CommandError> {
+    let pending = take_pending(&sync)?;
+    pairing::finish_join(&state.planner, pending, choice, &state.db_path).map_err(refused)?;
+    merged(&app);
     relink(&app);
     Ok(())
+}
+
+/// Gives up on the pairing waiting to join: the server forgets this device
+/// and the token goes. The planner is as it was.
+#[tauri::command]
+pub async fn sync_join_cancel(sync: State<'_, SyncEngine>) -> Result<(), CommandError> {
+    let pending = take_pending(&sync)?;
+    let token = token::get(&pending.server_id).ok().flatten();
+    pairing::abandon(&http()?, &pending, token.as_deref()).await;
+    if let Err(err) = token::delete(&pending.server_id) {
+        eprintln!("blotter: {err}");
+    }
+    Ok(())
+}
+
+/// The waiting notice that the server's planner was replaced, once.
+#[tauri::command]
+pub fn take_sync_notice(sync: State<'_, SyncEngine>) -> Option<engine::Replaced> {
+    sync.notice.lock().ok().and_then(|mut slot| slot.take())
 }
 
 #[tauri::command]

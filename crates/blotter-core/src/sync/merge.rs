@@ -23,7 +23,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use rusqlite::{Connection, TransactionBehavior};
+use rusqlite::{Connection, Transaction, TransactionBehavior};
 use serde_json::{Map, Value};
 
 use crate::error::{CoreError, Result};
@@ -95,12 +95,24 @@ impl Touched {
 /// here (Blotter Sync logs it for every other device) and what was refused.
 pub fn merge(conn: &mut Connection, rows: &[RowState], now: Instant) -> Result<Merged> {
     let mut tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
-    let role = capture::role(&tx)?;
-    capture::applying(&tx, true)?;
+    let merged = merge_in(&mut tx, rows, now)?;
+    tx.commit()?;
+    Ok(merged)
+}
+
+/// [`merge`] inside a transaction the caller commits, so joining a server
+/// can clear or adjust this replica and merge in one go.
+pub(crate) fn merge_in(
+    tx: &mut Transaction<'_>,
+    rows: &[RowState],
+    now: Instant,
+) -> Result<Merged> {
+    let role = capture::role(tx)?;
+    capture::applying(tx, true)?;
     tx.pragma_update(None, "defer_foreign_keys", "ON")?;
 
     if let Some(newest) = rows.iter().map(RowState::newest).max() {
-        hlc::observe(&tx, newest, now)?;
+        hlc::observe(tx, newest, now)?;
     }
 
     let mut touched = Touched::default();
@@ -123,22 +135,21 @@ pub fn merge(conn: &mut Connection, rows: &[RowState], now: Instant) -> Result<M
             }
         }
     }
-    orphans(&tx, &mut touched, &mut rejected)?;
+    orphans(tx, &mut touched, &mut rejected)?;
 
-    capture::applying(&tx, false)?;
+    capture::applying(tx, false)?;
     let batch_id = new_id();
     let mut changed = Vec::new();
     for (table, key) in &touched.rows {
         let Some(t) = registry::table(table) else {
             continue;
         };
-        let Some(state) = state::row_of(&tx, t, key, role)? else {
+        let Some(state) = state::row_of(tx, t, key, role)? else {
             continue;
         };
-        log(&tx, &batch_id, &touched, t, key, &state, now)?;
+        log(tx, &batch_id, &touched, t, key, &state, now)?;
         changed.push(state);
     }
-    tx.commit()?;
     Ok(Merged { changed, rejected })
 }
 

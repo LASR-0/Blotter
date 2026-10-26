@@ -6,7 +6,7 @@ use std::future::Future;
 use std::time::Duration;
 
 use blotter_core::sync::api::{
-    ErrorBody, HEADER_PROTOCOL, HEADER_SCHEMA, Hello, PairRequest, Paired, PullResponse,
+    Bootstrap, ErrorBody, HEADER_PROTOCOL, HEADER_SCHEMA, Hello, PairRequest, Paired, PullResponse,
     PushRequest, PushResponse, Versions, path,
 };
 use reqwest::{Client, RequestBuilder, Response};
@@ -53,6 +53,12 @@ pub trait Transport: Send + Sync {
         base: &str,
         token: &str,
     ) -> impl Future<Output = Result<(), SyncError>> + Send;
+    /// The server's whole planner, for joining or starting over.
+    fn bootstrap(
+        &self,
+        base: &str,
+        token: &str,
+    ) -> impl Future<Output = Result<Bootstrap, SyncError>> + Send;
     fn push(
         &self,
         base: &str,
@@ -176,6 +182,14 @@ impl Transport for Http {
     async fn pair(&self, base: &str, req: &PairRequest) -> Result<Paired, SyncError> {
         address::check(base).await.map_err(SyncError::Insecure)?;
         read(gated(self.api.post(format!("{base}{}", path::PAIR)), "").json(req)).await
+    }
+
+    async fn bootstrap(&self, base: &str, token: &str) -> Result<Bootstrap, SyncError> {
+        read(gated(
+            self.api.get(format!("{base}{}", path::BOOTSTRAP)),
+            token,
+        ))
+        .await
     }
 
     async fn disconnect(&self, base: &str, token: &str) -> Result<(), SyncError> {

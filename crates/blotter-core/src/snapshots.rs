@@ -35,6 +35,9 @@ pub enum Reason {
     BeforeImport,
     BeforeAiBatch,
     BeforeIcsImport,
+    /// Before this device took a home server's planner in place of its own:
+    /// joining one, or the server's planner being restored or imported.
+    BeforeSync,
 }
 
 impl Reason {
@@ -46,6 +49,7 @@ impl Reason {
             Reason::BeforeImport => "before_import",
             Reason::BeforeAiBatch => "before_ai_batch",
             Reason::BeforeIcsImport => "before_ics_import",
+            Reason::BeforeSync => "before_sync",
         }
     }
 

@@ -13,6 +13,7 @@ pub mod capture;
 mod convergence;
 pub mod device;
 pub mod hlc;
+pub mod join;
 pub mod link;
 pub mod merge;
 pub mod registry;

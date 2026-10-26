@@ -165,8 +165,8 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 79d | 16a | `feat(core): undo per field group` | committed `661cbeb` |
 | 79e | 16a | `feat(core): Blotter Sync's request and response types` | committed `2c89f08` |
 | 80 | 16b | `feat(app): sync engine with push, pull and address failover` | committed `f22b2ae` |
-| 81 | 16b | `feat(app): pairing and Settings → Sync` | committed (hash in the next entry) |
-| 82 | 16b | `feat(app): connect to a home server from first run, and joining` | planned |
+| 81 | 16b | `feat(app): pairing and Settings → Sync` | committed `7673cef` (page confirmed by Luke) |
+| 82 | 16b | `feat(app): connect to a home server from first run, and joining` | committed (hash in the next entry) |
 | 83 | 16b | `feat(app): hand automatic duties to the server` | planned |
 | 84 | 16b | `feat(ui): sync status, device names in History, server snapshots` | planned |
 | 85 | 16c | `chore(release): v1.2.1` | planned |
@@ -5411,7 +5411,7 @@ Notes:
     - A stale epoch only reports "fetch again"; re-bootstrapping is #82 with joining.
     - The duties still run here too until #83.
 
-### #81 — Pairing and Settings → Sync            [status: committed — hash in the next entry]
+### #81 — Pairing and Settings → Sync            [status: committed — hash in the next entry; Settings → Sync confirmed by Luke 2026-10-26]
 Phase: 16b
 Message:
     feat(app): pairing and Settings → Sync
@@ -5478,3 +5478,75 @@ Notes:
       epoch still only reports.
     - Disconnect leaves unsent changes queued, and the next pairing queues everything
       anyway.
+
+### #82 — Connect to a home server from first run, and joining            [status: committed — hash in the next entry]
+Phase: 16b
+Message:
+    feat(app): connect to a home server from first run, and joining
+
+    Pairing now fetches the server's planner and joins it (§14.7), and a
+    planner replaced on the server is fetched again (§14.8).
+
+    - Core: sync::join. has_planner tells a planner from nothing (live
+      synced rows, not rollover bookkeeping or fetched events).
+      replace_with (Use the server's planner) swaps every synced row for
+      a bootstrap in one transaction and keeps device-local data.
+      merge_into (Merge) queues everything here, lets the server win
+      tags, settings, keybindings and themes it also has, and drops this
+      device's copy of a public:* holiday the server has for the same
+      dates, moving its block-out lifts to the server's copy. merge is
+      split so both run in one transaction with it. Snapshots gain the
+      before_sync reason.
+    - Pairing: an empty server gets this device's whole planner; an
+      empty device takes the server's; when both have one, nothing is
+      linked until the user picks Use the server's planner or Merge
+      (both snapshot this device first) or cancels, which unpairs. A
+      failed fetch unpairs and saves no token.
+    - Settings → Sync shows the choice while a join waits; first run
+      opens with "Set up this device" or "Connect to a home server", and
+      a device that took the server's planner skips the steps that make
+      data (week, work hours, holidays).
+    - When the server's planner was restored or imported there, the
+      engine snapshots this device (unsent changes stay in it), fetches
+      the new planner and pulls on from its epoch; a banner says so,
+      with Open Backups.
+    #81 is 7673cef.
+Files:
+    A  crates/blotter-core/src/sync/join.rs
+    M  crates/blotter-core/src/sync/mod.rs, crates/blotter-core/src/sync/merge.rs,
+       crates/blotter-core/src/snapshots.rs
+    M  src-tauri/src/sync/pairing.rs, src-tauri/src/sync/engine.rs, src-tauri/src/sync/client.rs,
+       src-tauri/src/sync/fake.rs, src-tauri/src/sync/mod.rs, src-tauri/src/lib.rs
+    A  src/views/settings/SyncPairing.tsx, src/app/SyncBanner.tsx
+    M  src/views/settings/SyncPage.tsx, src/app/FirstRun.tsx, src/app/AppShell.tsx,
+       src/views/settings/BackupsPage.tsx, src/lib/syncFormat.ts, src/lib/syncFormat.test.ts
+    M  .claude/COMMITS.md
+Test steps:
+    - cargo test --workspace → 285 core (3 new) + 77 app (5 new) + 6 mcp; clippy -D
+      warnings, fmt clean
+    - pnpm check → typecheck, eslint, prettier clean; vitest 243
+    - New, core: what counts as a planner; Use the server's replaces tags, items and
+      synced settings and keeps device-local ones with nothing queued; Merge unions items,
+      the server's tag colour wins, a doubled Melbourne Cup becomes the server's with the
+      lift moved to it, and the outbox brings the server level.
+    - New, app: an empty device takes the server's planner; with both, nothing links
+      before the choice, and each choice snapshots (before_sync) and joins as described;
+      cancelling unpairs; a failed fetch unpairs without a token; a restore on the server
+      is fetched again after a snapshot, unsent changes counted, and without a snapshot
+      folder it only needs attention.
+    - Live, against Blotter Sync 1.0.0-rc.1 on 127.0.0.1: live_pair_test_and_disconnect
+      on a server with a planner (Merge) and on an empty one (seeded);
+      live_refetch_after_a_restore (new; BLOTTER_LIVE_SYNC_ADMIN and
+      BLOTTER_LIVE_SYNC_DATA): `blotter-sync snapshot`, a push, `restore` → fetched
+      again, the restored-away and unsent items gone here; the engine's live test still
+      passes.
+Notes:
+    - Not yet checked by eye: first run's opening choice and its connect and join
+      screens, the Join card in Settings → Sync, and the banner after a restore.
+    - Merge keeps block-outs both sides made (two "Work"); the card says they may need
+      tidying. Natural keys and public holidays follow §14.7.
+    - A join waiting on the choice lives in memory: quitting before choosing leaves the
+      device paired on the server but not linked here; pair again (Settings → Sync), or
+      revoke it on the server.
+    - The rollover and sync banners share a spot; both showing at once overlap.
+    - The duties still run here too until #83.

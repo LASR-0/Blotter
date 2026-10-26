@@ -29,6 +29,7 @@ import { ItemDialog } from './ItemDialog';
 import { LiftDialog } from './LiftDialog';
 import { AutoSlotPanel } from './AutoSlotPanel';
 import { RolloverBanner } from './RolloverBanner';
+import { SyncBanner } from './SyncBanner';
 import { ReminderToasts } from './ReminderToasts';
 import { Notice } from './Notice';
 import { ErrorBoundary } from './ErrorBoundary';
@@ -166,6 +167,7 @@ export function AppShell() {
       <FirstRun />
       <AutoSlotPanel />
       <RolloverBanner />
+      <SyncBanner />
       <ReminderToasts />
       <Notice />
       <DragLayer windows={windows} />

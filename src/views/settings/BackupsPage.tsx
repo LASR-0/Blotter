@@ -3,6 +3,7 @@ import { invoke } from '@tauri-apps/api/core';
 
 import {
   ArrowCounterClockwise,
+  ArrowsClockwise,
   Camera,
   DownloadSimple,
   FileArrowDown,
@@ -22,7 +23,13 @@ import { fileSize, takenAt } from '@/lib/backupFormat';
 import { useOp } from '@/lib/queries';
 
 type Reason =
-  'manual' | 'daily' | 'before_restore' | 'before_import' | 'before_ai_batch' | 'before_ics_import';
+  | 'manual'
+  | 'daily'
+  | 'before_restore'
+  | 'before_import'
+  | 'before_ai_batch'
+  | 'before_ics_import'
+  | 'before_sync';
 
 interface Snapshot {
   id: string;
@@ -59,6 +66,7 @@ const REASONS: Record<Reason, { label: string; icon: Icon }> = {
   before_import: { label: 'Before JSON import', icon: FileArrowUp },
   before_ai_batch: { label: 'Before AI batch', icon: Lightning },
   before_ics_import: { label: 'Before ICS import', icon: DownloadSimple },
+  before_sync: { label: 'Before the server’s planner', icon: ArrowsClockwise },
 };
 
 const KEEP_CHOICES = [10, 20, 50, 100];

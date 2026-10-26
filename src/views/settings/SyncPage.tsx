@@ -1,4 +1,4 @@
-import { useEffect, useState, type InputHTMLAttributes } from 'react';
+import { useEffect, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -31,14 +31,12 @@ import {
   type SyncTone,
 } from '@/lib/syncFormat';
 import { SettingRow } from './SettingRow';
+import { FIELD, JoinChoice, PairForm } from './SyncPairing';
 
 const INFO_KEY = ['sync-info'];
 const STATUS_KEY = ['sync-status'];
 
 const errorText = (e: unknown) => (isOpError(e) ? e.message : String(e));
-
-const FIELD =
-  'h-[30px] min-w-0 rounded-md border border-border-strong bg-bg px-2.5 text-sm text-text outline-none focus:border-accent';
 
 const TONE: Record<SyncTone, { icon: Icon; className: string }> = {
   off: { icon: CloudSlash, className: 'text-text-muted' },
@@ -56,99 +54,6 @@ function useNow(): Date {
     return () => window.clearInterval(t);
   }, []);
   return now;
-}
-
-/** Address, pairing code and this device's name, traded for a token. */
-function PairForm({
-  again,
-  address: initialAddress,
-  name: initialName,
-  onPaired,
-}: {
-  again?: boolean;
-  address?: string;
-  name?: string | null;
-  onPaired: () => void;
-}) {
-  const [address, setAddress] = useState(initialAddress ?? '');
-  const [code, setCode] = useState('');
-  const [name, setName] = useState(initialName ?? '');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const ready = address.trim() && code.trim() && name.trim();
-
-  const pair = async () => {
-    setBusy(true);
-    setError(null);
-    try {
-      await invoke('sync_pair', { address, code, name });
-      setCode('');
-      onPaired();
-    } catch (e) {
-      setError(errorText(e));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const field = (
-    label: string,
-    value: string,
-    set: (v: string) => void,
-    props: InputHTMLAttributes<HTMLInputElement>,
-  ) => (
-    <label className="flex flex-col gap-1 text-sm text-text-muted">
-      {label}
-      <input
-        value={value}
-        onChange={(e) => set(e.target.value)}
-        spellCheck={false}
-        autoComplete="off"
-        {...props}
-        className={cn(FIELD, props.className)}
-      />
-    </label>
-  );
-
-  return (
-    <form
-      className="flex flex-col gap-3 rounded-lg border border-border bg-bg px-3.5 py-3"
-      onSubmit={(e) => {
-        e.preventDefault();
-        if (ready && !busy) void pair();
-      }}
-    >
-      <div className="flex flex-col gap-[3px]">
-        <span className="font-medium">{again ? 'Pair again' : 'Pair with a home server'}</span>
-        <span className="text-sm leading-[1.45] text-text-muted">
-          On the server, run <code className="font-mono">blotter-sync pair</code> for a code. It
-          works once, for 10 minutes.
-        </span>
-      </div>
-      <div className="grid grid-cols-[2fr_1fr] gap-2">
-        {field('Address', address, setAddress, {
-          placeholder: '192.168.1.10 or https://sync.example.com',
-          className: 'font-mono',
-          autoFocus: !again,
-        })}
-        {field('Pairing code', code, (v) => setCode(v.toUpperCase()), {
-          placeholder: 'ABCD-EFGH',
-          className: 'font-mono tracking-[.06em]',
-          autoFocus: again,
-        })}
-      </div>
-      {field('This device’s name', name, setName, {
-        placeholder: 'Desktop, Laptop…',
-        maxLength: 64,
-      })}
-      <div className="flex items-center gap-3">
-        <Button type="submit" variant="primary" disabled={!ready || busy}>
-          {busy ? 'Pairing…' : again ? 'Pair again' : 'Pair'}
-        </Button>
-        {error && <span className="text-sm text-danger">{error}</span>}
-      </div>
-    </form>
-  );
 }
 
 function StatusCard({ status, now }: { status: SyncStatus; now: Date }) {
@@ -386,7 +291,7 @@ export function SyncPage() {
       </div>
     );
 
-  const { server, device_name } = info.data;
+  const { server, device_name, joining } = info.data;
   const s = status.data ?? null;
 
   return (
@@ -412,7 +317,11 @@ export function SyncPage() {
         </p>
       )}
 
-      {!server ? (
+      {!server && joining ? (
+        <div className="mt-3">
+          <JoinChoice address={joining} onDone={refresh} />
+        </div>
+      ) : !server ? (
         <div className="mt-3">
           <PairForm
             name={device_name}

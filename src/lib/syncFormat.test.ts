@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   moveAddress,
   needsPairing,
+  replacedText,
   routeLabel,
   syncSummary,
   syncedAgo,
@@ -99,5 +100,14 @@ describe('moveAddress', () => {
     expect(moveAddress(['a', 'b', 'c'], 0, 1)).toEqual(['b', 'a', 'c']);
     expect(moveAddress(['a', 'b'], 0, -1)).toEqual(['a', 'b']);
     expect(moveAddress(['a', 'b'], 1, 1)).toEqual(['a', 'b']);
+  });
+});
+
+describe('replacedText', () => {
+  it('says where the old planner went', () => {
+    expect(replacedText({ snapshot_id: 'S', unsent: 0 })).toContain('from before is in Backups');
+    expect(replacedText({ snapshot_id: 'S', unsent: 2 })).toContain(
+      '2 unsent changes the server never got',
+    );
   });
 });

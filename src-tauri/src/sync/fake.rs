@@ -6,11 +6,11 @@ use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
 use blotter_core::sync::api::{
-    ErrorBody, ErrorCode, Hello, PairRequest, Paired, PullResponse, PushRequest, PushResponse,
-    Versions,
+    Bootstrap, ErrorBody, ErrorCode, Hello, PairRequest, Paired, PullResponse, PushRequest,
+    PushResponse, Versions,
 };
 use blotter_core::sync::capture::{self, Role};
-use blotter_core::sync::{RowState, link, merge};
+use blotter_core::sync::{RowState, link, merge, state};
 use blotter_core::{Actor, Database, Planner};
 
 use super::client::{SyncError, Transport};
@@ -24,6 +24,8 @@ pub const CODE: &str = "ABCD-EFGH";
 pub struct Fake {
     pub planner: Planner,
     pub log: Vec<(i64, RowState)>,
+    /// Moves when the planner is replaced (a restore or import there).
+    pub epoch: String,
     pub versions: Versions,
     pub down: HashSet<String>,
     pub elsewhere: HashSet<String>,
@@ -45,6 +47,7 @@ impl Shared {
         Self(Arc::new(Mutex::new(Fake {
             planner,
             log: Vec::new(),
+            epoch: EPOCH.into(),
             versions: Versions::CURRENT,
             down: HashSet::new(),
             elsewhere: HashSet::new(),
@@ -57,6 +60,30 @@ impl Shared {
 
     pub fn with<R>(&self, f: impl FnOnce(&mut Fake) -> R) -> R {
         f(&mut self.0.lock().unwrap())
+    }
+
+    /// The server's own planner gets `op`, as if a device had pushed it.
+    pub fn run(&self, op: &str, args: serde_json::Value) {
+        self.with(|f| {
+            let before = state::all(f.planner.db().conn()).unwrap();
+            f.planner.execute(op, args, &Actor::User).unwrap();
+            for row in state::all(f.planner.db().conn()).unwrap() {
+                if !before.contains(&row) {
+                    let seq = f.log.len() as i64 + 1;
+                    f.log.push((seq, row));
+                }
+            }
+        });
+    }
+
+    /// The planner is replaced there (a restore or import): a new epoch and
+    /// an empty log, so every device must fetch it again.
+    pub fn replace(&self, op: &str, args: serde_json::Value) {
+        self.with(|f| {
+            f.planner.execute(op, args, &Actor::User).unwrap();
+            f.epoch = "01JBEPOCH00000000000000002".into();
+            f.log.clear();
+        });
     }
 }
 
@@ -91,7 +118,7 @@ impl Transport for Shared {
                 blotter_core: "1.2.1".into(),
                 server_id: id.into(),
                 versions: f.versions,
-                epoch: EPOCH.into(),
+                epoch: f.epoch.clone(),
                 pairing_open: f.code.is_some(),
             })
         })
@@ -118,7 +145,7 @@ impl Transport for Shared {
                 token,
                 device_id: req.device_id.clone(),
                 server_id: SERVER.into(),
-                epoch: EPOCH.into(),
+                epoch: f.epoch.clone(),
             })
         })
     }
@@ -140,6 +167,20 @@ impl Transport for Shared {
         })
     }
 
+    async fn bootstrap(&self, base: &str, _token: &str) -> Result<Bootstrap, SyncError> {
+        self.with(|f| {
+            reachable(f, base)?;
+            if let Some(code) = f.refuse {
+                return Err(refused(code));
+            }
+            Ok(Bootstrap {
+                epoch: f.epoch.clone(),
+                seq: f.log.len() as i64,
+                rows: state::all(f.planner.db().conn()).unwrap(),
+            })
+        })
+    }
+
     async fn push(
         &self,
         base: &str,
@@ -150,6 +191,9 @@ impl Transport for Shared {
             reachable(f, base)?;
             if let Some(code) = f.refuse {
                 return Err(refused(code));
+            }
+            if req.epoch != f.epoch {
+                return Err(refused(ErrorCode::StaleEpoch));
             }
             let merged =
                 merge(f.planner.db_mut().conn_mut(), &req.rows, chrono::Utc::now()).unwrap();
@@ -168,7 +212,7 @@ impl Transport for Shared {
         &self,
         base: &str,
         _token: &str,
-        _epoch: &str,
+        epoch: &str,
         since: i64,
     ) -> Result<PullResponse, SyncError> {
         self.with(|f| {
@@ -176,8 +220,11 @@ impl Transport for Shared {
             if let Some(code) = f.refuse {
                 return Err(refused(code));
             }
+            if epoch != f.epoch {
+                return Err(refused(ErrorCode::StaleEpoch));
+            }
             Ok(PullResponse {
-                epoch: EPOCH.into(),
+                epoch: f.epoch.clone(),
                 rows: f
                     .log
                     .iter()

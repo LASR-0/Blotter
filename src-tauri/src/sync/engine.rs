@@ -3,12 +3,14 @@
 //! §14.6). The loop around it, the change stream and the status the UI
 //! shows are in `mod.rs`.
 
+use std::path::PathBuf;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
 use blotter_core::Planner;
+use blotter_core::snapshots::{self, Reason};
 use blotter_core::sync::api::{ErrorCode, PushRequest, Versions};
-use blotter_core::sync::{capture, link, merge, state};
+use blotter_core::sync::{capture, join, link, merge, state};
 use serde::Serialize;
 
 use super::address;
@@ -30,6 +32,17 @@ pub struct Synced {
     pub rejected: usize,
     /// Blotter Sync's version, from its last hello.
     pub server_version: Option<String>,
+    /// The server's planner was replaced, so this device fetched it again.
+    pub replaced: Option<Replaced>,
+}
+
+/// What fetching a replaced planner left behind (roadmap §14.8).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct Replaced {
+    /// The snapshot of this device's planner from just before.
+    pub snapshot_id: String,
+    /// Changes the server never got; they're in that snapshot.
+    pub unsent: u64,
 }
 
 /// Something only the user (or an update) can fix; retrying won't help.
@@ -95,6 +108,9 @@ pub struct Engine<T> {
     rechecked: Option<Instant>,
     /// Blotter Sync's version, from the last hello that answered.
     server_version: Option<String>,
+    /// The database file, for the snapshot taken before fetching a
+    /// replaced planner. Without it a replaced planner only needs attention.
+    db_path: Option<PathBuf>,
 }
 
 impl<T: Transport> Engine<T> {
@@ -104,7 +120,15 @@ impl<T: Transport> Engine<T> {
             route: None,
             rechecked: None,
             server_version: None,
+            db_path: None,
         }
+    }
+
+    /// Lets the engine fetch a replaced planner, snapshotting this one into
+    /// the backups folder beside `db_path` first.
+    pub fn snapshots_beside(mut self, db_path: PathBuf) -> Self {
+        self.db_path = Some(db_path);
+        self
     }
 
     pub fn transport(&self) -> &T {
@@ -230,7 +254,66 @@ impl<T: Transport> Engine<T> {
             return Err(Problem::Attention(Attention::Unauthorized));
         }
         let address = self.pick(&l, now).await?;
+        match self.exchange(db, token, &l, &address).await {
+            Err(Problem::Attention(Attention::Rebootstrap)) if self.db_path.is_some() => {
+                self.refetch(db, token, &address).await
+            }
+            other => other,
+        }
+    }
 
+    /// The server's planner was replaced (restored or imported there):
+    /// snapshot this one, take the server's in its place, and pull from its
+    /// new epoch. Changes the server never got stay in the snapshot.
+    async fn refetch(
+        &mut self,
+        db: &Mutex<Planner>,
+        token: &str,
+        address: &str,
+    ) -> Result<Synced, Problem> {
+        let boot = match self.transport.bootstrap(address, token).await {
+            Ok(boot) => boot,
+            Err(e) => return Err(self.failed(address, e)),
+        };
+        let Some(db_path) = &self.db_path else {
+            return Err(Problem::Attention(Attention::Rebootstrap));
+        };
+        let now = chrono::Utc::now();
+        let mut planner = locked(db)?;
+        let conn = planner.db().conn();
+        let unsent = capture::pending_count(conn)?;
+        let dir = snapshots::dir(conn, db_path)?;
+        let snap = snapshots::create(
+            conn,
+            &dir,
+            Reason::BeforeSync,
+            Some("Before the server’s replaced planner".into()),
+            now,
+        )?;
+        let merged = join::replace_with(planner.db_mut().conn_mut(), &boot.rows, now)?;
+        link::record_sync(planner.db().conn(), &boot.epoch, boot.seq, now)?;
+        Ok(Synced {
+            address: address.to_owned(),
+            pushed: 0,
+            pulled: merged.changed.len(),
+            rejected: 0,
+            server_version: self.server_version.clone(),
+            replaced: Some(Replaced {
+                snapshot_id: snap.id,
+                unsent,
+            }),
+        })
+    }
+
+    /// Push the outbox, then pull every page after the cursor.
+    async fn exchange(
+        &mut self,
+        db: &Mutex<Planner>,
+        token: &str,
+        l: &link::Link,
+        address: &str,
+    ) -> Result<Synced, Problem> {
+        let address = address.to_owned();
         let (rows, pending) = state::outbox(locked(db)?.db().conn())?;
         let (pushed, mut rejected) = (rows.len(), 0);
         if !rows.is_empty() {
@@ -283,6 +366,7 @@ impl<T: Transport> Engine<T> {
             pulled,
             rejected,
             server_version: self.server_version.clone(),
+            replaced: None,
         })
     }
 }
@@ -462,6 +546,69 @@ mod tests {
                 .unwrap_err();
             assert_eq!(err, want, "{code:?}");
         }
+    }
+
+    fn count(db: &Mutex<Planner>, title: &str) -> i64 {
+        db.lock()
+            .unwrap()
+            .db()
+            .conn()
+            .query_row(
+                "SELECT COUNT(*) FROM items WHERE title = ?1",
+                [title],
+                |r| r.get(0),
+            )
+            .unwrap()
+    }
+
+    #[tokio::test]
+    async fn a_replaced_planner_is_fetched_again_after_a_snapshot() {
+        let dir =
+            std::env::temp_dir().join(format!("blotter-refetch-{}", blotter_core::id::new_id()));
+        let server = Shared::new();
+        let laptop = device(&[LAN]);
+        let mut e = Engine::new(server.clone()).snapshots_beside(dir.join("blotter.db"));
+        let now = Instant::now();
+        run(&laptop, "create_item", json!({ "title": "Dentist" }));
+        e.sync_once(&laptop, "token", now).await.unwrap();
+
+        run(&laptop, "create_item", json!({ "title": "Unsent" }));
+        server.replace("create_item", json!({ "title": "Restored" }));
+        let done = e.sync_once(&laptop, "token", now).await.unwrap();
+        let replaced = done.replaced.expect("fetched again");
+        assert!(replaced.unsent > 0);
+        assert_eq!(
+            [
+                count(&laptop, "Dentist"),
+                count(&laptop, "Restored"),
+                count(&laptop, "Unsent")
+            ],
+            [1, 1, 0]
+        );
+        {
+            let p = laptop.lock().unwrap();
+            let conn = p.db().conn();
+            let snap = blotter_core::snapshots::get(conn, &replaced.snapshot_id).unwrap();
+            assert_eq!(snap.reason, Reason::BeforeSync);
+            assert!(std::path::Path::new(&snap.path).exists());
+            assert_eq!(
+                link::get(conn).unwrap().unwrap().epoch,
+                server.with(|f| f.epoch.clone())
+            );
+            assert_eq!(capture::pending_count(conn).unwrap(), 0);
+        }
+        let after = e.sync_once(&laptop, "token", now).await.unwrap();
+        assert_eq!((after.pushed, after.replaced), (0, None));
+
+        // Without a folder for the snapshot it only asks for attention.
+        server.replace("create_item", json!({ "title": "Again" }));
+        server.with(|f| f.epoch = "01JBEPOCH00000000000000003".into());
+        let err = Engine::new(server)
+            .sync_once(&laptop, "token", now)
+            .await
+            .unwrap_err();
+        assert_eq!(err, Problem::Attention(Attention::Rebootstrap));
+        let _ = std::fs::remove_dir_all(dir);
     }
 
     #[tokio::test]

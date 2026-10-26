@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Dialog } from 'radix-ui';
 import { invoke } from '@tauri-apps/api/core';
-import { LockKey, Power, PushPin } from '@phosphor-icons/react';
+import { ArrowsClockwise, LockKey, Power, PushPin, Sparkle } from '@phosphor-icons/react';
 import { BlotterMark } from '@/components/BlotterMark';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
@@ -13,7 +13,9 @@ import { DEFAULT_PLANNING, type WeekStart } from '@/lib/prefs';
 import { PRESETS } from '@/theme/presets';
 import { useTheme } from '@/theme/theme';
 import { usePublicHolidayChoice } from '@/lib/publicHolidays';
+import type { Joined, SyncInfo } from '@/lib/syncFormat';
 import { PublicHolidayFields } from '@/views/settings/PublicHolidays';
+import { JoinChoice, PairForm } from '@/views/settings/SyncPairing';
 import { useOverlay } from './overlay';
 
 const STEPS: readonly [string, string][] = [
@@ -36,6 +38,25 @@ const STEPS: readonly [string, string][] = [
     'Closing the window hides Blotter to the tray. Quit from the tray menu.',
   ],
 ];
+
+/** Every step, and those left once this device has a server's planner. */
+const ALL_STEPS: readonly number[] = [0, 1, 2, 3, 4, 5];
+const CONNECTED_STEPS: readonly number[] = [0, 4, 5];
+
+const START: Record<'ask' | 'connect' | 'join', [string, string]> = {
+  ask: [
+    'Welcome to Blotter',
+    'Start fresh on this device, or bring the planner you keep on a home server.',
+  ],
+  connect: [
+    'Connect to a home server',
+    'Pair with Blotter Sync, and this device gets the planner your other devices share.',
+  ],
+  join: [
+    'Join the server’s planner',
+    'This device already has a planner of its own. Pick how the two come together.',
+  ],
+};
 
 const WEEKDAYS = [
   ['mon', 'M', 'Monday'],
@@ -144,6 +165,29 @@ function SetupDialog() {
   const [tested, setTested] = useState<string | null>(null);
   const [autostart, setAutostart] = useState(true);
   const holidayChoice = usePublicHolidayChoice();
+  // Before the steps: set up this device, or connect to a home server
+  // (roadmap §14.7). Once connected to a planner, the steps that would
+  // make data (week, work hours, holidays) are left out: it came with it.
+  const [start, setStart] = useState<'ask' | 'connect' | 'join' | null>('ask');
+  const [joining, setJoining] = useState<string | null>(null);
+  const [connected, setConnected] = useState(false);
+  const order = connected ? CONNECTED_STEPS : ALL_STEPS;
+  const pos = Math.max(0, order.indexOf(step));
+
+  const paired = (joined: Joined) => {
+    setError(null);
+    if (joined === 'choose') {
+      invoke<SyncInfo>('sync_info')
+        .then((i) => setJoining(i.joining))
+        .catch((e: unknown) => setError(errorText(e)));
+      setStart('join');
+      return;
+    }
+    // An empty server gets this device's planner, so it still needs setting up.
+    setConnected(joined !== 'seeded');
+    setStep(0);
+    setStart(null);
+  };
 
   useEffect(() => {
     invoke<ClaudeStatus>('claude_code_status')
@@ -243,8 +287,9 @@ function SetupDialog() {
         }
         if (step === 5) await invoke('set_autostart', { enabled: autostart });
       }
-      if (step < STEPS.length - 1) {
-        setStep(step + 1);
+      const after = order[pos + 1];
+      if (after !== undefined) {
+        setStep(after);
         return;
       }
       await finish();
@@ -255,7 +300,57 @@ function SetupDialog() {
     }
   };
 
-  const [title, sub] = STEPS[step] as [string, string];
+  const [title, sub] = start ? START[start] : (STEPS[step] as [string, string]);
+
+  const startCard = (Icon: typeof Sparkle, name: string, desc: string, onPick: () => void) => (
+    <button
+      type="button"
+      onClick={onPick}
+      className="flex cursor-pointer items-start gap-3 rounded-md border border-border bg-transparent p-3.5 text-left text-text hover:border-accent hover:bg-accent-tint focus-visible:border-accent"
+    >
+      <Icon size={20} className="mt-px flex-none text-accent-text" />
+      <span className="flex flex-col gap-[3px]">
+        <span className="font-medium">{name}</span>
+        <span className="text-sm leading-[1.45] text-text-muted">{desc}</span>
+      </span>
+    </button>
+  );
+
+  const startBody = {
+    ask: (
+      <div className="flex flex-col gap-2.5">
+        {startCard(
+          Sparkle,
+          'Set up this device',
+          'Pick a theme, your week and work hours. Your planner stays here; you can connect a home server later in Settings → Sync.',
+          () => setStart(null),
+        )}
+        {startCard(
+          ArrowsClockwise,
+          'Connect to a home server',
+          'You already use Blotter elsewhere with Blotter Sync: pair with it and bring that planner here.',
+          () => setStart('connect'),
+        )}
+      </div>
+    ),
+    connect: <PairForm bare onPaired={paired} />,
+    join: joining ? (
+      <JoinChoice
+        address={joining}
+        onDone={(joined) => {
+          if (joined) {
+            setConnected(true);
+            setStep(0);
+            setStart(null);
+          } else {
+            setStart('connect');
+          }
+        }}
+      />
+    ) : (
+      <p className="m-0 text-text-muted">Loading…</p>
+    ),
+  };
   const planLeft = (minutes(planStart) / (24 * 60)) * 100;
   const planRight = 100 - (minutes(planEnd) / (24 * 60)) * 100;
   const claudeFound = !!claude?.path;
@@ -518,9 +613,13 @@ function SetupDialog() {
         <Dialog.Content
           aria-describedby="setup-sub"
           onEscapeKeyDown={(e) => {
-            // Esc skips the step, as the design's hint says.
+            // Esc skips the step, as the design's hint says. Before the
+            // steps it steps back: from pairing to the choice, from the
+            // choice to setting up this device.
             e.preventDefault();
-            if (!busy) void next(false);
+            if (start === 'connect') setStart('ask');
+            else if (start === 'ask') setStart(null);
+            else if (!start && !busy) void next(false);
           }}
           onOpenAutoFocus={(e) => {
             // Start on the step's own controls.
@@ -533,6 +632,7 @@ function SetupDialog() {
             // Enter continues, unless a control that uses Enter has focus.
             const t = e.target as HTMLElement;
             if (
+              !start &&
               e.key === 'Enter' &&
               t.tagName !== 'BUTTON' &&
               t.getAttribute('role') !== 'combobox'
@@ -547,21 +647,25 @@ function SetupDialog() {
             <BlotterMark className="size-6 flex-none" />
             <span className="font-medium">Set up Blotter</span>
             <span className="flex-1" />
-            <div aria-hidden className="flex gap-1">
-              {STEPS.map(([t], i) => (
-                <span
-                  key={t}
-                  className={cn(
-                    'h-1.5 rounded-[3px]',
-                    i === step ? 'w-[18px]' : 'w-1.5',
-                    i <= step ? 'bg-accent' : 'bg-border-strong',
-                  )}
-                />
-              ))}
-            </div>
-            <span className="font-mono text-xs text-text-muted">
-              {step + 1} / {STEPS.length}
-            </span>
+            {!start && (
+              <>
+                <div aria-hidden className="flex gap-1">
+                  {order.map((s, i) => (
+                    <span
+                      key={s}
+                      className={cn(
+                        'h-1.5 rounded-[3px]',
+                        i === pos ? 'w-[18px]' : 'w-1.5',
+                        i <= pos ? 'bg-accent' : 'bg-border-strong',
+                      )}
+                    />
+                  ))}
+                </div>
+                <span className="font-mono text-xs text-text-muted">
+                  {pos + 1} / {order.length}
+                </span>
+              </>
+            )}
           </div>
           <div className="flex flex-col gap-1.5 px-[22px] pt-[22px] pb-2">
             <Dialog.Title className="m-0 font-heading text-[24px] font-heading-weight tracking-[-.01em]">
@@ -572,14 +676,20 @@ function SetupDialog() {
             </span>
           </div>
           <div data-step className="min-h-[210px] px-[22px] pt-3.5 pb-[22px]">
-            {body[step]}
+            {start ? startBody[start] : body[step]}
             {error && <p className="m-0 mt-3 text-sm text-danger">{error}</p>}
           </div>
           <div className="flex items-center gap-2 border-t border-border px-[22px] py-3.5">
             <Button
               variant="ghost"
-              disabled={busy || step === 0}
-              onClick={() => setStep(step - 1)}
+              // Back from the first step returns to the choice, unless this
+              // device is already connected.
+              disabled={busy || start === 'ask' || start === 'join' || (pos === 0 && connected)}
+              onClick={() => {
+                if (start) setStart('ask');
+                else if (pos === 0) setStart('ask');
+                else setStep(order[pos - 1] ?? 0);
+              }}
               className="disabled:opacity-40"
             >
               Back
@@ -592,14 +702,18 @@ function SetupDialog() {
               Set up later
             </button>
             <span className="flex-1" />
-            <Button disabled={busy} onClick={() => void next(false)}>
-              Skip
-              <span className="font-mono text-[10px] text-text-muted">Esc</span>
-            </Button>
-            <Button variant="primary" disabled={busy} onClick={() => void next(true)}>
-              {step === STEPS.length - 1 ? 'Finish' : 'Continue'}
-              <span className="font-mono text-[10px] opacity-75">↵</span>
-            </Button>
+            {!start && (
+              <>
+                <Button disabled={busy} onClick={() => void next(false)}>
+                  Skip
+                  <span className="font-mono text-[10px] text-text-muted">Esc</span>
+                </Button>
+                <Button variant="primary" disabled={busy} onClick={() => void next(true)}>
+                  {pos === order.length - 1 ? 'Finish' : 'Continue'}
+                  <span className="font-mono text-[10px] opacity-75">↵</span>
+                </Button>
+              </>
+            )}
           </div>
         </Dialog.Content>
       </Dialog.Portal>
