@@ -167,7 +167,7 @@ The file lists are filled in when an entry moves to `ready`. Planned commits may
 | 80 | 16b | `feat(app): sync engine with push, pull and address failover` | committed `f22b2ae` |
 | 81 | 16b | `feat(app): pairing and Settings → Sync` | committed `7673cef` (page confirmed by Luke) |
 | 82 | 16b | `feat(app): connect to a home server from first run, and joining` | committed (hash in the next entry) |
-| 83 | 16b | `feat(app): hand automatic duties to the server` | planned |
+| 83 | 16b | `feat(app): hand automatic duties to the server` | planned — after the live check of the server's duties (Luke's home server, roadmap §14 progress) |
 | 84 | 16b | `feat(ui): sync status, device names in History, server snapshots` | planned |
 | 85 | 16c | `chore(release): v1.2.1` | planned |
 
