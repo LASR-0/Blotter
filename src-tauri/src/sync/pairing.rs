@@ -218,7 +218,12 @@ pub async fn pair<T: Transport>(
             return Err(said(&address, e));
         }
     };
-    save_token(&paired.server_id, &paired.token)?;
+    if let Err(e) = save_token(&paired.server_id, &paired.token) {
+        // Without the token this device can't sync, so the server needn't
+        // keep it either.
+        let _ = t.disconnect(&address, &paired.token).await;
+        return Err(e);
+    }
 
     let mut p = locked(db)?;
     let conn = p.db().conn();
@@ -714,6 +719,21 @@ mod tests {
         assert!(err.contains("timed out"), "{err}");
         assert_eq!(saved.into_inner().unwrap(), None);
         assert_eq!(server.with(|f| f.revoked.len()), 1);
+    }
+
+    #[tokio::test]
+    async fn a_token_the_keychain_wont_keep_unpairs() {
+        let server = Shared::new();
+        server.with(|f| f.code = Some(CODE.into()));
+        let db = alone();
+        let err = pair(&server, &db, LAN, CODE, "Laptop", |_, _| {
+            Err("couldn't save the server's token: no keychain".into())
+        })
+        .await
+        .unwrap_err();
+        assert!(err.contains("no keychain"), "{err}");
+        assert_eq!(server.with(|f| f.revoked.len()), 1);
+        assert_eq!(linked(&db), None);
     }
 
     #[test]

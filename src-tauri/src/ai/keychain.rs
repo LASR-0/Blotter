@@ -1,10 +1,12 @@
 //! API keys in the OS keychain (Windows Credential Manager, the Secret
 //! Service on Linux, Keychain on macOS), one entry per provider id. Keys
-//! never touch the database, the logs or the webview.
+//! never touch the database, the logs or the webview. Every call goes
+//! through [`keychain::call`]: chat reads the key from async code.
 
 use keyring::{Entry, Error};
 
 use crate::commands::CommandError;
+use crate::keychain;
 
 const SERVICE: &str = "io.github.lasr0.Blotter";
 
@@ -14,28 +16,30 @@ fn entry(provider_id: &str) -> Result<Entry, CommandError> {
 }
 
 pub fn set(provider_id: &str, key: &str) -> Result<(), CommandError> {
-    entry(provider_id)?
-        .set_password(key)
-        .map_err(|e| CommandError::internal(format!("couldn't save the key: {e}")))
+    keychain::call(|| {
+        entry(provider_id)?
+            .set_password(key)
+            .map_err(|e| CommandError::internal(format!("couldn't save the key: {e}")))
+    })
 }
 
 pub fn get(provider_id: &str) -> Result<Option<String>, CommandError> {
-    match entry(provider_id)?.get_password() {
+    keychain::call(|| match entry(provider_id)?.get_password() {
         Ok(k) => Ok(Some(k)),
         Err(Error::NoEntry) => Ok(None),
         Err(e) => Err(CommandError::internal(format!(
             "couldn't read the key: {e}"
         ))),
-    }
+    })
 }
 
 pub fn delete(provider_id: &str) -> Result<(), CommandError> {
-    match entry(provider_id)?.delete_credential() {
+    keychain::call(|| match entry(provider_id)?.delete_credential() {
         Ok(()) | Err(Error::NoEntry) => Ok(()),
         Err(e) => Err(CommandError::internal(format!(
             "couldn't remove the key: {e}"
         ))),
-    }
+    })
 }
 
 /// The last four characters, shown as "••••3f9a" so the user can tell

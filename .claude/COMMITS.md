@@ -5550,3 +5550,41 @@ Notes:
       revoke it on the server.
     - The rollover and sync banners share a spot; both showing at once overlap.
     - The duties still run here too until #83.
+
+### #82a — The keychain works from async code on Linux            [status: committed — hash in the next entry]
+Phase: 16b
+Message:
+    fix(app): the keychain works from async code on Linux
+
+    On Linux keyring reaches the Secret Service through zbus and blocks
+    on a runtime of its own, which panics on a tokio worker ("Cannot
+    start a runtime from within a runtime"). Pairing saves the token from
+    an async command, so it died there and Settings → Sync spun forever
+    with the device paired on the server but not linked here. The engine
+    reads the token on every pass and chat reads the API key from async
+    code too. Windows' Credential Manager never blocked on a runtime, so
+    it only showed on Linux.
+
+    - keychain::call runs each keychain call on a thread of its own,
+      outside any runtime; the sync token and the AI keys both go
+      through it.
+    - Pairing unpairs on the server when the token can't be saved, as a
+      failed fetch already did.
+    #82 is d6b63b5.
+Files:
+    A  src-tauri/src/keychain.rs
+    M  src-tauri/src/lib.rs, src-tauri/src/sync/token.rs, src-tauri/src/ai/keychain.rs,
+       src-tauri/src/sync/pairing.rs
+    M  .claude/COMMITS.md
+Test steps:
+    - cargo test -p blotter → 80 app (3 new); clippy -D warnings, fmt clean
+    - New: a keychain call from async code that blocks on a runtime of its own returns;
+      a token the keychain won't keep unpairs on the server and links nothing.
+    - Live, on Linux (Omarchy, gnome-keyring): cargo test -p blotter live_keychain --
+      --ignored saves, reads and deletes a token from async code; without keychain::call
+      it panics as the app did.
+Notes:
+    - Found pairing the Flatpak built from 65425b4 with Blotter Sync 1.0.0-rc.1 in
+      Docker; the app's stderr had the panic and gnome-keyring saw no call.
+    - Not yet checked in the app: pairing, sync and an AI key on the Linux Flatpak after
+      a rebuild.

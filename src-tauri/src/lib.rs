@@ -13,6 +13,7 @@ mod first_run;
 mod flatpak;
 mod ics;
 mod keybindings;
+mod keychain;
 mod public_holidays;
 mod reminders;
 mod rollover;
